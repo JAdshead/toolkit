@@ -9,7 +9,8 @@ UIPRO_REPO="https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git"
 UIPRO_DIR="$TOOLKIT_DIR/vendor/ui-ux-pro-max-skill"
 UIPRO_SKILL="$UIPRO_DIR/.claude/skills/ui-ux-pro-max"
 
-SKILL_DIRS=("$HOME/.agents/skills" "$HOME/.gemini/skills")
+SKILL_DIR="$HOME/.agents/skills"
+GEMINI_SKILL_DIR="$HOME/.gemini/skills"
 
 say() { printf '==> %s\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
@@ -44,15 +45,27 @@ prune_dangling() {
 }
 
 link_skills() {
-  say "Linking skills for Codex (~/.agents/skills) and Gemini (~/.gemini/skills)"
-  local dir skill
-  for dir in "${SKILL_DIRS[@]}"; do
-    mkdir -p "$dir"
-    for skill in "$TOOLKIT_DIR"/skills/*/; do
-      skill="${skill%/}"
-      link "$skill" "$dir/$(basename "$skill")"
-    done
-    prune_dangling "$dir"
+  say "Linking skills into ~/.agents/skills (read by Codex and Gemini CLI)"
+  local skill
+  mkdir -p "$SKILL_DIR"
+  for skill in "$TOOLKIT_DIR"/skills/*/; do
+    skill="${skill%/}"
+    link "$skill" "$SKILL_DIR/$(basename "$skill")"
+  done
+  prune_dangling "$SKILL_DIR"
+  unlink_gemini_duplicates
+}
+
+# Gemini reads ~/.agents/skills too; a second link in ~/.gemini/skills only
+# produces "skill conflict" warnings.
+unlink_gemini_duplicates() {
+  local entry
+  [ -d "$GEMINI_SKILL_DIR" ] || return 0
+  for entry in "$GEMINI_SKILL_DIR"/*; do
+    [ -L "$entry" ] || continue
+    case "$(readlink "$entry")" in
+      "$TOOLKIT_DIR"/*) rm "$entry"; note "removed duplicate $entry" ;;
+    esac
   done
 }
 
@@ -88,7 +101,7 @@ link_cli() {
 
 vendor_uipro() {
   if ! command -v git >/dev/null; then
-    note "git not found; skipping ui-ux-pro-max for Codex/Gemini"
+    note "git not found; skipping ui-ux-pro-max for Codex and Gemini"
     return
   fi
   say "Fetching ui-ux-pro-max into vendor/ for Codex and Gemini"
@@ -98,10 +111,7 @@ vendor_uipro() {
     mkdir -p "$TOOLKIT_DIR/vendor"
     git clone --depth 1 --quiet "$UIPRO_REPO" "$UIPRO_DIR"
   fi
-  local dir
-  for dir in "${SKILL_DIRS[@]}"; do
-    link "$UIPRO_SKILL" "$dir/ui-ux-pro-max"
-  done
+  link "$UIPRO_SKILL" "$SKILL_DIR/ui-ux-pro-max"
 }
 
 claude_has_marketplace() {

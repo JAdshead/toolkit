@@ -25,12 +25,14 @@ USAGE
 }
 
 update() {
-  echo "==> Pulling $TOOLKIT_DIR"
-  git -C "$TOOLKIT_DIR" pull --ff-only
+  if git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1; then
+    echo "==> Pulling $TOOLKIT_DIR"
+    git -C "$TOOLKIT_DIR" pull --ff-only
+  else
+    echo "==> $TOOLKIT_DIR has no upstream branch; skipping git pull"
+  fi
   if command -v claude >/dev/null; then
-    echo "==> Refreshing Claude Code marketplaces and plugins"
-    claude plugin marketplace update toolkit
-    claude plugin update toolkit@toolkit
+    echo "==> Refreshing ui-ux-pro-max for Claude Code"
     claude plugin marketplace update ui-ux-pro-max-skill
     claude plugin update ui-ux-pro-max@ui-ux-pro-max-skill
   fi
