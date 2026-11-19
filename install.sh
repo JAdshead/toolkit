@@ -82,8 +82,10 @@ link_rules() {
     mv "$gemini_md" "$gemini_md.bak.$TIMESTAMP"
     note "backed up symlinked $gemini_md -> $gemini_md.bak.$TIMESTAMP"
   fi
-  touch "$gemini_md"
-  if ! grep -qxF "$import_line" "$gemini_md"; then
+  if [ ! -s "$gemini_md" ]; then
+    printf '%s\n' "$import_line" > "$gemini_md"
+    note "created $gemini_md importing the shared rules"
+  elif ! grep -qxF "$import_line" "$gemini_md"; then
     cp "$gemini_md" "$gemini_md.bak.$TIMESTAMP"
     { printf '%s\n\n' "$import_line"; cat "$gemini_md.bak.$TIMESTAMP"; } > "$gemini_md"
     note "added $import_line to $gemini_md (backup at $gemini_md.bak.$TIMESTAMP)"
