@@ -109,7 +109,7 @@ Once the user confirms ("yes", "yep", "do it", "looks good", "create"):
 - broken / bug / fix / error → `bug`
 - add / new / create / implement / feature → `enhancement`
 - change / update / refactor / improve → `chore` (or the repo's tech-debt label)
-- P1 items also get `urgent`; create it if missing: `gh label create urgent --color B60205`
+- P1 items also get the repo's urgent or priority label if one exists. If the repo's priority labels mean something else (for example P1 = "blocking decision"), follow the project's own rules instead. If no such label exists, put the priority in the body and list any label you'd suggest creating in the review step; create labels only when the user says yes.
 
 ```bash
 gh issue create --title "[their phrasing, tidied]" --label "bug" --body "Priority: P2
