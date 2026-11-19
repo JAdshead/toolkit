@@ -78,6 +78,12 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | Skill | What it does |
 |-------|--------------|
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
+| `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
+| `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
+| `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
+| `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
+
+In Claude Code they appear as `toolkit:<name>`.
 
 ## License
 
