@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# toolkit: install or update the shared agent skills and rules.
+set -euo pipefail
+
+self="${BASH_SOURCE[0]}"
+while [ -L "$self" ]; do
+  target="$(readlink "$self")"
+  case "$target" in
+    /*) self="$target" ;;
+    *) self="$(dirname "$self")/$target" ;;
+  esac
+done
+TOOLKIT_DIR="$(cd "$(dirname "$self")/.." && pwd -P)"
+
+usage() {
+  cat <<USAGE
+Usage: toolkit <command>
+
+Commands:
+  install   Link skills and rules for Codex and Gemini, install the Claude Code plugins
+  update    Pull the latest toolkit and ui-ux-pro-max, refresh Claude Code plugins, relink
+  validate  Check every skill's SKILL.md frontmatter
+  path      Print the toolkit checkout location
+USAGE
+}
+
+update() {
+  echo "==> Pulling $TOOLKIT_DIR"
+  git -C "$TOOLKIT_DIR" pull --ff-only
+  if command -v claude >/dev/null; then
+    echo "==> Refreshing Claude Code marketplaces and plugins"
+    claude plugin marketplace update toolkit
+    claude plugin update toolkit@toolkit
+    claude plugin marketplace update ui-ux-pro-max-skill
+    claude plugin update ui-ux-pro-max@ui-ux-pro-max-skill
+  fi
+  "$TOOLKIT_DIR/install.sh"
+}
+
+case "${1:-}" in
+  install) "$TOOLKIT_DIR/install.sh" ;;
+  update) update ;;
+  validate) "$TOOLKIT_DIR/bin/validate-skills" ;;
+  path) echo "$TOOLKIT_DIR" ;;
+  -h|--help|help|"") usage ;;
+  *) usage >&2; exit 1 ;;
+esac

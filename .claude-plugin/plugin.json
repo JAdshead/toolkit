@@ -1,0 +1,11 @@
+{
+  "name": "toolkit",
+  "description": "Reusable agent skills shared across projects and agents.",
+  "author": {
+    "name": "JAdshead"
+  },
+  "homepage": "https://github.com/JAdshead/toolkit",
+  "repository": "https://github.com/JAdshead/toolkit",
+  "license": "MIT",
+  "keywords": ["skills", "workflow", "github"]
+}

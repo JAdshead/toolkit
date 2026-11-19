@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Check that every skills/<name>/SKILL.md has frontmatter whose `name` matches
+# the folder (Agent Skills rules) and a non-empty `description`.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+status=0
+count=0
+
+fail() { echo "FAIL $1: $2"; status=1; ok=0; }
+
+field() {
+  awk -v key="$2" '
+    NR == 1 && $0 != "---" { exit }
+    NR > 1 && $0 == "---" { exit }
+    NR > 1 && index($0, key ":") == 1 {
+      sub("^" key ":[ \t]*", ""); gsub(/^["'\'']|["'\'']$/, ""); print; exit
+    }
+  ' "$1"
+}
+
+for dir in "$root"/skills/*/; do
+  dir="${dir%/}"
+  folder="$(basename "$dir")"
+  file="$dir/SKILL.md"
+  count=$((count + 1))
+  ok=1
+  if [ ! -f "$file" ]; then fail "$folder" "missing SKILL.md"; continue; fi
+  if [ "$(head -n 1 "$file")" != "---" ]; then fail "$folder" "SKILL.md must start with --- frontmatter"; continue; fi
+
+  name="$(field "$file" name)"
+  description="$(field "$file" description)"
+
+  if [ -z "$name" ]; then
+    fail "$folder" "frontmatter has no name"
+  elif [ "$name" != "$folder" ]; then
+    fail "$folder" "name '$name' does not match folder '$folder'"
+  elif ! printf '%s' "$name" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$' || [ "${#name}" -gt 64 ]; then
+    fail "$folder" "name must be 1-64 chars of lowercase letters, digits and single hyphens"
+  fi
+
+  if [ -z "$description" ]; then
+    fail "$folder" "frontmatter has no description"
+  elif [ "${#description}" -gt 1024 ]; then
+    fail "$folder" "description is longer than 1024 characters"
+  fi
+
+  if [ "$ok" -eq 1 ]; then echo "ok   $folder"; fi
+done
+
+if [ "$count" -eq 0 ]; then echo "no skills found"; exit 1; fi
+exit "$status"

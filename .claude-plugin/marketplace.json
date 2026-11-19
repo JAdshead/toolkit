@@ -1,0 +1,17 @@
+{
+  "name": "toolkit",
+  "owner": {
+    "name": "JAdshead"
+  },
+  "metadata": {
+    "description": "Reusable agent skills shared across projects and agents."
+  },
+  "plugins": [
+    {
+      "name": "toolkit",
+      "source": "./",
+      "description": "Reusable agent skills shared across projects and agents.",
+      "category": "productivity"
+    }
+  ]
+}
