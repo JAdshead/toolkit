@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Copy each shared/<file> into skills/<name>/references/<file> or
+# skills/<name>/scripts/<file> for every skill whose SKILL.md mentions that
+# path. Skills are linked one folder at a time, so each needs its own copy.
+# With --check, change nothing and fail if any copy is missing or differs
+# from shared/ (content or executable bit).
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+case "${1:-}" in
+  "") check=0 ;;
+  --check) check=1 ;;
+  *) echo "usage: $(basename "$0") [--check]" >&2; exit 2 ;;
+esac
+status=0
+
+for src in "$root"/shared/*; do
+  [ -f "$src" ] || continue
+  file="$(basename "$src")"
+  for skill in "$root"/skills/*/SKILL.md; do
+    for sub in references scripts; do
+      grep -qF "$sub/$file" "$skill" || continue
+      dir="$(dirname "$skill")"
+      dest="$dir/$sub/$file"
+      rel="$(basename "$dir")/$sub/$file"
+      if cmp -s "$src" "$dest" && { [ -x "$src" ] && [ -x "$dest" ] || { [ ! -x "$src" ] && [ ! -x "$dest" ]; }; }; then
+        echo "ok   $rel"
+      elif [ "$check" -eq 1 ]; then
+        echo "FAIL $rel is missing or differs from shared/$file (run: bin/sync-shared)"
+        status=1
+      else
+        mkdir -p "$dir/$sub"
+        cp -p "$src" "$dest"
+        echo "sync $rel"
+      fi
+    done
+  done
+done
+
+exit "$status"

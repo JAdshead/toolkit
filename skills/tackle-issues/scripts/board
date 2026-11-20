@@ -1,44 +1,53 @@
 #!/usr/bin/env bash
-# Claim and move issues on a GitHub Project board so parallel agents never
-# work the same issue. Reads the board from .github/agent-board.json at the
-# repository root: {"owner": "<user or org>", "number": <project number>}.
+# Project mode, on a board with an "Agent" text field: claim and move issues
+# per run, so parallel agents (all signed in as the same GitHub user) never
+# work the same issue. See references/issue-tracking.md.
 #
-# The board needs a single-select "Status" field with the options Ready,
-# In progress, In review, Verifying, Ready to merge (others may exist) and a
-# text field "Agent" holding the claim.
-#
-#   board ready                      unclaimed Ready issues: number, priority, area, title
-#   board busy                       claimed open work: number, status, area, agent
-#   board mine    <agent>            your issues: number, status
-#   board claim   <agent> <n>...     all or nothing; Ready (or already yours) only
-#   board move    <agent> <status> <n>...
-#   board release <agent> <n>...     clear the claim, back to Ready
-#   board approve <n>...             move unclaimed issues to Ready (only on the user's say-so)
+#   board <owner>/<number> ready                      unclaimed, unassigned ready issues: number, priority, area, title
+#   board <owner>/<number> busy                       claimed work not Done: number, status, area, agent
+#   board <owner>/<number> mine    <agent>            your issues: number, status
+#   board <owner>/<number> claim   <agent> <n>...     all or nothing; ready (or already yours) only
+#   board <owner>/<number> move    <agent> <status> <n>...
+#   board <owner>/<number> release <agent> <n>...     clear the claim, back to ready
+#   board <owner>/<number> approve <n>...             move unclaimed issues to ready (only on the user's say-so)
 #
 # <agent> identifies one run, e.g. "issues/calendar-fixes@my-mac" (branch@host).
-# Exit codes: 0 ok, 1 refused or failed, 2 board mode off (no config file).
+# Status names: ready is "Ready" if the board has it, else "Todo"; then
+# "In progress" and "Done". Override with BOARD_READY, BOARD_IN_PROGRESS, BOARD_DONE.
+# Exit codes: 0 ok, 1 refused or failed, 2 the board has no Agent field
+# (use the assignee claims in references/issue-tracking.md instead).
 set -euo pipefail
 
 die() { echo "board: $*" >&2; exit 1; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1; }
 
+project="${1:-}"
+case "$project" in
+  */*) owner="${project%/*}"; number="${project##*/}" ;;
+  *) usage ;;
+esac
+[ -n "$owner" ] && [[ "$number" =~ ^[0-9]+$ ]] || usage
+shift
 case "${1:-}" in
   ready|busy|mine|claim|move|release|approve) ;;
-  *) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1 ;;
+  *) usage ;;
 esac
-
-root="$(git rev-parse --show-toplevel 2>/dev/null)" || die "not inside a git repository"
-config="$root/.github/agent-board.json"
-if [ ! -f "$config" ]; then
-  echo "board: no $config, so board mode is off" >&2
-  exit 2
-fi
-owner="$(jq -r '.owner // empty' "$config")"
-number="$(jq -r '.number // empty' "$config")"
-[ -n "$owner" ] && [ -n "$number" ] || die "$config needs \"owner\" and \"number\""
 
 repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fields="$(gh project field-list "$number" --owner "$owner" --format json --limit 100)"
 project_id=""
+
+has_status() { jq -e --arg s "$1" '.fields[] | select(.name == "Status") | .options[] | select(.name == $s)' <<<"$fields" >/dev/null; }
+jq -e '.fields[] | select(.name == "Agent")' <<<"$fields" >/dev/null || {
+  echo "board: $owner/$number has no Agent field; claim by assignee instead" >&2
+  exit 2
+}
+if [ -n "${BOARD_READY:-}" ]; then ready="$BOARD_READY"
+elif has_status Ready; then ready=Ready
+else ready=Todo
+fi
+in_progress="${BOARD_IN_PROGRESS:-In progress}"
+done_status="${BOARD_DONE:-Done}"
 
 field_id() {
   local id
@@ -89,17 +98,17 @@ release_quietly() {
   for n in "$@"; do
     id="$(held_by "$agent" "$n" 2>/dev/null)" || continue
     clear_agent "$id"
-    set_status "$id" Ready
+    set_status "$id" "$ready"
   done
 }
 
 cmd_ready() {
-  items | jq -r '.[] | select(.status == "Ready" and ((.agent // "") == ""))
+  items | jq -r --arg r "$ready" '.[] | select(.status == $r and ((.agent // "") == "") and ((.assignees // []) == []))
     | [.content.number, (.priority // ""), (.area // ""), .title] | @tsv'
 }
 
 cmd_busy() {
-  items | jq -r '.[] | select((.agent // "") != "" and .status != "Done")
+  items | jq -r --arg d "$done_status" '.[] | select((.agent // "") != "" and .status != $d)
     | [.content.number, .status, (.area // ""), .agent] | @tsv'
 }
 
@@ -120,13 +129,13 @@ cmd_claim() {
     status="$(jq -r '.status // ""' <<<"$item")"
     [ "$holder" = "$agent" ] && continue
     [ -z "$holder" ] || die "#$n is held by $holder"
-    [ "$status" = Ready ] || die "#$n is in \"$status\", not Ready"
+    [ "$status" = "$ready" ] || die "#$n is in \"$status\", not $ready"
   done
   for n in "$@"; do
     item="$(item_for "$all" "$n")"
     if [ "$(jq -r '.agent // ""' <<<"$item")" != "$agent" ]; then
       set_agent "$(jq -r .id <<<"$item")" "$agent"
-      set_status "$(jq -r .id <<<"$item")" "In progress"
+      set_status "$(jq -r .id <<<"$item")" "$in_progress"
       claimed+=("$n")
     fi
   done
@@ -158,7 +167,7 @@ cmd_release() {
   for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
   for id in "${ids[@]}"; do
     clear_agent "$id"
-    set_status "$id" Ready
+    set_status "$id" "$ready"
   done
   echo "released $*"
 }
@@ -174,8 +183,8 @@ cmd_approve() {
     [ -z "$holder" ] || die "#$n is held by $holder"
     ids+=("$(jq -r .id <<<"$item")")
   done
-  for id in "${ids[@]}"; do set_status "$id" Ready; done
-  echo "moved $* to Ready"
+  for id in "${ids[@]}"; do set_status "$id" "$ready"; done
+  echo "moved $* to $ready"
 }
 
 command="${1:-}"

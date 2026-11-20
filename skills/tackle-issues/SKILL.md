@@ -14,7 +14,8 @@ Take a set of open GitHub issues from "open" to "pull request ready for a human"
 
 - **The orchestrator stays lean.** It selects, groups, delegates, verifies and asks. Heavy work (implementing, reviewing, fixing) goes to subagents when the agent supports them.
 - **Sequential within a group, isolated across groups.** Issues in one PR are implemented one after another on the same branch. Each group has its own worktree, so separate runs (or separate terminals) never touch the same files.
-- **Claim before you build.** Issues are claimed as soon as the user confirms the grouping, so a second run does not pick them up: on the project board when the repo has one (see Board mode), otherwise by assignee and `wip` label.
+- **Claim before you build.** Issues are claimed as soon as the user confirms the grouping, so a second run does not pick them up.
+- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0. On a board with an Agent field, those operations go through `scripts/board` under one agent id per PR group.
 - **Trust, but verify.** Every subagent report is checked against `git log` and `git diff` before it counts as done.
 - **Reviews end.** The review loop has a fixed exit rule, not "until nobody has anything to say".
 - **Nothing is pushed, opened, merged or closed without the user's go-ahead.**
@@ -31,29 +32,6 @@ This skill works in any coding agent that can run shell commands and `gh` (Claud
 
 - `gh` installed and authenticated (`gh auth status`).
 - A clean working tree (`git status --porcelain` prints nothing).
-
-## Board mode
-
-If the repository has `.github/agent-board.json` (`{"owner": "<user or org>", "number": <project number>}`), a GitHub Project board is the source of truth for who is working on what, and every claim goes through `scripts/board` in this skill's folder. Run `scripts/board` with no arguments for its usage. It needs `gh` with the `project` scope (`gh auth refresh -s project`) and `jq`. Without the file, the script exits 2 and the skill uses the assign + `wip` label flow described in each phase.
-
-The board needs a single-select **Status** field (Ready, In progress, In review, Verifying, Ready to merge, Done; others such as Backlog may exist) and a text field **Agent**. An **Area** field is optional but strongly recommended: it is how runs avoid editing the same part of the code at once.
-
-**Agent id.** Each PR group gets one agent id, `<branch>@<short hostname>`, for example `issues/calendar-fixes@studio`. The same id is used for every board call about that group, and resume finds the group by it.
-
-**Status flow, and who moves it:**
-
-| Status | Meaning | Moved there by |
-|---|---|---|
-| Ready | Approved for work, unclaimed | the user (never an agent) |
-| In progress | Claimed; implementing | `board claim` (Phase 3) |
-| In review | Specialist review loop running | `board move` (Phase 5) |
-| Verifying | Pushed; full verify and CI running | `board move` (Phase 6) |
-| Ready to merge | CI green, waiting for the user | `board move` (Phase 7) |
-| Done | Merged or closed | the board's built-in workflow |
-
-Agents only ever take issues from **Ready**. A run that stops early returns its issues with `board release`, which puts them back in Ready with no claim.
-
-**What the board does not guarantee.** GitHub has no atomic compare-and-set, so a claim is check, write, then read back. Two runs claiming the same issue in the same moment are resolved by the read-back: the loser gets an error and releases everything it took in that call. Treat a failed claim as "someone else has it": drop those issues from the plan and tell the user.
 
 ## Arguments
 
@@ -79,12 +57,11 @@ Run in parallel:
 ```bash
 git status --porcelain
 gh auth status
-gh issue list --state open --assignee "" --json number,title,labels,body --limit 100
 ```
 
-Stop with a clear message if the tree is dirty, `gh` is not authenticated, or nothing matches.
+and the mode's Find work operation.
 
-**Board mode:** the candidates are `scripts/board ready` (unclaimed issues in Ready, with priority and area) instead of the unassigned list. Apply the focus filter to that list (by area, priority, label or title). Also run `scripts/board busy` to see which areas other runs are working in. If nothing is in Ready, say so and stop: moving issues into Ready is the user's decision, not yours.
+Stop with a clear message if the tree is dirty, `gh` is not authenticated, or nothing matches.
 
 With a focus filter:
 1. **Label match**: any argument that matches a label name (case-insensitive) becomes `gh issue list --label "<label>"`.
@@ -93,8 +70,8 @@ With a focus filter:
 
 Exclude:
 - issues with any assignee (claimed);
-- issues labelled `wip` (in progress elsewhere);
-- tracking issues (titles starting `Epic:` or labelled `epic`/`tracking`);
+- issues already claimed or in progress under the mode's rules;
+- tracking issues (titles starting `Epic:`, labelled `epic`/`tracking`, or parents with open sub-issues, whose sub-issues are the work);
 - issues that need a decision rather than code (questions, open design discussions). List these separately so the user can see why they were skipped.
 
 ## Phase 2: Group into pull requests
@@ -103,7 +80,9 @@ Exclude:
 
 **Keep apart** issues that are unrelated, carry different risk (a risky migration next to a safe copy fix), are large on their own (roughly 500+ changed lines), or need different reviewers.
 
-Order groups so independent, low-risk ones come first. In board mode, flag any group whose Area is already busy in another run (from `scripts/board busy`). Two runs in one area tend to edit the same files, so suggest leaving that group for later unless the user says otherwise. Present the plan and wait for confirmation:
+Sub-issues of one parent usually make one group; don't mix sub-issues of different parents in one PR.
+
+Order groups so independent, low-risk ones come first. With per-run claims, flag any group whose Area is already busy in another run (`scripts/board ... busy`) and suggest leaving it for later unless the user says otherwise. Present the plan and wait for confirmation:
 
 ```
 ## Proposed PR grouping
@@ -124,19 +103,7 @@ Proceed with this grouping?
 
 ## Phase 3: Claim issues and create worktrees
 
-Right after the user confirms, claim every issue in every selected group (create the `wip` label first if it does not exist):
-
-```bash
-gh issue edit <n> --add-assignee @me --add-label wip
-```
-
-**Board mode:** claim each group under its own agent id instead, and do not touch assignees or labels:
-
-```bash
-scripts/board claim "issues/<group-slug>@$(hostname -s)" <n> <n>
-```
-
-A claim is all or nothing for the issues in that call. If it fails (another run holds one, or it is no longer in Ready), drop that group, tell the user why, and carry on with the groups that were claimed.
+Right after the user confirms, claim every issue in every selected group with the mode's Claim operation. With per-run claims, claim each group in one call under its own agent id (`issues/<group-slug>@$(hostname -s)`). If a group's claim fails, drop that group, tell the user why, and carry on with the rest.
 
 Then one worktree per group, branched from an up-to-date default branch:
 
@@ -165,11 +132,9 @@ git -C "$WT" diff --stat origin/<default>...HEAD    # only files in scope
 
 Watch for: files outside the issue's scope, extra migrations or config changes, unrelated refactors, a claimed "PASS" with no test run, uncommitted changes, or no commit at all. If the report and the repository disagree, the repository wins: fix it or send the subagent back with the specific problem.
 
-On failure, ask the user whether to skip the issue (unclaim it) or stop the group. In board mode, unclaiming is `scripts/board release <agent> <n>`.
+On failure, ask the user whether to skip the issue (unclaim it) or stop the group.
 
 ## Phase 5: Review loop (per group, before pushing)
-
-In board mode, first run `scripts/board move <agent> "In review" <n>...` for the group's issues.
 
 Spawn the specialist reviewers in parallel (prompts in `references/review-prompts.md`):
 
@@ -196,7 +161,7 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 
 1. Run the full verify command in the worktree. If it fails, report and ask.
 2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
-3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue. In board mode, then run `scripts/board move <agent> Verifying <n>...`.
+3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, and apply the mode's In review operation.
 4. Optionally run the **holistic PR reviewer** on the final diff and description. Same exit rule; at most 2 rounds. Any further push needs the user's go-ahead again.
 
 ## Phase 7: CI
@@ -207,13 +172,11 @@ gh pr checks <pr> --watch
 
 On failure, spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
 
-When CI is green, in board mode run `scripts/board move <agent> "Ready to merge" <n>...`. Leave the claim in place, so the board still shows which run built it.
-
 **Never merge** unless the user explicitly asks you to, for that PR.
 
 ## Phase 8: Clean up and report
 
-- Remove the `wip` label from claimed issues (the PR closes them on merge). Unassign any issue that was skipped or abandoned. In board mode, `scripts/board release` every skipped or abandoned issue instead, and leave the rest: merging moves them to Done.
+- Apply the mode's Done operation to claimed issues (the PR closes them on merge), and Release any issue that was skipped or abandoned.
 - Report:
 
 ```
@@ -232,19 +195,18 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 
 `tackle issues --resume`:
 1. List worktrees under `~/.worktrees/<repo>/issues/` and their commits ahead of the default branch.
-2. Match them to issues assigned to you with the `wip` label. In board mode, use `scripts/board mine "<branch>@$(hostname -s)"` for each worktree's branch instead.
+2. Match them to the mode's List my claims operation.
 3. Resume at Phase 4 (no commits yet), Phase 5 (commits but no PR) or Phase 7 (PR open).
-
-In board mode, `scripts/board busy` lists every claim. A claim from this machine with no matching worktree is probably a run that crashed; a claim from another host may still be running there. Show these to the user and release them only on their say-so.
 
 ## Errors
 
 - **Worktree or branch exists:** ask, resume or recreate.
 - **Subagent went off-scope:** revert the out-of-scope changes, note it, retry with a tighter "do not" list.
-- **Anything else fails:** report what finished, what did not, worktree paths and issue numbers, and remove `wip` from issues you are no longer working on (in board mode, `scripts/board release` them).
+- **Anything else fails:** report what finished, what did not, worktree paths and issue numbers, and release the claim on issues you are no longer working on.
 
 ## References
 
-- `scripts/board`: board-mode claims and status moves. Tests: `scripts/test/board_test.sh`.
 - `references/subagent-templates.md`: verify-command detection, worktree setup, implementation, fix and CI-analysis prompts, PR body template.
+- `references/issue-tracking.md`: simple and project modes and their issue operations.
+- `scripts/board`: per-run claims and status moves on a board with an Agent field (canonical copy and tests in the toolkit's `shared/`).
 - `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.

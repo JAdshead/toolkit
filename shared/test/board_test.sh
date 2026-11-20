@@ -7,10 +7,8 @@ board="$here/../board"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-mkdir -p "$work/bin" "$work/repo/.github"
+mkdir -p "$work/bin"
 ln -s "$here/fake-gh" "$work/bin/gh"
-git init -q "$work/repo"
-echo '{"owner":"acme","number":7}' > "$work/repo/.github/agent-board.json"
 export PATH="$work/bin:$PATH" FAKE_GH_STATE="$work/state.json"
 
 failures=0
@@ -24,6 +22,8 @@ reset_board() {
   {"id":"I3","status":"In progress","agent":"other@host","area":"Payments","title":"Ledger","content":{"number":3,"repository":"acme/app"}},
   {"id":"I4","status":"Backlog","area":"Pricing","title":"Rates","content":{"number":4,"repository":"acme/app"}},
   {"id":"I5","status":"Ready","agent":"stale@host","area":"Pricing","title":"Stale","content":{"number":5,"repository":"acme/app"}},
+  {"id":"I6","status":"Ready","assignees":["a-human"],"area":"Calendar","title":"Taken by hand","content":{"number":6,"repository":"acme/app"}},
+  {"id":"I7","status":"Done","agent":"old@host","area":"Calendar","title":"Shipped","content":{"number":7,"repository":"acme/app"}},
   {"id":"I9","status":"Ready","area":"Payments","title":"Elsewhere","content":{"number":9,"repository":"acme/other"}}
 ]}
 JSON
@@ -31,7 +31,7 @@ JSON
 
 field_of() { jq -r --argjson n "$1" --arg k "$2" '.items[] | select(.content.number == $n) | .[$k] // ""' "$FAKE_GH_STATE"; }
 
-run() { (cd "$work/repo" && "$board" "$@"); }
+run() { "$board" acme/7 "$@"; }
 
 check() {
   local name="$1" expected="$2" actual="$3"
@@ -44,11 +44,11 @@ check() {
 }
 
 reset_board
-check "ready lists unclaimed Ready issues in this repo only" \
+check "ready lists unclaimed, unassigned Ready issues in this repo only" \
   "$(printf '1\tP2\tPayments\tRefund bug\n2\t\tCalendar\tSync')" "$(run ready)"
 
 reset_board
-check "busy lists claimed issues with their area and agent" \
+check "busy lists claimed issues that are not Done, with their area and agent" \
   "$(printf '3\tIn progress\tPayments\tother@host\n5\tReady\tPricing\tstale@host')" "$(run busy)"
 
 reset_board
@@ -125,10 +125,37 @@ run approve 3 >/dev/null 2>&1
 check "approve refuses an issue another agent holds" "1 In progress" "$? $(field_of 3 status)"
 
 reset_board
-rm "$work/repo/.github/agent-board.json"
-run ready >/dev/null 2>&1
-check "without .github/agent-board.json the script exits 2 (board mode off)" "2" "$?"
-echo '{"owner":"acme","number":7}' > "$work/repo/.github/agent-board.json"
+FAKE_GH_BOARD=noagent run ready >/dev/null 2>&1
+check "a board with no Agent field exits 2 (use assignee claims)" "2" "$?"
+
+reset_board
+"$board" ready >/dev/null 2>&1
+check "a missing owner/number is refused" "1" "$?"
+
+reset_board
+"$board" acme ready >/dev/null 2>&1
+check "a project without a number is refused" "1" "$?"
+
+todo_board() {
+  cat > "$FAKE_GH_STATE" <<'JSON'
+{"items":[
+  {"id":"T1","status":"Todo","title":"Plain board","content":{"number":1,"repository":"acme/app"}}
+]}
+JSON
+}
+
+todo_board
+check "on a board without Ready, Todo is the ready status" \
+  "$(printf '1\t\t\tPlain board')" "$(FAKE_GH_BOARD=todo run ready)"
+
+todo_board
+FAKE_GH_BOARD=todo run claim me@mac 1 >/dev/null
+FAKE_GH_BOARD=todo run release me@mac 1 >/dev/null
+check "release returns the issue to Todo on such a board" "Todo|" "$(field_of 1 status)|$(field_of 1 agent)"
+
+reset_board
+BOARD_READY=Backlog run claim me@mac 4 >/dev/null
+check "BOARD_READY names the ready status" "0 In progress me@mac" "$? $(field_of 4 status) $(field_of 4 agent)"
 
 echo "$passes passed, $failures failed"
 [ "$failures" = 0 ]

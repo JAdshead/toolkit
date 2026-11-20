@@ -78,12 +78,28 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | Skill | What it does |
 |-------|--------------|
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
+| `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; sets up a board |
 | `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
 
 In Claude Code they appear as `toolkit:<name>`.
+
+## Issue tracking: simple or project
+
+GitHub issues are the way in. Every skill that files work (`collect-feedback`, `tech-debt`, `ux-crawl`) creates plain issues, the same way in every repo. What happens next depends on the repo:
+
+- **Simple:** the issue is where it finishes. Labels, assignees and a `wip` label track it. Good for small projects with a flat list of tasks.
+- **Project:** one extra step, the `place-issues` skill, puts new issues on the repo's GitHub Project board: Status, Priority/Size fields, and a parent issue with native sub-issues for larger features. The board then tracks state (Todo, In progress, In review, Done). Needs `gh auth refresh -s project`.
+
+A repo declares its mode in an `Issue tracking` section of its `AGENTS.md`/`CLAUDE.md`; otherwise one board linked to the repo means project mode and none means simple. `place-issues setup` moves a repo from simple to project. The skills that pick up work (`implement`, `tackle-issues`) claim, move and release issues per mode using [`shared/issue-tracking.md`](shared/issue-tracking.md).
+
+## Shared references
+
+Each skill is linked as its own folder, so a skill can't reach files outside it. Text and scripts several skills need live once in `shared/` and are copied into `skills/<name>/references/` or `skills/<name>/scripts/` for every skill whose `SKILL.md` mentions `references/<file>` or `scripts/<file>`. Tests for shared scripts stay in `shared/test/`. Edit the copy in `shared/`, then run `bin/sync-shared` from the checkout you are editing (`toolkit sync` acts on the installed checkout); `toolkit validate` and CI fail if a copy drifts.
+
+Prefer more, smaller skills: when a workflow gains a distinct step, give it its own skill rather than growing an existing one.
 
 ## License
 

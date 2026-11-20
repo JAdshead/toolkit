@@ -24,6 +24,8 @@ A project's own instructions (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING) win
 - **An issue:** `#42` or `42`. Read it with `gh issue view 42 --json title,body,labels,comments` (or the project's tracker).
 - **A spec/proposal change:** if the project has a spec or proposal workflow (a `changes/`, `proposals/` or `rfcs/` folder, or a CLI for it), use that workflow's ID and follow its rules for reading, ticking off tasks and archiving.
 
+For an issue, settle the repo's issue-tracking mode, simple or project, from `references/issue-tracking.md`, and use that mode's Read context, Claim, In review and Release operations below. If the issue is a parent with open sub-issues, list them and ask which one to implement.
+
 With no argument, list open issues (and pending changes, if such a workflow exists) and ask the user to pick.
 
 **Resume:** `implement <id> --resume` skips setup and continues in the existing worktree for `<id>`.
@@ -42,14 +44,7 @@ With no argument, list open issues (and pending changes, if such a workflow exis
    ```
    Use the project's worktree location if it has one; otherwise a sibling directory outside the repo. Then run the install and setup steps found above. If the project shares a resource between checkouts (a test database, a port), isolate it for this worktree.
 4. If the branch or worktree already exists, stop and suggest `--resume` or the cleanup commands.
-5. **Board mode.** If the repository has `.github/agent-board.json`, claim the issue on the project board before writing any code, so parallel agents do not pick it up. Use the `board` script in the tackle-issues skill (`../tackle-issues/scripts/board` from this file; its Board mode section explains the board). The agent id is `implement/<id>@$(hostname -s)`.
-   ```bash
-   board claim "implement/<id>@$(hostname -s)" <id>
-   ```
-   - The claim fails if another agent holds the issue: stop and tell the user who has it.
-   - It also fails if the issue is not in Ready. Ask the user whether to approve it; on their yes, run `board approve <id>`, then claim it.
-   - Later steps: `board move <agent> "In review" <id>` at Phase 3, `Verifying` after the PR is opened, and `"Ready to merge"` when CI is green. If you stop without a PR, `board release <agent> <id>`.
-   - With `--resume`, re-run the same claim: claiming an issue you already hold succeeds and leaves its status alone.
+5. Claim the issue (the mode's Claim operation) before writing any code. On a board with an Agent field that is `scripts/board <owner>/<number> claim "implement/<id>@$(hostname -s)" <id>`. If another agent holds it, stop and tell the user who. If it isn't in the ready status, ask whether to approve it (`approve`), then claim. With `--resume`, re-run the same claim.
 
 ## Phase 2: Implement test-first
 
@@ -94,7 +89,7 @@ git -C <worktree> push -u origin implement/<id>
 gh pr create --title "<concise title>" --body "<body>"
 ```
 
-The body has: a Summary (what and why), a Test plan listing the tests added, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one.
+The body has: a Summary (what and why), a Test plan listing the tests added, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. Then apply the mode's In review operation.
 
 ## Phase 5: CI loop
 
@@ -128,4 +123,4 @@ Remove after merge: git worktree remove <path>
 - Fix security findings above LOW before the PR is opened.
 - Mock only at the system boundary; mocking internal code is a review failure.
 - Never merge, force-push over requested changes, or skip hooks without the user's say-so.
-- On an unrecoverable failure, report what was done, what failed, and the worktree path for manual recovery.
+- On an unrecoverable failure, report what was done, what failed, and the worktree path for manual recovery, and release the issue claim.
