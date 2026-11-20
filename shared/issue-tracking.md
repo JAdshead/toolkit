@@ -7,7 +7,7 @@ GitHub issues are the way in, in both modes: work is filed as plain issues. What
 
 This file covers what skills that pick up and work on issues need: which mode the repo is in, and how to claim, move and release an issue in each.
 
-> Shared file: the canonical copy is `shared/issue-tracking.md` in the toolkit repo, copied into each skill's `references/`. Edit the canonical copy and run `toolkit sync`.
+> Shared file: the canonical copy is `shared/issue-tracking.md` in the toolkit repo, copied into each skill's `references/`. Edit the canonical copy and run `bin/sync-shared`.
 
 ## 1. Pick the mode
 
@@ -30,7 +30,9 @@ In project mode, read the board's Status options once (`gh project field-list <n
 
 | Operation | How |
 |---|---|
-| Find work | `gh issue list --state open --assignee "" --json number,title,labels,body --limit 100`; skip issues labelled `wip` |
+| Find work | `gh issue list --state open --search "no:assignee -label:wip" --json number,title,labels,body --limit 100` |
+| Read context | `gh issue view <n> --json title,body,labels,comments` |
+| List my claims | `gh issue list --state open --assignee @me --label wip --json number,title` |
 | Claim | `gh issue edit <n> --add-assignee @me --add-label wip` (if `wip` doesn't exist, ask before creating it; without it, the assignee alone is the claim) |
 | In review | No change; the open PR shows it |
 | Done | The PR's `Closes #<n>` closes it on merge; remove `wip` |
@@ -42,9 +44,10 @@ Set a field with `gh project item-edit <number> --owner <owner> --url <issue-url
 
 | Operation | How |
 |---|---|
-| Find work | `gh project item-list <number> --owner <owner> --format json --limit 500 --query "repo:<owner>/<repo> status:<Todo> no:assignee"` (a board can span repos). Skip parents that still have open sub-issues: their sub-issues are the work |
-| Read context | `gh issue view <n> --json title,body,labels,parent,subIssues,subIssuesSummary,projectItems`; if it has a parent, read that too for the feature's intent and what sibling sub-issues cover |
-| Claim | If the issue isn't on the board (empty `projectItems`), run `place-issues` on it first. Then `gh issue edit <n> --add-assignee @me` and Status → In progress. No `wip` label |
+| Find work | `gh project item-list <number> --owner <owner> --format json --limit 500 --query 'repo:<owner>/<repo> status:"<Todo>" no:assignee'` (a board can span repos; quote option names). Then skip parents that still have open sub-issues, which takes `gh issue view <n> --json subIssuesSummary` per item: their sub-issues are the work |
+| Read context | `gh issue view <n> --json title,body,labels,comments,parent,subIssues,subIssuesSummary,projectItems`; if it has a parent, read that too for the feature's intent and what sibling sub-issues cover |
+| List my claims | `gh project item-list <number> --owner <owner> --format json --limit 500 --query 'repo:<owner>/<repo> assignee:@me status:"<In progress>","<In review>"'` |
+| Claim | If the issue isn't on the board (no `projectItems` entry with this board's title), run the `place-issues` skill on it first. Then `gh issue edit <n> --add-assignee @me` and Status → In progress. No `wip` label |
 | In review | Add `Part of #<parent>` (no closing keyword) to the PR body; once the PR is open, Status → In review |
 | Done | The PR's `Closes #<n>` closes it on merge and the board moves it to Done. If the parent's `subIssuesSummary` shows every sub-issue closed, offer to close the parent |
 | Release a claim | Remove the assignee; Status back to Todo |

@@ -231,7 +231,7 @@ Title examples:
 
 If a `gh issue create` call fails, log the error and the command, continue with the rest, and report `Created X issues, Y failed` at the end.
 
-If the repo tracks work on a GitHub Project board (an `Issue tracking` section saying `Mode: project` in its agent instructions, or a board linked to the repo in `gh repo view --json projectsV2`), offer to run the `place-issues` skill on the new issues.
+If the repo tracks work on a GitHub Project board (its agent instructions' `Issue tracking` section says `Mode: project`, or there is no such section and `gh repo view --json projectsV2` shows a linked board), offer to run the `place-issues` skill on the new issues.
 
 ## Step 8: Summary report
 

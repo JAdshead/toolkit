@@ -181,7 +181,7 @@ for wt in "$HOME/.worktrees/$REPO"/issues/*; do
 done
 ```
 
-Then list the issues you still have claimed, using the mode's rules in `issue-tracking.md`.
+Then run the mode's List my claims operation from `issue-tracking.md`.
 
 ## Cleanup
 

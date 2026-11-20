@@ -44,11 +44,13 @@ Note the board's title, its Status options, and any Priority or Size fields with
 
 ## 3. Work out each issue's place
 
-Get the issues (all open ones, or the numbers given):
+Get the issues: `gh issue view <n> --json number,title,labels,body,url,assignees,parent,projectItems` for each number given, or for all open ones:
 
 ```bash
-gh issue list --state open --limit 200 --json number,title,labels,body,url,assignees,parent,projectItems
+gh issue list --state open --limit 500 --json number,title,labels,body,url,assignees,parent,projectItems
 ```
+
+If the list hits the limit, say so and work in batches.
 
 An issue is unplaced when no entry in its `projectItems` has this board's title. Skip issues already on the board. For each unplaced issue:
 
@@ -72,16 +74,16 @@ The user can move issues between parents, rename or drop a proposed parent, chan
 
 ## 5. Apply
 
-Create new parents first (what and why, the feature's overall acceptance criteria, and a checklist of its sub-issues), then for every issue, parents included:
+Create new parents first (what and why, and the feature's overall acceptance criteria; native sub-issues list the tasks). Then, for every unplaced issue and every new parent, but never an issue already on the board:
 
 ```bash
-gh issue edit <n> --add-project "<board title>"
+gh project item-add <number> --owner <owner> --url <issue-url>
 gh project item-edit <number> --owner <owner> --url <issue-url> --field Status --value "<intake>"
 gh project item-edit <number> --owner <owner> --url <issue-url> --field Priority --value "<option>"   # one field per call
 gh issue edit <child> --parent <parent>
 ```
 
-Don't edit issue bodies or labels while placing. If `gh issue edit` doesn't know `--add-project` or `--parent`, the installed `gh` is too old: ask the user to upgrade it. If a command fails, carry on with the rest and list the failures at the end.
+Attaching to an existing parent only sets `--parent` on the child; leave the parent's own Status and fields alone. Don't edit issue bodies or labels while placing. If `gh issue edit` doesn't know `--parent`, the installed `gh` is too old: ask the user to upgrade it. If a command fails, carry on with the rest and list the failures at the end.
 
 ## 6. Report
 
@@ -99,7 +101,7 @@ Skipped: #58 (already on the board)
 
 Moving a repo from plain issues to a board. Do each step only on a yes:
 
-1. Create and link a board: `gh project create --owner <owner> --title "<name>"`, then `gh project link <number> --owner <owner> --repo <owner>/<repo>`. New boards come with Status options Todo, In Progress and Done.
+1. Create and link a board: `gh project create --owner <owner> --title "<name>" --format json` (read `.number`), then `gh project link <number> --owner <owner> --repo <repo>`. New boards come with Status options Todo, In Progress and Done.
 2. Add the `Issue tracking` section to the project's agent instructions.
 3. Run steps 2 to 6 on every open issue. Big issues that checklist their task issues become those tasks' parents.
 4. Offer to remove the `wip` labels; the board's Status replaces them.

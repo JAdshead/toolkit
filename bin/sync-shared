@@ -6,22 +6,25 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-check=0
-[ "${1:-}" = "--check" ] && check=1
+case "${1:-}" in
+  "") check=0 ;;
+  --check) check=1 ;;
+  *) echo "usage: $(basename "$0") [--check]" >&2; exit 2 ;;
+esac
 status=0
 
 for src in "$root"/shared/*; do
   [ -f "$src" ] || continue
   file="$(basename "$src")"
   for skill in "$root"/skills/*/SKILL.md; do
-    grep -q "references/$file" "$skill" || continue
+    grep -qF "references/$file" "$skill" || continue
     dir="$(dirname "$skill")"
     dest="$dir/references/$file"
     name="$(basename "$dir")"
     if cmp -s "$src" "$dest"; then
       echo "ok   $name/references/$file"
     elif [ "$check" -eq 1 ]; then
-      echo "FAIL $name/references/$file is missing or differs from shared/$file (run: toolkit sync)"
+      echo "FAIL $name/references/$file is missing or differs from shared/$file (run: bin/sync-shared)"
       status=1
     else
       mkdir -p "$dir/references"

@@ -195,7 +195,7 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 
 `tackle issues --resume`:
 1. List worktrees under `~/.worktrees/<repo>/issues/` and their commits ahead of the default branch.
-2. Match them to issues you still have claimed under the mode's rules.
+2. Match them to the mode's List my claims operation.
 3. Resume at Phase 4 (no commits yet), Phase 5 (commits but no PR) or Phase 7 (PR open).
 
 ## Errors
