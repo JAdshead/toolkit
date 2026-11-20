@@ -15,7 +15,7 @@ Take a set of open GitHub issues from "open" to "pull request ready for a human"
 - **The orchestrator stays lean.** It selects, groups, delegates, verifies and asks. Heavy work (implementing, reviewing, fixing) goes to subagents when the agent supports them.
 - **Sequential within a group, isolated across groups.** Issues in one PR are implemented one after another on the same branch. Each group has its own worktree, so separate runs (or separate terminals) never touch the same files.
 - **Claim before you build.** Issues are claimed as soon as the user confirms the grouping, so a second run does not pick them up.
-- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0.
+- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0. On a board with an Agent field, those operations go through `scripts/board` under one agent id per PR group.
 - **Trust, but verify.** Every subagent report is checked against `git log` and `git diff` before it counts as done.
 - **Reviews end.** The review loop has a fixed exit rule, not "until nobody has anything to say".
 - **Nothing is pushed, opened, merged or closed without the user's go-ahead.**
@@ -82,7 +82,7 @@ Exclude:
 
 Sub-issues of one parent usually make one group; don't mix sub-issues of different parents in one PR.
 
-Order groups so independent, low-risk ones come first. Present the plan and wait for confirmation:
+Order groups so independent, low-risk ones come first. With per-run claims, flag any group whose Area is already busy in another run (`scripts/board ... busy`) and suggest leaving it for later unless the user says otherwise. Present the plan and wait for confirmation:
 
 ```
 ## Proposed PR grouping
@@ -103,7 +103,7 @@ Proceed with this grouping?
 
 ## Phase 3: Claim issues and create worktrees
 
-Right after the user confirms, claim every issue in every selected group with the mode's Claim operation.
+Right after the user confirms, claim every issue in every selected group with the mode's Claim operation. With per-run claims, claim each group in one call under its own agent id (`issues/<group-slug>@$(hostname -s)`). If a group's claim fails, drop that group, tell the user why, and carry on with the rest.
 
 Then one worktree per group, branched from an up-to-date default branch:
 
@@ -208,4 +208,5 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 
 - `references/subagent-templates.md`: verify-command detection, worktree setup, implementation, fix and CI-analysis prompts, PR body template.
 - `references/issue-tracking.md`: simple and project modes and their issue operations.
+- `scripts/board`: per-run claims and status moves on a board with an Agent field (canonical copy and tests in the toolkit's `shared/`).
 - `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.

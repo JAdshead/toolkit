@@ -30,4 +30,7 @@ jobs:
           claude plugin validate .
 
       - name: Check shell scripts
-        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared
+        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared shared/board shared/test/*
+
+      - name: Test shared scripts
+        run: shared/test/board_test.sh

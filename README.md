@@ -97,7 +97,7 @@ A repo declares its mode in an `Issue tracking` section of its `AGENTS.md`/`CLAU
 
 ## Shared references
 
-Each skill is linked as its own folder, so a skill can't reach files outside it. Text several skills need lives once in `shared/` and is copied into `skills/<name>/references/` for every skill whose `SKILL.md` mentions `references/<file>`. Edit the copy in `shared/`, then run `bin/sync-shared` from the checkout you are editing (`toolkit sync` acts on the installed checkout); `toolkit validate` and CI fail if a copy drifts.
+Each skill is linked as its own folder, so a skill can't reach files outside it. Text and scripts several skills need live once in `shared/` and are copied into `skills/<name>/references/` or `skills/<name>/scripts/` for every skill whose `SKILL.md` mentions `references/<file>` or `scripts/<file>`. Tests for shared scripts stay in `shared/test/`. Edit the copy in `shared/`, then run `bin/sync-shared` from the checkout you are editing (`toolkit sync` acts on the installed checkout); `toolkit validate` and CI fail if a copy drifts.
 
 Prefer more, smaller skills: when a workflow gains a distinct step, give it its own skill rather than growing an existing one.
 

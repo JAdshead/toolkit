@@ -53,3 +53,25 @@ Set a field with `gh project item-edit <number> --owner <owner> --url <issue-url
 | Release a claim | Remove the assignee; Status back to Todo |
 
 Sub-issues of one parent are the natural group for a single PR. Never close an issue or a parent by hand without the user's say-so.
+
+### Per-run claims (board with an Agent field)
+
+Every agent signs in as the same GitHub user, so an assignee says an issue is taken but not by which run, and a run that crashes leaves claims nothing can trace. If the board has a text field named **Agent** (seen in the `field-list` above), claim through `scripts/board` in this skill's folder instead of by assignee. Run it with no arguments for its usage. It needs `jq`. Without an Agent field the table above applies unchanged, and the script exits 2.
+
+**Agent id.** One per run (or per PR group in `tackle-issues`): `<branch>@$(hostname -s)`, for example `issues/calendar-fixes@studio`. Use the same id for every call about that work; `--resume` finds it again with `mine`.
+
+The script reads Status names as above: ready is Ready if the board has it, else Todo; then In progress and Done. If this board names them differently, prefix calls with `BOARD_READY=<option>`, `BOARD_IN_PROGRESS=<option>` or `BOARD_DONE=<option>`.
+
+| Operation | How (`B="scripts/board <owner>/<number>"`) |
+|---|---|
+| Find work | `$B ready`: unclaimed, unassigned items in the ready status, with priority and area. Then skip parents with open sub-issues as above. `$B busy` lists every claim, with its Area and agent |
+| List my claims | `$B mine <agent>` |
+| Claim | `$B claim <agent> <n>...`: all or nothing per call; only ready issues, or ones this agent already holds (so resuming re-claims safely). Sets Agent and Status → In progress; leaves assignees alone. If it fails, someone else has the issue or it isn't ready: drop it and tell the user. If the issue isn't on the board, run `place-issues` first |
+| In review | `$B move <agent> "In review" <n>...` once the PR is open. If the board has later columns (for example Verifying while CI runs, Ready to merge when it is green), move through them the same way; leave the claim in place so the board shows which run built it |
+| Done | As above; merging moves it to Done |
+| Release a claim | `$B release <agent> <n>...`: clears Agent, Status back to ready. `move` and `release` refuse issues another agent holds |
+| Make ready | `$B approve <n>...` moves an unclaimed issue to the ready status. Only on the user's say-so: deciding what is ready is theirs |
+
+An **Area** single-select field is optional but worth having: two runs in the same Area tend to edit the same files, so `tackle-issues` flags groups whose Area is already busy.
+
+**What the board does not guarantee.** GitHub has no compare-and-set, so a claim is check, write, read back. Two runs claiming one issue at once are usually settled by the read-back (the loser releases everything it took in that call), but not always: if one run reads back before the other writes, both believe they hold it. A claim from this machine with no matching worktree is probably a crashed run; one from another host may still be running there. Show these to the user and release them only on their say-so.

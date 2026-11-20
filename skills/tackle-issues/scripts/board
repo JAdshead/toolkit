@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# Project mode, on a board with an "Agent" text field: claim and move issues
+# per run, so parallel agents (all signed in as the same GitHub user) never
+# work the same issue. See references/issue-tracking.md.
+#
+#   board <owner>/<number> ready                      unclaimed, unassigned ready issues: number, priority, area, title
+#   board <owner>/<number> busy                       claimed work not Done: number, status, area, agent
+#   board <owner>/<number> mine    <agent>            your issues: number, status
+#   board <owner>/<number> claim   <agent> <n>...     all or nothing; ready (or already yours) only
+#   board <owner>/<number> move    <agent> <status> <n>...
+#   board <owner>/<number> release <agent> <n>...     clear the claim, back to ready
+#   board <owner>/<number> approve <n>...             move unclaimed issues to ready (only on the user's say-so)
+#
+# <agent> identifies one run, e.g. "issues/calendar-fixes@my-mac" (branch@host).
+# Status names: ready is "Ready" if the board has it, else "Todo"; then
+# "In progress" and "Done". Override with BOARD_READY, BOARD_IN_PROGRESS, BOARD_DONE.
+# Exit codes: 0 ok, 1 refused or failed, 2 the board has no Agent field
+# (use the assignee claims in references/issue-tracking.md instead).
+set -euo pipefail
+
+die() { echo "board: $*" >&2; exit 1; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1; }
+
+project="${1:-}"
+case "$project" in
+  */*) owner="${project%/*}"; number="${project##*/}" ;;
+  *) usage ;;
+esac
+[ -n "$owner" ] && [[ "$number" =~ ^[0-9]+$ ]] || usage
+shift
+case "${1:-}" in
+  ready|busy|mine|claim|move|release|approve) ;;
+  *) usage ;;
+esac
+
+repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+fields="$(gh project field-list "$number" --owner "$owner" --format json --limit 100)"
+project_id=""
+
+has_status() { jq -e --arg s "$1" '.fields[] | select(.name == "Status") | .options[] | select(.name == $s)' <<<"$fields" >/dev/null; }
+jq -e '.fields[] | select(.name == "Agent")' <<<"$fields" >/dev/null || {
+  echo "board: $owner/$number has no Agent field; claim by assignee instead" >&2
+  exit 2
+}
+if [ -n "${BOARD_READY:-}" ]; then ready="$BOARD_READY"
+elif has_status Ready; then ready=Ready
+else ready=Todo
+fi
+in_progress="${BOARD_IN_PROGRESS:-In progress}"
+done_status="${BOARD_DONE:-Done}"
+
+field_id() {
+  local id
+  id="$(jq -r --arg n "$1" '.fields[] | select(.name == $n) | .id' <<<"$fields")"
+  [ -n "$id" ] || die "the board has no \"$1\" field"
+  echo "$id"
+}
+
+status_option() {
+  local id
+  id="$(jq -r --arg s "$1" '.fields[] | select(.name == "Status") | .options[] | select(.name == $s) | .id' <<<"$fields")"
+  [ -n "$id" ] || die "the board's Status field has no option \"$1\""
+  echo "$id"
+}
+
+items() {
+  gh project item-list "$number" --owner "$owner" --format json --limit 1000 |
+    jq -c --arg repo "$repo" '[.items[] | select(.content.repository == $repo and .content.number != null)]'
+}
+
+item_for() {
+  jq -c --argjson n "$2" '.[] | select(.content.number == $n)' <<<"$1"
+}
+
+edit() {
+  if [ -z "$project_id" ]; then
+    project_id="$(gh project view "$number" --owner "$owner" --format json | jq -r .id)"
+  fi
+  gh project item-edit --project-id "$project_id" --id "$@" >/dev/null
+}
+
+set_status() { edit "$1" --field-id "$(field_id Status)" --single-select-option-id "$(status_option "$2")"; }
+set_agent() { edit "$1" --field-id "$(field_id Agent)" --text "$2"; }
+clear_agent() { edit "$1" --field-id "$(field_id Agent)" --clear; }
+
+held_by() {
+  local all item
+  all="$(items)"
+  item="$(item_for "$all" "$2")"
+  [ -n "$item" ] || die "#$2 is not on the board"
+  [ "$(jq -r '.agent // ""' <<<"$item")" = "$1" ] || die "#$2 is not held by $1"
+  jq -r .id <<<"$item"
+}
+
+release_quietly() {
+  local agent="$1" n id
+  shift
+  for n in "$@"; do
+    id="$(held_by "$agent" "$n" 2>/dev/null)" || continue
+    clear_agent "$id"
+    set_status "$id" "$ready"
+  done
+}
+
+cmd_ready() {
+  items | jq -r --arg r "$ready" '.[] | select(.status == $r and ((.agent // "") == "") and ((.assignees // []) == []))
+    | [.content.number, (.priority // ""), (.area // ""), .title] | @tsv'
+}
+
+cmd_busy() {
+  items | jq -r --arg d "$done_status" '.[] | select((.agent // "") != "" and .status != $d)
+    | [.content.number, .status, (.area // ""), .agent] | @tsv'
+}
+
+cmd_mine() {
+  local agent="${1:?agent}"
+  items | jq -r --arg a "$agent" '.[] | select(.agent == $a) | [.content.number, .status] | @tsv'
+}
+
+cmd_claim() {
+  local agent="${1:?agent}" all n item holder status claimed=()
+  shift
+  [ $# -gt 0 ] || die "claim needs issue numbers"
+  all="$(items)"
+  for n in "$@"; do
+    item="$(item_for "$all" "$n")"
+    [ -n "$item" ] || die "#$n is not on the board"
+    holder="$(jq -r '.agent // ""' <<<"$item")"
+    status="$(jq -r '.status // ""' <<<"$item")"
+    [ "$holder" = "$agent" ] && continue
+    [ -z "$holder" ] || die "#$n is held by $holder"
+    [ "$status" = "$ready" ] || die "#$n is in \"$status\", not $ready"
+  done
+  for n in "$@"; do
+    item="$(item_for "$all" "$n")"
+    if [ "$(jq -r '.agent // ""' <<<"$item")" != "$agent" ]; then
+      set_agent "$(jq -r .id <<<"$item")" "$agent"
+      set_status "$(jq -r .id <<<"$item")" "$in_progress"
+      claimed+=("$n")
+    fi
+  done
+  all="$(items)"
+  for n in "$@"; do
+    holder="$(jq -r '.agent // ""' <<<"$(item_for "$all" "$n")")"
+    if [ "$holder" != "$agent" ]; then
+      [ ${#claimed[@]} -eq 0 ] || release_quietly "$agent" "${claimed[@]}"
+      die "lost #$n to $holder; released this claim"
+    fi
+  done
+  echo "claimed $* for $agent"
+}
+
+cmd_move() {
+  local agent="${1:?agent}" status="${2:?status}" n ids=() id
+  shift 2
+  [ $# -gt 0 ] || die "move needs issue numbers"
+  status_option "$status" >/dev/null
+  for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
+  for id in "${ids[@]}"; do set_status "$id" "$status"; done
+  echo "moved $* to $status"
+}
+
+cmd_release() {
+  local agent="${1:?agent}" n ids=() id
+  shift
+  [ $# -gt 0 ] || die "release needs issue numbers"
+  for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
+  for id in "${ids[@]}"; do
+    clear_agent "$id"
+    set_status "$id" "$ready"
+  done
+  echo "released $*"
+}
+
+cmd_approve() {
+  local all n item holder ids=() id
+  [ $# -gt 0 ] || die "approve needs issue numbers"
+  all="$(items)"
+  for n in "$@"; do
+    item="$(item_for "$all" "$n")"
+    [ -n "$item" ] || die "#$n is not on the board"
+    holder="$(jq -r '.agent // ""' <<<"$item")"
+    [ -z "$holder" ] || die "#$n is held by $holder"
+    ids+=("$(jq -r .id <<<"$item")")
+  done
+  for id in "${ids[@]}"; do set_status "$id" "$ready"; done
+  echo "moved $* to $ready"
+}
+
+command="${1:-}"
+shift || true
+case "$command" in
+  ready) cmd_ready ;;
+  busy) cmd_busy ;;
+  mine) cmd_mine "$@" ;;
+  claim) cmd_claim "$@" ;;
+  move) cmd_move "$@" ;;
+  release) cmd_release "$@" ;;
+  approve) cmd_approve "$@" ;;
+esac
