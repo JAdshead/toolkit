@@ -17,6 +17,9 @@ jobs:
       - name: Check SKILL.md frontmatter
         run: bin/validate-skills
 
+      - name: Check shared reference copies
+        run: bin/sync-shared --check
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -27,4 +30,4 @@ jobs:
           claude plugin validate .
 
       - name: Check shell scripts
-        run: shellcheck install.sh bin/toolkit bin/validate-skills
+        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared

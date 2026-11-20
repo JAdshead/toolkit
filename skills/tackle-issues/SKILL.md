@@ -14,7 +14,8 @@ Take a set of open GitHub issues from "open" to "pull request ready for a human"
 
 - **The orchestrator stays lean.** It selects, groups, delegates, verifies and asks. Heavy work (implementing, reviewing, fixing) goes to subagents when the agent supports them.
 - **Sequential within a group, isolated across groups.** Issues in one PR are implemented one after another on the same branch. Each group has its own worktree, so separate runs (or separate terminals) never touch the same files.
-- **Claim before you build.** Issues are assigned and labelled as soon as the user confirms the grouping, so a second run does not pick them up.
+- **Claim before you build.** Issues are claimed as soon as the user confirms the grouping, so a second run does not pick them up.
+- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0.
 - **Trust, but verify.** Every subagent report is checked against `git log` and `git diff` before it counts as done.
 - **Reviews end.** The review loop has a fixed exit rule, not "until nobody has anything to say".
 - **Nothing is pushed, opened, merged or closed without the user's go-ahead.**
@@ -56,8 +57,9 @@ Run in parallel:
 ```bash
 git status --porcelain
 gh auth status
-gh issue list --state open --assignee "" --json number,title,labels,body --limit 100
 ```
+
+and the mode's Find work operation.
 
 Stop with a clear message if the tree is dirty, `gh` is not authenticated, or nothing matches.
 
@@ -68,8 +70,8 @@ With a focus filter:
 
 Exclude:
 - issues with any assignee (claimed);
-- issues labelled `wip` (in progress elsewhere);
-- tracking issues (titles starting `Epic:` or labelled `epic`/`tracking`);
+- issues already claimed or in progress under the mode's rules;
+- tracking issues (titles starting `Epic:`, labelled `epic`/`tracking`, or parents with open sub-issues, whose sub-issues are the work);
 - issues that need a decision rather than code (questions, open design discussions). List these separately so the user can see why they were skipped.
 
 ## Phase 2: Group into pull requests
@@ -77,6 +79,8 @@ Exclude:
 **Group together** issues that share a feature area or module, touch the same files, or are small related fixes that read well as one change.
 
 **Keep apart** issues that are unrelated, carry different risk (a risky migration next to a safe copy fix), are large on their own (roughly 500+ changed lines), or need different reviewers.
+
+Sub-issues of one parent usually make one group; don't mix sub-issues of different parents in one PR.
 
 Order groups so independent, low-risk ones come first. Present the plan and wait for confirmation:
 
@@ -99,11 +103,7 @@ Proceed with this grouping?
 
 ## Phase 3: Claim issues and create worktrees
 
-Right after the user confirms, claim every issue in every selected group (create the `wip` label first if it does not exist):
-
-```bash
-gh issue edit <n> --add-assignee @me --add-label wip
-```
+Right after the user confirms, claim every issue in every selected group with the mode's Claim operation.
 
 Then one worktree per group, branched from an up-to-date default branch:
 
@@ -161,7 +161,7 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 
 1. Run the full verify command in the worktree. If it fails, report and ask.
 2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
-3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue.
+3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, and apply the mode's In review operation.
 4. Optionally run the **holistic PR reviewer** on the final diff and description. Same exit rule; at most 2 rounds. Any further push needs the user's go-ahead again.
 
 ## Phase 7: CI
@@ -176,7 +176,7 @@ On failure, spawn a **CI analysis subagent** to read `gh run view <id> --log-fai
 
 ## Phase 8: Clean up and report
 
-- Remove the `wip` label from claimed issues (the PR closes them on merge). Unassign any issue that was skipped or abandoned.
+- Apply the mode's Done operation to claimed issues (the PR closes them on merge), and Release any issue that was skipped or abandoned.
 - Report:
 
 ```
@@ -195,16 +195,17 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 
 `tackle issues --resume`:
 1. List worktrees under `~/.worktrees/<repo>/issues/` and their commits ahead of the default branch.
-2. Match them to issues assigned to you with the `wip` label.
+2. Match them to the mode's List my claims operation.
 3. Resume at Phase 4 (no commits yet), Phase 5 (commits but no PR) or Phase 7 (PR open).
 
 ## Errors
 
 - **Worktree or branch exists:** ask, resume or recreate.
 - **Subagent went off-scope:** revert the out-of-scope changes, note it, retry with a tighter "do not" list.
-- **Anything else fails:** report what finished, what did not, worktree paths and issue numbers, and remove `wip` from issues you are no longer working on.
+- **Anything else fails:** report what finished, what did not, worktree paths and issue numbers, and release the claim on issues you are no longer working on.
 
 ## References
 
 - `references/subagent-templates.md`: verify-command detection, worktree setup, implementation, fix and CI-analysis prompts, PR body template.
+- `references/issue-tracking.md`: simple and project modes and their issue operations.
 - `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.

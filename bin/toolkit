@@ -19,7 +19,8 @@ Usage: toolkit <command>
 Commands:
   install   Link skills and rules for Codex and Gemini, install the Claude Code plugins
   update    Pull the latest toolkit and ui-ux-pro-max, refresh Claude Code plugins, relink
-  validate  Check every skill's SKILL.md frontmatter
+  validate  Check every skill's SKILL.md frontmatter and shared reference copies
+  sync      Copy shared/ references into the skills that use them
   path      Print the toolkit checkout location
 USAGE
 }
@@ -42,7 +43,8 @@ update() {
 case "${1:-}" in
   install) "$TOOLKIT_DIR/install.sh" ;;
   update) update ;;
-  validate) "$TOOLKIT_DIR/bin/validate-skills" ;;
+  validate) "$TOOLKIT_DIR/bin/validate-skills" && "$TOOLKIT_DIR/bin/sync-shared" --check ;;
+  sync) "$TOOLKIT_DIR/bin/sync-shared" ;;
   path) echo "$TOOLKIT_DIR" ;;
   -h|--help|help|"") usage ;;
   *) usage >&2; exit 1 ;;

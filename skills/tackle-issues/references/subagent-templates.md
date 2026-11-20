@@ -55,6 +55,7 @@ Title: <title>
 Labels: <labels>
 Body:
 <body>
+<If the issue has a parent: Parent #<n> <title>: <its goal>. Sibling sub-issues are out of scope.>
 
 Project rules (from AGENTS.md / CLAUDE.md / CONTRIBUTING.md):
 <conventions summary: commit style, test standards, comment rules, design guide paths, files not to edit>
@@ -178,8 +179,9 @@ for wt in "$HOME/.worktrees/$REPO"/issues/*; do
   pr=$(gh pr list --head "$branch" --json url --jq '.[0].url')
   echo "$wt  branch=$branch  commits=$ahead  pr=${pr:-none}"
 done
-gh issue list --assignee @me --label wip --json number,title
 ```
+
+Then run the mode's List my claims operation from `issue-tracking.md`.
 
 ## Cleanup
 

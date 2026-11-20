@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Copy each shared/<file> into skills/<name>/references/<file> for every skill
+# whose SKILL.md mentions references/<file>. Skills are linked one folder at a
+# time, so each needs its own copy. With --check, change nothing and fail if
+# any copy is missing or differs from shared/.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+case "${1:-}" in
+  "") check=0 ;;
+  --check) check=1 ;;
+  *) echo "usage: $(basename "$0") [--check]" >&2; exit 2 ;;
+esac
+status=0
+
+for src in "$root"/shared/*; do
+  [ -f "$src" ] || continue
+  file="$(basename "$src")"
+  for skill in "$root"/skills/*/SKILL.md; do
+    grep -qF "references/$file" "$skill" || continue
+    dir="$(dirname "$skill")"
+    dest="$dir/references/$file"
+    name="$(basename "$dir")"
+    if cmp -s "$src" "$dest"; then
+      echo "ok   $name/references/$file"
+    elif [ "$check" -eq 1 ]; then
+      echo "FAIL $name/references/$file is missing or differs from shared/$file (run: bin/sync-shared)"
+      status=1
+    else
+      mkdir -p "$dir/references"
+      cp "$src" "$dest"
+      echo "sync $name/references/$file"
+    fi
+  done
+done
+
+exit "$status"
