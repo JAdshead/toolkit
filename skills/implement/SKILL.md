@@ -42,6 +42,14 @@ With no argument, list open issues (and pending changes, if such a workflow exis
    ```
    Use the project's worktree location if it has one; otherwise a sibling directory outside the repo. Then run the install and setup steps found above. If the project shares a resource between checkouts (a test database, a port), isolate it for this worktree.
 4. If the branch or worktree already exists, stop and suggest `--resume` or the cleanup commands.
+5. **Board mode.** If the repository has `.github/agent-board.json`, claim the issue on the project board before writing any code, so parallel agents do not pick it up. Use the `board` script in the tackle-issues skill (`../tackle-issues/scripts/board` from this file; its Board mode section explains the board). The agent id is `implement/<id>@$(hostname -s)`.
+   ```bash
+   board claim "implement/<id>@$(hostname -s)" <id>
+   ```
+   - The claim fails if another agent holds the issue: stop and tell the user who has it.
+   - It also fails if the issue is not in Ready. Ask the user whether to approve it; on their yes, run `board approve <id>`, then claim it.
+   - Later steps: `board move <agent> "In review" <id>` at Phase 3, `Verifying` after the PR is opened, and `"Ready to merge"` when CI is green. If you stop without a PR, `board release <agent> <id>`.
+   - With `--resume`, re-run the same claim: claiming an issue you already hold succeeds and leaves its status alone.
 
 ## Phase 2: Implement test-first
 
