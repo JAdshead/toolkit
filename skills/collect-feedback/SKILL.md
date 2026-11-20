@@ -102,7 +102,7 @@ When in doubt, it needs a proposal.
 Once the user confirms ("yes", "yep", "do it", "looks good", "create"):
 
 1. Check the repo and its labels: `gh repo view --json nameWithOwner` and `gh label list`. Prefer the repo's existing labels over inventing new ones.
-2. File each item as an issue. Keep the user's words in the title (tidied, not rewritten). Every body must stand on its own: expand the raw phrasing into requirements, acceptance criteria and any known context such as file paths.
+2. File each item as an issue. Keep the user's words in the title (tidied, not rewritten). Every body must stand on its own: expand the raw phrasing into requirements, acceptance criteria and any known context such as file paths. When several items are parts of one feature, add `Part of: <feature>` to each body so they can be grouped later.
 
 **Labels** (map to the closest existing label):
 
@@ -143,6 +143,8 @@ Created [N] issues:
 
 Run `gh issue list` to see all open work.
 ```
+
+If the repo tracks work on a GitHub Project board (an `Issue tracking` section saying `Mode: project` in its agent instructions, or a board linked to the repo in `gh repo view --json projectsV2`), offer to run the `place-issues` skill on the new issues.
 
 ## Key rules
 

@@ -257,7 +257,7 @@ EOF
 
 Each body must stand on its own: a reader who never saw the report can reproduce it. Never include passwords, tokens, session cookies or real personal data; name the role ("a standard test user") instead of the account. Local screenshot paths are useless to others, so describe what the screenshot shows, or attach it only if the user asks and it is safe.
 
-6. **Report back** with the list of created issue URLs and any you skipped as duplicates.
+6. **Report back** with the list of created issue URLs and any you skipped as duplicates. If the repo tracks work on a GitHub Project board (an `Issue tracking` section saying `Mode: project` in its agent instructions, or a board linked to the repo in `gh repo view --json projectsV2`), offer to run the `place-issues` skill on the new issues.
 
 ## Rules
 
