@@ -98,7 +98,7 @@ gh pr checks <pr> --watch
 ```
 
 - **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first where it applies, push, and watch again. Stop after 3 rounds and report.
-- **Green:** report the PR URL and stop. **Never merge**; that is the user's call unless the project's instructions say otherwise.
+- **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 ## Phase 6: Report
 
@@ -107,11 +107,12 @@ gh pr checks <pr> --watch
 Source:   <issue or change id>
 PR:       <url> (CI: green | red | not opened)
 Reviews:  security PASS / quality PASS / tests PASS (rounds: n)
+Owner:    MERGE | NOT YET (review-pr rounds: n)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
 Follow-ups: <remaining minor findings, or none>
 
-Next: review and merge the PR, then archive the change if the project's workflow requires it.
+Next: merge the PR (your call), then archive the change if the project's workflow requires it.
 Worktree: <path>
 Remove after merge: git worktree remove <path>
 ```

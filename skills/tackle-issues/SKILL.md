@@ -162,7 +162,6 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 1. Run the full verify command in the worktree. If it fails, report and ask.
 2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
 3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, and apply the mode's In review operation.
-4. Optionally run the **holistic PR reviewer** on the final diff and description. Same exit rule; at most 2 rounds. Any further push needs the user's go-ahead again.
 
 ## Phase 7: CI
 
@@ -171,6 +170,8 @@ gh pr checks <pr> --watch
 ```
 
 On failure, spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
+
+Once CI is green, hand off to the `review-pr` skill for the merge decision. Any further push needs the user's go-ahead again.
 
 **Never merge** unless the user explicitly asks you to, for that PR.
 
