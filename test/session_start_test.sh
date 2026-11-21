@@ -22,7 +22,7 @@ check() {
 }
 
 fresh() {
-  rm -rf "$work/home" "$work/project"
+  rm -rf "${work:?}/home" "${work:?}/project"
   mkdir -p "$work/home" "$work/project"
 }
 run() { HOME="$work/home" CLAUDE_PROJECT_DIR="$work/project" CLAUDE_PLUGIN_ROOT="$root" "$hook"; }

@@ -21,7 +21,7 @@ check() {
   fi
 }
 
-fresh() { rm -rf "$work/repo"; mkdir -p "$work/repo"; echo "$work/repo"; }
+fresh() { rm -rf "${work:?}/repo"; mkdir -p "$work/repo"; echo "$work/repo"; }
 init() { "$toolkit" init "$1" >/dev/null; }
 block_of() { awk '/<!-- toolkit:start -->/{on=1} on{print} /<!-- toolkit:end -->/{on=0}' "$1"; }
 has() { if grep -qF -- "$2" "$1"; then echo yes; else echo no; fi; }
