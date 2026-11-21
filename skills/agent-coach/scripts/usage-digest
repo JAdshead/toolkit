@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+"""Summarize a week of Claude Code and Codex usage from local session data.
+
+Reads Claude Code transcripts (<claude-dir>/projects/*/*.jsonl) and Codex threads
+(<codex-dir>/state_*.sqlite), read-only, and prints a compact digest: per session
+the project, prompts, slash commands, skills, tools, errors and denials, plus totals.
+
+Usage: usage-digest [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--format md|json]
+                    [--claude-dir DIR] [--codex-dir DIR]
+
+The window is [since, until) in local time. Default: the 7 days before today.
+"""
+import argparse
+import collections
+import datetime as dt
+import glob
+import json
+import os
+import sqlite3
+import sys
+
+MAX_PROMPTS = 8
+MAX_PROMPT_CHARS = 300
+COMPACTION_PREFIX = "This session is being continued from a previous conversation"
+DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied")
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    today = dt.date.today()
+    p.add_argument("--since", default=(today - dt.timedelta(days=7)).isoformat())
+    p.add_argument("--until", default=today.isoformat())
+    p.add_argument("--format", choices=("md", "json"), default="md")
+    p.add_argument("--claude-dir", default=os.path.expanduser("~/.claude"))
+    p.add_argument("--codex-dir", default=os.path.expanduser("~/.codex"))
+    return p.parse_args()
+
+
+def local_midnight(day):
+    return dt.datetime.combine(dt.date.fromisoformat(day), dt.time()).astimezone()
+
+
+def parse_ts(value):
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+
+
+def text_of(content):
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "\n".join(b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text")
+    return ""
+
+
+def clip(text):
+    text = " ".join(text.split())
+    return text if len(text) <= MAX_PROMPT_CHARS else text[: MAX_PROMPT_CHARS - 1] + "…"
+
+
+def summarize_claude_session(path, since, until):
+    s = {"id": None, "cwd": None, "branch": None, "entrypoint": None, "start": None, "end": None,
+         "prompts": [], "prompt_count": 0, "slash_commands": [], "skills": [], "tools": collections.Counter(),
+         "tool_errors": 0, "denials": 0, "interrupts": 0, "models": [], "output_tokens": 0, "subagents": 0}
+    in_window = False
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for raw in f:
+            try:
+                e = json.loads(raw)
+            except ValueError:
+                continue
+            ts = parse_ts(e.get("timestamp"))
+            if ts is None or not (since <= ts < until):
+                continue
+            kind = e.get("type")
+            if kind not in ("user", "assistant"):
+                continue
+            in_window = True
+            s["id"] = s["id"] or e.get("sessionId")
+            s["cwd"] = s["cwd"] or e.get("cwd")
+            s["branch"] = s["branch"] or e.get("gitBranch")
+            s["entrypoint"] = s["entrypoint"] or e.get("entrypoint")
+            s["start"] = min(filter(None, [s["start"], ts]))
+            s["end"] = max(filter(None, [s["end"], ts]))
+            msg = e.get("message") or {}
+            content = msg.get("content")
+            if kind == "assistant":
+                model = msg.get("model")
+                if model and model not in s["models"] and not model.startswith("<"):
+                    s["models"].append(model)
+                s["output_tokens"] += (msg.get("usage") or {}).get("output_tokens", 0)
+                for b in content if isinstance(content, list) else []:
+                    if isinstance(b, dict) and b.get("type") == "tool_use":
+                        name = b.get("name", "?")
+                        s["tools"][name] += 1
+                        if name == "Skill":
+                            skill = (b.get("input") or {}).get("skill")
+                            if skill and skill not in s["skills"]:
+                                s["skills"].append(skill)
+                continue
+            if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+                for b in content:
+                    if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
+                        s["tool_errors"] += 1
+                        if any(m in text_of(b.get("content")).lower() or m in str(b.get("content")).lower()
+                               for m in DENIAL_MARKERS):
+                            s["denials"] += 1
+                continue
+            if e.get("isMeta") or e.get("isSidechain"):
+                continue
+            text = text_of(content).strip()
+            if text.startswith("[Request interrupted"):
+                s["interrupts"] += 1
+            elif "<command-name>" in text:
+                cmd = text.split("<command-name>", 1)[1].split("</command-name>", 1)[0].strip()
+                if cmd and cmd not in s["slash_commands"]:
+                    s["slash_commands"].append(cmd)
+            elif text and not text.startswith("<") and not text.startswith(COMPACTION_PREFIX):
+                s["prompt_count"] += 1
+                if len(s["prompts"]) < MAX_PROMPTS:
+                    s["prompts"].append(clip(text))
+    if not in_window:
+        return None
+    s["id"] = s["id"] or os.path.splitext(os.path.basename(path))[0]
+    sub_dir = os.path.join(os.path.dirname(path), os.path.splitext(os.path.basename(path))[0], "subagents")
+    s["subagents"] = len(glob.glob(os.path.join(sub_dir, "*.jsonl")))
+    s["tools"] = dict(s["tools"])
+    s["start"], s["end"] = s["start"].isoformat(), s["end"].isoformat()
+    return s
+
+
+def claude_usage(claude_dir, since, until):
+    sessions = []
+    for path in sorted(glob.glob(os.path.join(claude_dir, "projects", "*", "*.jsonl"))):
+        if dt.datetime.fromtimestamp(os.path.getmtime(path)).astimezone() < since:
+            continue
+        s = summarize_claude_session(path, since, until)
+        if s:
+            sessions.append(s)
+    sessions.sort(key=lambda s: s["start"])
+    by_project, tools, skills, slash, mcp = (collections.Counter() for _ in range(5))
+    for s in sessions:
+        by_project[s["cwd"] or "?"] += 1
+        tools.update(s["tools"])
+        skills.update(s["skills"])
+        slash.update(s["slash_commands"])
+        for name, n in s["tools"].items():
+            if name.startswith("mcp__"):
+                mcp[name.split("__")[1]] += n
+    totals = {"sessions": len(sessions), "prompts": sum(s["prompt_count"] for s in sessions),
+              "tool_errors": sum(s["tool_errors"] for s in sessions),
+              "denials": sum(s["denials"] for s in sessions),
+              "interrupts": sum(s["interrupts"] for s in sessions),
+              "subagents": sum(s["subagents"] for s in sessions),
+              "by_project": dict(by_project.most_common()), "tools": dict(tools.most_common()),
+              "skills": dict(skills.most_common()), "slash_commands": dict(slash.most_common()),
+              "mcp_servers": dict(mcp.most_common())}
+    return {"sessions": sessions, "totals": totals}
+
+
+def codex_usage(codex_dir, since, until):
+    threads = []
+    for db_path in sorted(glob.glob(os.path.join(codex_dir, "state_*.sqlite"))):
+        try:
+            db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            db.row_factory = sqlite3.Row
+            cols = {r[1] for r in db.execute("pragma table_info(threads)")}
+            wanted = [c for c in ("id", "created_at", "updated_at", "cwd", "title", "model", "tokens_used",
+                                  "first_user_message", "archived", "source") if c in cols]
+            rows = db.execute(f"select {', '.join(wanted)} from threads where updated_at >= ? and created_at < ?",
+                              (int(since.timestamp()), int(until.timestamp()))).fetchall()
+            db.close()
+        except sqlite3.Error as err:
+            print(f"warning: could not read {db_path}: {err}", file=sys.stderr)
+            continue
+        for r in rows:
+            t = dict(r)
+            t["first_user_message"] = clip(t.get("first_user_message") or "")
+            for key in ("created_at", "updated_at"):
+                if t.get(key):
+                    t[key] = dt.datetime.fromtimestamp(t[key]).astimezone().isoformat()
+            threads.append(t)
+    by_project = collections.Counter(t.get("cwd") or "?" for t in threads)
+    return {"threads": threads, "totals": {"threads": len(threads), "by_project": dict(by_project.most_common()),
+                                           "tokens_used": sum(t.get("tokens_used") or 0 for t in threads)}}
+
+
+def counts(d, limit=15):
+    return ", ".join(f"{k} ({v})" for k, v in list(d.items())[:limit]) or "none"
+
+
+def markdown(data):
+    out = [f"# Agent usage digest: {data['since']} to {data['until']} (until is exclusive)", ""]
+    c = data["claude_code"]
+    t = c["totals"]
+    out += ["## Claude Code", "",
+            f"- Sessions: {t['sessions']}, human prompts: {t['prompts']}, subagent runs: {t['subagents']}",
+            f"- Tool errors: {t['tool_errors']}, permission denials: {t['denials']}, interrupts: {t['interrupts']}",
+            f"- By project: {counts(t['by_project'])}",
+            f"- Skills invoked: {counts(t['skills'])}",
+            f"- Slash commands: {counts(t['slash_commands'])}",
+            f"- MCP servers used: {counts(t['mcp_servers'])}",
+            f"- Top tools: {counts(t['tools'])}", ""]
+    for s in c["sessions"]:
+        out.append(f"### {s['start'][:16]} · {s['cwd']} · {s['branch'] or '-'} · {s['entrypoint'] or '-'}")
+        out.append(f"prompts {s['prompt_count']}, errors {s['tool_errors']}, denials {s['denials']}, "
+                   f"interrupts {s['interrupts']}, subagents {s['subagents']}, models {', '.join(s['models']) or '-'}")
+        if s["skills"] or s["slash_commands"]:
+            out.append(f"skills: {', '.join(s['skills']) or '-'}; commands: {', '.join(s['slash_commands']) or '-'}")
+        out.append(f"tools: {counts(dict(sorted(s['tools'].items(), key=lambda kv: -kv[1])), 8)}")
+        out += [f"> {p}" for p in s["prompts"]]
+        out.append("")
+    x = data["codex"]
+    out += ["## Codex", "", f"- Threads: {x['totals']['threads']}, tokens: {x['totals']['tokens_used']}",
+            f"- By project: {counts(x['totals']['by_project'])}", ""]
+    for th in x["threads"]:
+        out.append(f"- {str(th.get('created_at', ''))[:16]} · {th.get('cwd')} · {th.get('title')} · "
+                   f"{th.get('model')}: {th.get('first_user_message')}")
+    return "\n".join(out) + "\n"
+
+
+def main():
+    args = parse_args()
+    since, until = local_midnight(args.since), local_midnight(args.until)
+    data = {"since": args.since, "until": args.until,
+            "claude_code": claude_usage(args.claude_dir, since, until),
+            "codex": codex_usage(args.codex_dir, since, until)}
+    if args.format == "json":
+        json.dump(data, sys.stdout, indent=2, default=str)
+        print()
+    else:
+        sys.stdout.write(markdown(data))
+
+
+if __name__ == "__main__":
+    main()

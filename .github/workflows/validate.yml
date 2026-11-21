@@ -34,3 +34,6 @@ jobs:
 
       - name: Test shared scripts
         run: shared/test/board_test.sh
+
+      - name: Test agent-coach usage digest
+        run: python3 test/usage_digest_test.py
