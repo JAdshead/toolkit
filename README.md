@@ -4,10 +4,23 @@ Reusable agent skills and working rules, shared across projects and across agent
 
 Skills are plain [Agent Skills](https://agentskills.io) folders (`skills/<name>/SKILL.md`), so every agent reads the same files. Claude Code loads them as a plugin from the marketplace in this repo; Codex and Gemini CLI read them through symlinks in `~/.agents/skills/`.
 
-## Install
+## Setup
+
+There are three ways in. Most people want 1, and 2 in every repo they work on.
+
+| | Who it's for | Skills | Rules |
+|---|---|---|---|
+| 1. Install on your machine | you, in every repo, in every agent | Claude Code, Codex, Gemini CLI | global, for all three |
+| 2. `toolkit init` in a repo | everyone who works in that repo, toolkit installed or not | Claude Code (plugin enabled in the repo) | committed to the repo's `AGENTS.md`, read by all three |
+| 3. Claude Code plugin only | trying it out | Claude Code | added at session start by the plugin's hook |
+
+### 1. Install on your machine
 
 ```bash
 git clone https://github.com/JAdshead/toolkit.git ~/toolkit
+```
+
+```bash
 ~/toolkit/install.sh
 ```
 
@@ -28,27 +41,28 @@ Gemini gets an import rather than a symlink because Gemini's `save_memory` appen
 
 The rules links work in both directions: editing `~/.claude/CLAUDE.md` edits `rules/AGENTS.md` here. Review `git diff` before committing.
 
-Restart running agents after installing.
+Needs `git`. The Claude Code steps are skipped if `claude` isn't on your `PATH`. Restart running agents after installing.
 
-## Update
+### 2. Set up a repo
+
+The rules installed in step 1 reach only you. To make sure every person and agent working in a repo follows them, and knows when to use skills such as `review-pr`, run this from the repo's root:
 
 ```bash
-toolkit update
+toolkit init
 ```
 
-This pulls this repo (`git pull --ff-only`), refreshes ui-ux-pro-max (its Claude Code marketplace and plugin, and the `vendor/` clone), and re-runs `install.sh` so new skills get linked and removed ones get unlinked.
+It is safe to re-run, and re-running it after `toolkit update` refreshes the rules. It:
 
-Claude Code reads the `toolkit` plugin in place from this checkout, because the marketplace was added from a local path. Edits to skills take effect at the next session start, or mid-session with `/reload-plugins`, with no version bump.
+| What | Where |
+|------|-------|
+| Adds the shared rules between `<!-- toolkit:start -->` and `<!-- toolkit:end -->` markers, one heading level down | `AGENTS.md` (created if missing; an existing block is replaced, everything else is kept) |
+| Makes Claude Code read `AGENTS.md` | `CLAUDE.md`: created as `@AGENTS.md`, or that line appended. Left alone if it already imports or links to `AGENTS.md` |
+| Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended |
+| Enables the plugin for everyone who opens the repo in Claude Code | `.claude/settings.json`: adds the `toolkit` marketplace and `toolkit@toolkit`, keeping other keys and any value the repo already set |
 
-### Auto-update and `DISABLE_AUTOUPDATER`
+Codex reads `AGENTS.md` itself. Needs `jq`. It works out every change before writing any, so if the markers are broken or `.claude/settings.json` isn't a JSON object, it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
-Claude Code's plugin auto-update is **off by default** for any marketplace that isn't Anthropic's official one, including this one and ui-ux-pro-max's. Separately, `DISABLE_AUTOUPDATER=1` (in `~/.claude/settings.json` → `env`) turns off the whole plugin auto-update pass and hides its toggle, even for marketplaces where you turned it on. Set `FORCE_AUTOUPDATE_PLUGINS=1` alongside it to keep plugin auto-updates while Claude Code's own updater stays off. See the [env vars](https://code.claude.com/docs/en/env-vars) and [plugin loading](https://code.claude.com/docs/en/plugins/loading) docs.
-
-None of that matters for `toolkit` itself, which is read live from the checkout. It only affects ui-ux-pro-max, which `toolkit update` refreshes explicitly.
-
-## Use in a project
-
-To have a project's collaborators get the toolkit in Claude Code, add it to the project's `.claude/settings.json`:
+Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
 ```json
 {
@@ -58,6 +72,41 @@ To have a project's collaborators get the toolkit in Claude Code, add it to the 
   "enabledPlugins": { "toolkit@toolkit": true }
 }
 ```
+
+### 3. Claude Code plugin only
+
+In Claude Code 2.1.275 or later:
+
+```
+/plugin install toolkit --marketplace JAdshead/toolkit
+```
+
+On earlier versions, `/plugin marketplace add JAdshead/toolkit`, then `/plugin install toolkit@toolkit`.
+
+The plugin's SessionStart hook ([`hooks/session-start`](hooks/session-start)) adds the shared rules to each session, so plugin-only users get them too. It stays silent when the rules already reach the session: the repo has a `toolkit init` block, or `~/.claude/CLAUDE.md` is the rules file from step 1.
+
+### Check it worked
+
+- **Claude Code:** start a new session; `/skills` lists `toolkit:review-pr` and the others.
+- **Codex and Gemini CLI:** `ls ~/.agents/skills` shows a link per skill.
+- **Rules:** ask the agent "what are your rules for reviewing a pull request?" It should say a fresh-context review using `review-pr`.
+- **The toolkit itself:** `toolkit validate`.
+
+## Update
+
+```bash
+toolkit update
+```
+
+This pulls this repo (`git pull --ff-only`), refreshes ui-ux-pro-max (its Claude Code marketplace and plugin, and the `vendor/` clone), and re-runs `install.sh` so new skills get linked and removed ones get unlinked. Then run `toolkit init` again in each repo you set up, to pick up rule changes.
+
+Claude Code reads the `toolkit` plugin in place from this checkout, because the marketplace was added from a local path. Edits to skills take effect at the next session start, or mid-session with `/reload-plugins`, with no version bump.
+
+### Auto-update and `DISABLE_AUTOUPDATER`
+
+Claude Code's plugin auto-update is **off by default** for any marketplace that isn't Anthropic's official one, including this one and ui-ux-pro-max's. Separately, `DISABLE_AUTOUPDATER=1` (in `~/.claude/settings.json` → `env`) turns off the whole plugin auto-update pass and hides its toggle, even for marketplaces where you turned it on. Set `FORCE_AUTOUPDATE_PLUGINS=1` alongside it to keep plugin auto-updates while Claude Code's own updater stays off. See the [env vars](https://code.claude.com/docs/en/env-vars) and [plugin loading](https://code.claude.com/docs/en/plugins/loading) docs.
+
+None of that matters for `toolkit` itself, which is read live from the checkout. It only affects ui-ux-pro-max, which `toolkit update` refreshes explicitly.
 
 ## What belongs here
 
@@ -72,6 +121,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 1. Create `skills/<name>/SKILL.md` with frontmatter `name: <name>` (lowercase, hyphens, matching the folder) and a `description` that says what it does and when to use it.
 2. Run `toolkit validate` (CI also runs it, plus `claude plugin validate .` and shellcheck).
 3. Run `toolkit install` to link it for Codex and Gemini. Claude Code picks it up at the next session.
+4. If agents should know when to reach for it beyond its `description`, add one line to `rules/AGENTS.md` naming the skill, and keep the how in the skill itself.
 
 ## Skills
 
