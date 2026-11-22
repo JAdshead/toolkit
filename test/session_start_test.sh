@@ -26,7 +26,9 @@ fresh() {
   mkdir -p "$work/home" "$work/project"
 }
 run() { HOME="$work/home" CLAUDE_PROJECT_DIR="$work/project" CLAUDE_PLUGIN_ROOT="$root" "$hook"; }
-mentions_rules() { if run | grep -qF "Review in a fresh context"; then echo yes; else echo no; fi; }
+# Capture the output first: grep -q stops reading early, and under pipefail
+# the writer's SIGPIPE would make the result depend on timing.
+mentions_rules() { local out; out="$(run)"; if grep -qF "Review in a fresh context" <<<"$out"; then echo yes; else echo no; fi; }
 
 fresh
 check "no rules anywhere: the hook adds them" "yes" "$(mentions_rules)"

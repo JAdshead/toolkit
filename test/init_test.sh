@@ -22,7 +22,12 @@ check() {
 }
 
 fresh() { rm -rf "${work:?}/repo"; mkdir -p "$work/repo"; echo "$work/repo"; }
-init() { "$toolkit" init "$1" >/dev/null; }
+# Run init where it is expected to succeed; a non-zero exit fails the run.
+runs=0
+init() {
+  runs=$((runs + 1))
+  check "init run $runs succeeds" "0" "$("$toolkit" init "$1" >/dev/null 2>&1; echo $?)"
+}
 block_of() { awk '/<!-- toolkit:start -->/{on=1} on{print} /<!-- toolkit:end -->/{on=0}' "$1"; }
 has() { if grep -qF -- "$2" "$1"; then echo yes; else echo no; fi; }
 
@@ -215,13 +220,14 @@ repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
 out="$("$toolkit" init "$repo" 2>&1)"
-check "a plugin the repo turned off is not reported as enabled" "no" "$(printf '%s' "$out" | grep -q 'enabled the toolkit plugin' && echo yes || echo no)"
-check "a plugin the repo turned off is reported as staying disabled" "yes" "$(printf '%s' "$out" | grep -q 'stays disabled' && echo yes || echo no)"
+check "a plugin the repo turned off is not reported as enabled" "no" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
+check "a plugin the repo turned off is reported as staying disabled" "yes" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
-check "a kept marketplace from elsewhere is named" "yes" "$("$toolkit" init "$repo" 2>&1 | grep -q 'someone/fork' && echo yes || echo no)"
+out="$("$toolkit" init "$repo" 2>&1)"
+check "a kept marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
 
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 
