@@ -67,6 +67,7 @@ With a focus filter:
 1. **Label match**: any argument that matches a label name (case-insensitive) becomes `gh issue list --label "<label>"`.
 2. **Text search**: remaining arguments become `gh issue list --search "<term>"`.
 3. **Union** the results, deduplicated by number.
+4. **Project mode:** keep only issues the mode's Find work also returned, so a focus can't pull in Backlog items.
 
 Exclude:
 - issues with any assignee (claimed);
