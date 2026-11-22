@@ -44,6 +44,21 @@ sync --check
 check "a synced tree passes --check" "0" "$rc"
 
 fresh
+echo "edited" >> "$t/skills/alpha/references/notes.md"
+sync --check
+check "--check fails on a copy whose content differs from shared/" "1 yes" "$rc $(says "FAIL alpha/references/notes.md")"
+
+fresh
+chmod -x "$t/skills/alpha/scripts/tool"
+sync --check
+check "--check fails on a copy that lost its executable bit" "1 yes" "$rc $(says "FAIL alpha/scripts/tool")"
+
+fresh
+printf 'Read references/notes.md and references/tool.\nSee references/own.md.\n' > "$t/skills/alpha/SKILL.md"
+sync --check
+check "a mention under references/ doesn't keep a copy in scripts/" "1 yes" "$rc $(says "FAIL alpha/scripts/tool is stale")"
+
+fresh
 rm -f "$t"/shared/notes.md "$t"/shared/tool
 sync --check
 check "--check fails when shared/ holds no files (folders don't count)" "1 yes" "$rc $(says "nothing to sync")"

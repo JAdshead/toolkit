@@ -24,7 +24,7 @@ A project's own instructions (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING) win
 - **An issue:** `#42` or `42`. Read it with `gh issue view 42 --json title,body,labels,comments` (or the project's tracker).
 - **A spec/proposal change:** if the project has a spec or proposal workflow (a `changes/`, `proposals/` or `rfcs/` folder, or a CLI for it), use that workflow's ID and follow its rules for reading, ticking off tasks and archiving.
 
-For an issue, settle the repo's issue-tracking mode, simple or project, from `references/issue-tracking-mode.md`, and use that mode's Read context, Claim, In review and Release operations from `references/issue-tracking.md` below. If the issue is a parent with open sub-issues, list them and ask which one to implement.
+For an issue, settle the repo's issue-tracking mode, simple or project, from `references/issue-tracking-mode.md`, and use that mode's Read context, Claim, In review and Release operations from `references/issue-tracking.md` in the phases below. If the issue is a parent with open sub-issues, list them and ask which one to implement.
 
 With no argument, list open issues (and pending changes, if such a workflow exists) and ask the user to pick.
 
