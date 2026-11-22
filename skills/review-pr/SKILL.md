@@ -67,7 +67,9 @@ How many: one when Part 1 was skipped; two when it ran; three when additions plu
 
 ## Part 3: Validate
 
-Skip this when every owner returned MERGE with an empty BLOCKING list. An owner whose verdict is NOT YET but whose BLOCKING list is empty has not followed its brief: run a new owner in its place.
+First check each owner's output: MERGE must come with an empty BLOCKING list, and NOT YET with at least one entry. An owner whose output breaks that has not followed its brief: run a new owner in its place.
+
+Skip the validator when every owner returned MERGE.
 
 Otherwise spawn one fresh validator with only:
 
@@ -80,8 +82,8 @@ followed by each owner's verdict and BLOCKING list verbatim, labelled `Owner A`,
 
 The result:
 
-- **MERGE:** every owner said MERGE; or the validator was given at least one blocking finding and REFUTED every one, and every owner that said NOT YET had at least one of them.
-- **NOT YET:** anything else, including any blocking finding CONFIRMED or UNCLEAR. The blocking list is those findings, at the severity the validator gave them; ones it lowered to P3 become follow-ups.
+- **NOT YET:** at least one finding is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED, after the validator's severity check. Those findings are the blocking list.
+- **MERGE:** otherwise. Every blocking finding was refuted or lowered to P3, or every owner said MERGE. Findings lowered to P3 become follow-ups.
 
 ## Part 4: Act on the verdict
 

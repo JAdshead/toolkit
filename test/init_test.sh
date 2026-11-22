@@ -148,6 +148,13 @@ printf '[1]\n' > "$repo/.claude/settings.json"
 check "settings that are not a JSON object: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
 check "settings that are not a JSON object: nothing else is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
 
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"JAdshead/toolkit"}}},"enabledPlugins":{"toolkit@toolkit":true}}\n' > "$repo/.claude/settings.json"
+before="$(cat "$repo/.claude/settings.json")"
+init "$repo"
+check "settings that already enable the plugin keep their own formatting" "$before" "$(cat "$repo/.claude/settings.json")"
+
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"
