@@ -157,5 +157,77 @@ reset_board
 BOARD_READY=Backlog run claim me@mac 4 >/dev/null
 check "BOARD_READY names the ready status" "0 In progress me@mac" "$? $(field_of 4 status) $(field_of 4 agent)"
 
+# Status names that don't match exactly, or don't exist: never write half a claim.
+
+todo_board
+FAKE_GH_BOARD=github run claim me@mac 1 >/dev/null 2>&1
+check "on GitHub's default board (\"In Progress\"), claim sets the agent and the status" \
+  "0 In Progress me@mac" "$? $(field_of 1 status) $(field_of 1 agent)"
+
+reset_board
+FAKE_GH_BOARD=noprogress run claim me@mac 1 >/dev/null 2>&1
+check "claim on a board with no in-progress option fails and writes nothing" \
+  "1 Ready|" "$? $(field_of 1 status)|$(field_of 1 agent)"
+
+reset_board
+BOARD_IN_PROGRESS=Doing run claim me@mac 1 2 >/dev/null 2>&1
+check "claim with a BOARD_IN_PROGRESS the board lacks fails and writes nothing" \
+  "1 Ready| Ready|" "$? $(field_of 1 status)|$(field_of 1 agent) $(field_of 2 status)|$(field_of 2 agent)"
+
+reset_board
+run claim me@mac 1 >/dev/null
+BOARD_READY=Queued run release me@mac 1 >/dev/null 2>&1
+check "release with a ready status the board lacks fails and keeps the claim" \
+  "1 In progress|me@mac" "$? $(field_of 1 status)|$(field_of 1 agent)"
+
+reset_board
+BOARD_READY=Queued run approve 4 >/dev/null 2>&1
+check "approve with a ready status the board lacks fails and writes nothing" "1 Backlog" "$? $(field_of 4 status)"
+
+reset_board
+run claim me@mac 1 >/dev/null
+run move me@mac "in review" 1 >/dev/null 2>&1
+check "move matches status names case-insensitively and writes the board's name" "0 In review" "$? $(field_of 1 status)"
+
+reset_board
+run claim me@mac 1 >/dev/null
+check "move reports the board's spelling of the status" "moved 1 to In review" "$(run move me@mac "in review" 1 2>&1)"
+
+reset_board
+BOARD_READY=backlog run claim me@mac 4 >/dev/null 2>&1
+check "BOARD_READY matches case-insensitively" "0 In progress me@mac" "$? $(field_of 4 status) $(field_of 4 agent)"
+
+reset_board
+check "BOARD_DONE matches case-insensitively, so busy still leaves out Done issues" \
+  "$(printf '3\tIn progress\tPayments\tother@host\n5\tReady\tPricing\tstale@host')" "$(BOARD_DONE='done' run busy)"
+
+upper_ready_board() {
+  cat > "$FAKE_GH_STATE" <<'JSON'
+{"items":[
+  {"id":"U1","status":"READY","title":"Shouty board","content":{"number":1,"repository":"acme/app"}}
+]}
+JSON
+}
+
+upper_ready_board
+check "a ready option spelled in another case is still the ready status" \
+  "$(printf '1\t\t\tShouty board')" "$(FAKE_GH_BOARD=upperready run ready)"
+
+upper_ready_board
+FAKE_GH_BOARD=upperready run claim me@mac 1 >/dev/null 2>&1
+check "claim takes an issue in a ready option spelled in another case" \
+  "0 In progress me@mac" "$? $(field_of 1 status) $(field_of 1 agent)"
+
+# claim resolves the ready status up front: it needs it to roll back a lost
+# race, and finding it missing only then would leave half a claim.
+cat > "$FAKE_GH_STATE" <<'JSON'
+{"items":[
+  {"id":"Q1","status":"Queued","title":"Ready status the board lacks","content":{"number":1,"repository":"acme/app"}}
+]}
+JSON
+BOARD_READY=Queued run claim me@mac 1 >/dev/null 2>&1
+check "claim with a ready status the board lacks fails and writes nothing" \
+  "1 Queued|" "$? $(field_of 1 status)|$(field_of 1 agent)"
+
 echo "$passes passed, $failures failed"
 [ "$failures" = 0 ]

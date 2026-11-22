@@ -15,7 +15,7 @@ Take a set of open GitHub issues from "open" to "pull request ready for a human"
 - **The orchestrator stays lean.** It selects, groups, delegates, verifies and asks. Heavy work (implementing, reviewing, fixing) goes to subagents when the agent supports them.
 - **Sequential within a group, isolated across groups.** Issues in one PR are implemented one after another on the same branch. Each group has its own worktree, so separate runs (or separate terminals) never touch the same files.
 - **Claim before you build.** Issues are claimed as soon as the user confirms the grouping, so a second run does not pick them up.
-- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0. On a board with an Agent field, those operations go through `scripts/board` under one agent id per PR group.
+- **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0 from `references/issue-tracking-mode.md`. On a board with an Agent field, those operations go through `scripts/board` under one agent id per PR group.
 - **Trust, but verify.** Every subagent report is checked against `git log` and `git diff` before it counts as done.
 - **Reviews end.** The review loop has a fixed exit rule, not "until nobody has anything to say".
 - **Nothing is pushed, opened, merged or closed without the user's go-ahead.**
@@ -208,6 +208,7 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 ## References
 
 - `references/subagent-templates.md`: verify-command detection, worktree setup, implementation, fix and CI-analysis prompts, PR body template.
-- `references/issue-tracking.md`: simple and project modes and their issue operations.
-- `scripts/board`: per-run claims and status moves on a board with an Agent field (canonical copy and tests in the toolkit's `shared/`).
+- `references/issue-tracking-mode.md`: which mode the repo is in, simple or project.
+- `references/issue-tracking.md`: each mode's issue operations.
+- `scripts/board`: per-run claims and status moves on a board with an Agent field.
 - `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.
