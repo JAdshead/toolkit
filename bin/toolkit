@@ -138,9 +138,7 @@ apply() {
 init_import() {
   local file="$1" import="$2" agents
   agents="$(dirname "$file")/AGENTS.md"
-  if [ -L "$file" ] && [ ! -e "$file" ]; then
-    echo "skipped $(basename "$file"): it is a link to a missing file" >&2
-  elif [ ! -e "$file" ]; then
+  if [ ! -e "$file" ]; then
     printf '%s\n' "$import" > "$file"
     echo "created $(basename "$file") importing AGENTS.md"
   elif [ "$file" -ef "$agents" ] || grep -qE "$IMPORT_RE" "$file"; then
@@ -151,33 +149,24 @@ init_import() {
   fi
 }
 
-# Print the physical path PATH leads to, following symlinks (the last part
-# may not exist). Fails if a parent directory is missing or links loop.
-resolve() {
-  local p="$1" t n=0 d
-  while [ -L "$p" ]; do
-    n=$((n + 1)); [ "$n" -le 40 ] || return 1
-    t="$(readlink "$p")"
-    case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
-  done
-  # -P: follow each directory link as it is reached, as the kernel will when
-  # writing. A logical cd would collapse "dir-link/.." as text and land elsewhere.
-  d="$(CDPATH='' cd -P -- "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
-  printf '%s/%s\n' "$d" "$(basename "$p")"
-}
-
 # Refuse anything init would write that is not an ordinary file (or absent)
-# inside DIR: a link out of the repo, a directory where a file goes, or a
-# file where the .claude directory goes. A cloned repo is untrusted input.
+# in DIR. A cloned repo is untrusted input, so init follows no links: the one
+# allowed is CLAUDE.md or GEMINI.md linking to the repo's own AGENTS.md, which
+# init then leaves alone. AGENTS.md itself must be a regular file or absent.
 check_targets() {
-  local dir="$1" rel real
+  local dir="$1" rel
   for rel in AGENTS.md CLAUDE.md GEMINI.md .claude .claude/settings.json; do
-    [ -e "$dir/$rel" ] || [ -L "$dir/$rel" ] || continue
-    real="$(resolve "$dir/$rel")" || die "can't resolve $rel; fix it and re-run"
-    case "$real" in "$dir"/*) ;; *) die "$rel leads outside the repo (to $real); refusing to write there" ;; esac
+    if [ -L "$dir/$rel" ]; then
+      case "$rel" in
+        CLAUDE.md|GEMINI.md)
+          case "$(readlink "$dir/$rel")" in AGENTS.md|./AGENTS.md) continue ;; esac ;;
+      esac
+      die "$rel is a link; init writes only regular files (CLAUDE.md and GEMINI.md may link to AGENTS.md). Replace it and re-run"
+    fi
+    [ -e "$dir/$rel" ] || continue
     if [ "$rel" = .claude ]; then
       [ -d "$dir/$rel" ] || die ".claude is not a directory; fix it and re-run"
-    elif [ -e "$dir/$rel" ] && [ ! -f "$dir/$rel" ]; then
+    elif [ ! -f "$dir/$rel" ]; then
       die "$rel is not a regular file; fix it and re-run"
     fi
   done

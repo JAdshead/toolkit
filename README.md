@@ -56,11 +56,11 @@ It is safe to re-run, and re-running it after `toolkit update` refreshes the rul
 | What | Where |
 |------|-------|
 | Adds the shared rules between `<!-- toolkit:start -->` and `<!-- toolkit:end -->` markers, one heading level down | `AGENTS.md` (created if missing; an existing block is replaced, everything else is kept) |
-| Makes Claude Code read `AGENTS.md` | `CLAUDE.md`: created as `@AGENTS.md`, or that line appended. Left alone if it already imports or links to `AGENTS.md` |
-| Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended |
+| Makes Claude Code read `AGENTS.md` | `CLAUDE.md`: created as `@AGENTS.md`, or that line appended. Left alone if it already imports `AGENTS.md` or is a link to it |
+| Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended. Left alone if it already imports `AGENTS.md` or is a link to it |
 | Enables the plugin for everyone who opens the repo in Claude Code | `.claude/settings.json`: adds the `toolkit` marketplace and `toolkit@toolkit`, keeping other keys and any value the repo already set |
 
-Codex reads `AGENTS.md` itself. Needs `jq`. Before writing anything it checks that the markers are intact, that `.claude/settings.json` is a JSON object, and that none of the files it writes is a link out of the repo or the wrong kind of file (such as a `.claude` that isn't a directory). If a check fails it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
+Codex reads `AGENTS.md` itself. Needs `jq`. Before writing anything it checks that the markers are intact, that `.claude/settings.json` is a JSON object, and that every file it writes is a regular file or absent and `.claude` a real directory. It follows no links: the only link it accepts is a `CLAUDE.md` or `GEMINI.md` whose target is exactly `AGENTS.md` or `./AGENTS.md`, which it leaves as is and does not write through. If a check fails it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
 Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
