@@ -125,6 +125,45 @@ class UsageDigestTest(unittest.TestCase):
                              capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(out.stdout)["codex"]["threads"], [])
 
+    def test_out_file_and_folder_are_owner_only(self):
+        report_dir = os.path.join(self.tmp.name, "reports")
+        os.makedirs(report_dir, mode=0o755)
+        os.chmod(report_dir, 0o755)
+        out = os.path.join(report_dir, "digest.md")
+        with open(out, "w") as f:
+            f.write("stale")
+        os.chmod(out, 0o644)
+        old_umask = os.umask(0o022)
+        try:
+            self.run_digest("--out", out)
+        finally:
+            os.umask(old_umask)
+        self.assertEqual(os.stat(report_dir).st_mode & 0o777, 0o700)
+        self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+        with open(out) as f:
+            self.assertIn("fix the flaky booking test", f.read())
+
+    def test_out_creates_missing_folder_owner_only(self):
+        out = os.path.join(self.tmp.name, "new", "digest.md")
+        self.run_digest("--out", out)
+        self.assertEqual(os.stat(os.path.dirname(out)).st_mode & 0o777, 0o700)
+        self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+
+    def test_out_in_folder_not_owned_still_writes_private_file(self):
+        if os.stat("/tmp").st_uid == os.getuid():
+            self.skipTest("/tmp is owned by this user")
+        out = os.path.join("/tmp", f"usage-digest-test-{os.getpid()}.md")
+        try:
+            result = subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
+                                     "--codex-dir", self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
+                                     "--out", out], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("warning", result.stderr)
+            self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+        finally:
+            if os.path.exists(out):
+                os.remove(out)
+
     def test_markdown_mentions_window_and_prompts(self):
         md = self.run_digest()
         self.assertIn("2026-11-09", md)

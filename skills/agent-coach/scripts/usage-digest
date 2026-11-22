@@ -6,7 +6,10 @@ Reads Claude Code transcripts (<claude-dir>/projects/*/*.jsonl) and Codex thread
 the project, prompts, slash commands, skills, tools, errors and denials, plus totals.
 
 Usage: usage-digest [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--format md|json]
-                    [--claude-dir DIR] [--codex-dir DIR]
+                    [--claude-dir DIR] [--codex-dir DIR] [--out FILE]
+
+The digest quotes prompts from owner-only transcripts, so --out writes FILE as
+0600 and makes its folder 0700 (creating it if needed). Without --out it prints.
 
 The window is [since, until) in local time. Default: the 7 days before today.
 """
@@ -33,6 +36,7 @@ def parse_args():
     p.add_argument("--format", choices=("md", "json"), default="md")
     p.add_argument("--claude-dir", default=os.path.expanduser("~/.claude"))
     p.add_argument("--codex-dir", default=os.path.expanduser("~/.codex"))
+    p.add_argument("--out", help="write to FILE (0600, folder 0700) instead of stdout")
     return p.parse_args()
 
 
@@ -221,17 +225,31 @@ def markdown(data):
     return "\n".join(out) + "\n"
 
 
+def write_private(path, text):
+    folder = os.path.dirname(os.path.abspath(path))
+    os.makedirs(folder, mode=0o700, exist_ok=True)
+    if os.stat(folder).st_uid == os.getuid():
+        os.chmod(folder, 0o700)
+    else:
+        print(f"warning: {folder} is not yours, so it can't be made owner-only; use a folder of your own",
+              file=sys.stderr)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+
+
 def main():
     args = parse_args()
     since, until = local_midnight(args.since), local_midnight(args.until)
     data = {"since": args.since, "until": args.until,
             "claude_code": claude_usage(args.claude_dir, since, until),
             "codex": codex_usage(args.codex_dir, since, until)}
-    if args.format == "json":
-        json.dump(data, sys.stdout, indent=2, default=str)
-        print()
+    text = json.dumps(data, indent=2, default=str) + "\n" if args.format == "json" else markdown(data)
+    if args.out:
+        write_private(args.out, text)
     else:
-        sys.stdout.write(markdown(data))
+        sys.stdout.write(text)
 
 
 if __name__ == "__main__":
