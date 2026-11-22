@@ -23,10 +23,14 @@ check() {
 
 fresh() { rm -rf "${work:?}/repo"; mkdir -p "$work/repo"; echo "$work/repo"; }
 # Run init where it is expected to succeed; a non-zero exit fails the run.
+# Its output (stdout and stderr) is left in $out.
 runs=0
+out=""
 init() {
+  local rc=0
   runs=$((runs + 1))
-  check "init run $runs succeeds" "0" "$("$toolkit" init "$1" >/dev/null 2>&1; echo $?)"
+  out="$("$toolkit" init "$1" 2>&1)" || rc=$?
+  check "init run $runs succeeds" "0" "$rc"
 }
 block_of() { awk '/<!-- toolkit:start -->/{on=1} on{print} /<!-- toolkit:end -->/{on=0}' "$1"; }
 has() { if grep -qF -- "$2" "$1"; then echo yes; else echo no; fi; }
@@ -46,8 +50,12 @@ check "empty repo: settings add the marketplace" "github JAdshead/toolkit" \
 check "empty repo: GEMINI.md imports AGENTS.md" "@./AGENTS.md" "$(cat "$repo/GEMINI.md")"
 
 repo="$(fresh)"
-(cd "$repo" && "$toolkit" init >/dev/null)
+rc=0
+(cd "$repo" && "$toolkit" init >/dev/null 2>&1) || rc=$?
+check "with no directory, init succeeds" "0" "$rc"
 check "with no directory, init sets up the current directory" "yes" "$(has "$repo/AGENTS.md" "<!-- toolkit:end -->")"
+check "with no directory, init finishes the setup" "yes" \
+  "$([ -f "$repo/CLAUDE.md" ] && [ -f "$repo/GEMINI.md" ] && [ -f "$repo/.claude/settings.json" ] && echo yes || echo no)"
 
 repo="$(fresh)"
 init "$repo"
@@ -283,7 +291,7 @@ done
 
 # What init says on an ordinary run.
 repo="$(fresh)"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "empty repo: says the plugin is enabled" "yes" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
 check "empty repo: no repo's-own-marketplace note" "no" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
 check "empty repo: nothing about staying disabled" "no" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
@@ -291,7 +299,7 @@ check "empty repo: nothing about staying disabled" "no" "$(grep -q 'stays disabl
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"JAdshead/toolkit"}}}}\n' > "$repo/.claude/settings.json"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "the toolkit's own marketplace is not called the repo's own" "no" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
 
 for name in CLAUDE.md GEMINI.md; do
@@ -304,14 +312,14 @@ done
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "a plugin the repo turned off is not reported as enabled" "no" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
 check "a plugin the repo turned off is reported as staying disabled" "yes" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "a kept marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
 
 for source in '{"source":"git","url":"https://elsewhere.example/m.git","repo":"JAdshead/toolkit"}' \
@@ -319,20 +327,20 @@ for source in '{"source":"git","url":"https://elsewhere.example/m.git","repo":"J
   repo="$(fresh)"
   mkdir -p "$repo/.claude"
   printf '{"extraKnownMarketplaces":{"toolkit":{"source":%s}}}\n' "$source" > "$repo/.claude/settings.json"
-  out="$("$toolkit" init "$repo" 2>&1)"
+  init "$repo"
   check "a kept marketplace that differs in any field is named: $source" "yes" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
 done
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"evil/x\\u001b[2K\\r"}}}}\n' > "$repo/.claude/settings.json"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "control characters from the repo's settings never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"enabledPlugins":{"toolkit@toolkit":"off\\u001b[2K\\r"}}\n' > "$repo/.claude/settings.json"
-out="$("$toolkit" init "$repo" 2>&1)"
+init "$repo"
 check "control characters in the repo's plugin value never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
