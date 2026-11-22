@@ -20,18 +20,8 @@ In a repo without a board (simple mode) there is nothing to do: the issue is whe
 
 ## 1. Find the board
 
-1. Look in the project's agent instructions (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) for an `Issue tracking` section:
-   ```markdown
-   ## Issue tracking
-   - Mode: project            # simple | project
-   - Project: my-org/4        # owner/number of the GitHub Project
-   - Status: Todo, In progress, In review, Done   # this board's option names, in order
-   - Intake: Todo             # the Status new issues are placed in
-   ```
-2. Otherwise `gh repo view --json nameWithOwner,projectsV2`: one open linked board is the board; several, ask which; none means simple mode.
-3. In simple mode, say so in one line and stop. Offer Setup only if the user asked for a board or the repo is straining (many open issues, features split into several issues).
-
-If a project command fails for lack of the `project` scope, stop and ask the user to run `gh auth refresh -s project`; you cannot do it for them.
+1. Settle the mode and the board with `references/issue-tracking-mode.md`. It also covers a missing `project` scope.
+2. In simple mode, say so in one line and stop. Offer Setup only if the user asked for a board or the repo is straining (many open issues, features split into several issues).
 
 ## 2. Learn the board
 

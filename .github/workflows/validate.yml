@@ -39,3 +39,6 @@ jobs:
         run: |
           test/init_test.sh
           test/session_start_test.sh
+
+      - name: Test bin/sync-shared
+        run: test/sync_shared_test.sh
