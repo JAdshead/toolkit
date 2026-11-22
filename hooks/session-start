@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Claude Code SessionStart hook: add the toolkit's working rules to the session
+# unless they already reach it, through the project's toolkit block (toolkit
+# init) or a global CLAUDE.md that is the rules file (install.sh). Its output
+# becomes session context.
+set -uo pipefail
+
+root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+rules="$root/rules/AGENTS.md"
+project="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+[ -f "$rules" ] || exit 0
+
+# A toolkit init block: the start marker on a line of its own.
+for file in "$project/AGENTS.md" "$project/CLAUDE.md"; do
+  [ -f "$file" ] && grep -qE '^[[:space:]]*<!-- toolkit:start -->[[:space:]]*$' "$file" && exit 0
+done
+
+# install.sh links ~/.claude/CLAUDE.md to some checkout's rules/AGENTS.md,
+# which may be a different version from this plugin's copy.
+global="$HOME/.claude/CLAUDE.md"
+cmp -s "$global" "$rules" && exit 0
+case "$(readlink "$global" 2>/dev/null)" in */rules/AGENTS.md) exit 0 ;; esac
+
+echo "The toolkit plugin's working rules apply in this session:"
+echo
+cat "$rules"
+exit 0
