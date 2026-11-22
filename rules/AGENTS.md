@@ -19,3 +19,7 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Pull request review
 
 - **Before merging a pull request, review it with the `review-pr` skill.** It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
+
+## Terminology
+
+- **When a domain term in a prompt is vague, overloaded, or used differently from the project's glossary, use the `glossary` skill** to settle it with the user rather than guessing what they meant.
