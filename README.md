@@ -128,12 +128,12 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | Skill | What it does |
 |-------|--------------|
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
-| `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; sets up a board |
+| `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
 | `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
+| `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; sets up a board |
 | `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
-| `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
 
 In Claude Code they appear as `toolkit:<name>`.

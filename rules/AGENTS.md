@@ -22,4 +22,4 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Terminology
 
-- **When a domain term in a prompt is vague, overloaded, or used differently from the project's glossary, use the `glossary` skill** to settle it with the user rather than guessing what they meant.
+- **When a domain term in a prompt is vague, overloaded, or used differently from the project's glossary, and its meaning would change what you do, use the `glossary` skill** to settle it with the user rather than guessing what they meant.
