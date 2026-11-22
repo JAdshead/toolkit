@@ -39,7 +39,8 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fields="$(gh project field-list "$number" --owner "$owner" --format json --limit 100)"
 project_id=""
 
-jq -e '.fields[] | select(.name == "Agent")' <<<"$fields" >/dev/null || {
+agent_field="$(jq -r 'first(.fields[] | select(.name == "Agent")) | .id' <<<"$fields")"
+[ -n "$agent_field" ] || {
   echo "board: $owner/$number has no Agent field; claim by assignee instead" >&2
   exit 2
 }
@@ -51,7 +52,6 @@ field_id() {
   echo "$id"
 }
 status_field="$(field_id Status)"
-agent_field="$(field_id Agent)"
 
 # "<id>\t<name>" of the Status option matching $1 case-insensitively, or nothing.
 status_lookup() {
@@ -73,8 +73,9 @@ status_option() {
   echo "${hit%%$'\t'*}"
 }
 
+ready_hit="$(status_lookup Ready)"
 if [ -n "${BOARD_READY:-}" ]; then ready="$(status_name "$BOARD_READY")"
-elif [ -n "$(status_lookup Ready)" ]; then ready="$(status_name Ready)"
+elif [ -n "$ready_hit" ]; then ready="${ready_hit#*$'\t'}"
 else ready="$(status_name Todo)"
 fi
 in_progress="$(status_name "${BOARD_IN_PROGRESS:-In progress}")"
@@ -140,6 +141,8 @@ cmd_claim() {
   shift
   [ $# -gt 0 ] || die "claim needs issue numbers"
   progress_id="$(status_option "$in_progress")"
+  # Resolved now, not in the rollback: a missing ready status found only after
+  # a lost race would leave half a claim.
   ready_id="$(status_option "$ready")"
   all="$(items)"
   for n in "$@"; do
@@ -171,11 +174,13 @@ cmd_claim() {
 }
 
 cmd_move() {
-  local agent="${1:?agent}" status n ids=() id status_id
-  status="$(status_name "${2:?status}")"
+  local agent="${1:?agent}" hit status n ids=() id status_id
+  hit="$(status_lookup "${2:?status}")"
+  [ -n "$hit" ] || die "the board's Status field has no option \"$2\""
+  status_id="${hit%%$'\t'*}"
+  status="${hit#*$'\t'}"
   shift 2
   [ $# -gt 0 ] || die "move needs issue numbers"
-  status_id="$(status_option "$status")"
   for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
   for id in "${ids[@]}"; do set_status "$id" "$status_id"; done
   echo "moved $* to $status"
