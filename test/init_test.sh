@@ -204,6 +204,25 @@ ln -s docs/agents.md "$repo/AGENTS.md"
 init "$repo"
 check "AGENTS.md linking inside the repo still gets the block" "yes" "$(has "$repo/docs/agents.md" "<!-- toolkit:end -->")"
 
+for name in CLAUDE.md GEMINI.md; do
+  repo="$(fresh)"
+  mkdir "$repo/$name"
+  check "$name is a directory: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  check "$name is a directory: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
+done
+
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
+out="$("$toolkit" init "$repo" 2>&1)"
+check "a plugin the repo turned off is not reported as enabled" "no" "$(printf '%s' "$out" | grep -q 'enabled the toolkit plugin' && echo yes || echo no)"
+check "a plugin the repo turned off is reported as staying disabled" "yes" "$(printf '%s' "$out" | grep -q 'stays disabled' && echo yes || echo no)"
+
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
+check "a kept marketplace from elsewhere is named" "yes" "$("$toolkit" init "$repo" 2>&1 | grep -q 'someone/fork' && echo yes || echo no)"
+
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"

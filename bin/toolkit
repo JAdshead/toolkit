@@ -107,6 +107,20 @@ plan_settings() {
   fi
 }
 
+# Say what the planned settings file does: whether the plugin ends up enabled,
+# and where the toolkit marketplace points when the repo set its own.
+settings_message() {
+  local file="$1" enabled source
+  enabled="$(jq -r '.enabledPlugins["toolkit@toolkit"]' "$file")"
+  source="$(jq -r '.extraKnownMarketplaces.toolkit.source | (.repo // .url // .path // tostring)' "$file")"
+  if [ "$enabled" = true ]; then
+    printf 'enabled the toolkit plugin in .claude/settings.json'
+  else
+    printf 'added the toolkit marketplace to .claude/settings.json; the repo sets toolkit@toolkit to %s, so it stays disabled' "$enabled"
+  fi
+  [ "$source" = "$MARKETPLACE_REPO" ] || printf ' (its toolkit marketplace is the repo'"'"'s own: %s)' "$source"
+}
+
 # Install SRC at DEST if it differs, and say so.
 apply() {
   local src="$1" dest="$2" what="$3"
@@ -181,7 +195,7 @@ init_repo() {
   apply "$work/AGENTS.md" "$dir/AGENTS.md" "wrote the toolkit rules to AGENTS.md"
   init_import "$dir/CLAUDE.md" "@AGENTS.md"
   init_import "$dir/GEMINI.md" "@./AGENTS.md"
-  apply "$work/settings.json" "$dir/.claude/settings.json" "enabled the toolkit plugin in .claude/settings.json"
+  apply "$work/settings.json" "$dir/.claude/settings.json" "$(settings_message "$work/settings.json")"
   echo "Review and commit the changes in $dir."
 }
 
