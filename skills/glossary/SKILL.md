@@ -22,13 +22,13 @@ This skill is the active discipline: it interrupts, asks which meaning is meant,
 
 1. If `GLOSSARY-MAP.md` exists at the repo root, the repo has several contexts, each with its own `GLOSSARY.md`. Use the map to pick one; if the term could belong to more than one, ask.
 2. Otherwise use `GLOSSARY.md` at the repo root.
-3. If neither exists, create `GLOSSARY.md` when the first entry is needed, not before: a term is settled, or a term is parked under **Open**.
+3. If neither exists, never create one unasked. Unless the user invoked this skill or asked for a glossary, ask once when the first entry is needed (a term is settled, or parked under **Open**): `No glossary yet. Start GLOSSARY.md with **Subscription**?` On anything but a yes, use the answer for the task at hand, write nothing, and don't ask again this session. With a yes, create `GLOSSARY.md` then, not before.
 
 Also read issues, ADRs or docs the project points to for terminology, so a naming question already settled there is not raised again.
 
 ## Live
 
-While the user talks, prompts or describes work, watch every domain term. Stop and ask (one short question, then carry on) when:
+While the user talks, prompts or describes work, watch the domain terms the work depends on. Stop and ask (one short question, then carry on) only when the meaning would change what you do, and:
 
 - **It conflicts with the glossary.** "The glossary says a *Booking* is a confirmed reservation, but you're using it for a held slot. Which do you mean?"
 - **It is an avoided synonym.** The user says *client* and the glossary lists it under *Avoid* for *Customer*. Point it out once and use the canonical term from then on. Don't nag about the same word twice in a session.
