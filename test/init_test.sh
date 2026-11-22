@@ -92,6 +92,20 @@ check "a start marker without an end marker: init fails" "1" "$("$toolkit" init 
 check "a start marker without an end marker: AGENTS.md is untouched" "$before" "$(cat "$repo/AGENTS.md")"
 check "a failed init writes no other file" "no" "$([ -e "$repo/CLAUDE.md" ] || [ -e "$repo/.claude" ] && echo yes || echo no)"
 
+# Malformed markers: init fails and leaves AGENTS.md exactly as it was.
+malformed() {
+  local name="$1" content="$2" before
+  repo="$(fresh)"
+  printf '%b' "$content" > "$repo/AGENTS.md"
+  before="$(cat "$repo/AGENTS.md")"
+  check "$name: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  check "$name: AGENTS.md is untouched" "$before" "$(cat "$repo/AGENTS.md")"
+}
+malformed "end marker before start marker" 'a\n<!-- toolkit:end -->\nb\n<!-- toolkit:start -->\nc\n'
+malformed "two start markers and one end marker" '<!-- toolkit:start -->\na\n<!-- toolkit:start -->\nb\n<!-- toolkit:end -->\n'
+malformed "one start marker and two end markers" '<!-- toolkit:start -->\na\n<!-- toolkit:end -->\nb\n<!-- toolkit:end -->\n'
+malformed "an end marker alone" 'a\n<!-- toolkit:end -->\nb\n'
+
 repo="$(fresh)"
 printf 'Intro.\r\n<!-- toolkit:start -->\r\nold rules\r\n<!-- toolkit:end -->\r\n' > "$repo/AGENTS.md"
 init "$repo"
