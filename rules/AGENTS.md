@@ -4,7 +4,9 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Tests
 
-- **TDD by default.** Write the failing test first, run it, and confirm it fails for the reason you expect. Then write the least code that makes it pass, then refactor. If you can't test first, say so in the commit or PR rather than skipping it silently.
+- **TDD, always.** Write the failing test first, run it, and confirm it fails for the reason you expect. Then write the least code that makes it pass, then refactor. No production code without a failing test that needs it.
+- **Every bug fix starts with a test that reproduces it.** See it fail before touching the code.
+- **Only changes with no behaviour skip the test** (docs, comments, formatting, plain config). Name the exception in the commit or PR; never skip silently.
 - **No `sleep` in tests.** Wait on a condition (a waiting matcher, a poll with a deadline), never on a fixed delay. Freeze the clock around any assertion about time.
 - **A test that would still pass with the implementation deleted is broken.** Assert observable state or return values; mock only at the system boundary (third-party APIs, network, email, filesystem).
 
@@ -19,3 +21,4 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Pull request review
 
 - **Before merging a pull request, review it with the `review-pr` skill.** It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
+- **A behaviour change with no test that fails without it is not ready to merge.**

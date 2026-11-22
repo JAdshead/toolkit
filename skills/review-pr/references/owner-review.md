@@ -26,7 +26,7 @@ The PR's head is checked out in the worktree you were given; read and run code t
 ## Severity
 
 - **P1:** wrong behaviour, a security hole, data loss, or the PR does not do what it says.
-- **P2:** a real problem you would make the author fix first: an untested branch that matters, missing failure handling, a convention the project enforces.
+- **P2:** a real problem you would make the author fix first: a behaviour change with no test that fails without it (including a bug fix with no reproducing test), an untested branch that matters, missing failure handling, a convention the project enforces.
 - **UNTRUE:** text (comment, doc, message, PR text) that misdescribes what the code does.
 - **UNVERIFIED:** something you could not check that could change your answer, and what would settle it.
 - **P3:** anything you would merge and fix later.

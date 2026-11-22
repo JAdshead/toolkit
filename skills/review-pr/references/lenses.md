@@ -22,7 +22,7 @@ Each lens asks one question. Check whatever that question needs.
 
 - **Correctness:** does it do what it says, on the failure paths too, without breaking existing callers or data?
 - **Security:** can hostile input (a user, a request, a cloned repo, a PR) make it do harm? Only an exploitable path is P1 or P2.
-- **Tests:** would the tests fail if this change were broken or reverted? A test that still passes with the implementation deleted is P2.
+- **Tests:** would the tests fail if this change were broken or reverted? A test that still passes with the implementation deleted is P2. A behaviour change with no test that fails without it is P2 (a bug fix needs a test that reproduces the bug).
 - **Simplicity:** is there a simpler version that does the same job? Most findings here are P3.
 - **UX** (only when UI files changed): can a user tell what happened and recover from an error, by keyboard and screen reader too?
 
