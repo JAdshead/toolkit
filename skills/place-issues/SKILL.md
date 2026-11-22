@@ -47,7 +47,7 @@ An issue is unplaced when no entry in its `projectItems` has this board's title.
 - **Fields:** the board's Priority from the priority label or the body's `Priority:` or `Severity:` line; Size from a `Size:` line. Map by rank when the scales differ (HIGH/MEDIUM/LOW onto P1/P2/P3). Leave a field empty rather than guess.
 - **Parent:** an existing open parent when the issue says `Part of #<n>`, is listed in another issue's checklist (`- [ ] #<n>`), or plainly belongs to it. Propose a **new** parent only for two or more issues that form one feature (for example several bodies saying `Part of: <feature>`). One task on its own is just an issue; never invent a parent to group unrelated work.
 
-When placing every open issue (no numbers given), also list open parents whose `subIssuesSummary` shows every sub-issue closed. The plan offers to close them.
+When placing every open issue (no numbers given), also list open parents that have sub-issues, all of them closed (`subIssuesSummary`). The plan offers to close them.
 
 ## 4. Confirm
 

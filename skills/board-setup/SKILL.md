@@ -49,24 +49,26 @@ gh api graphql --input - <<'JSON'
  "variables": {"input": {"fieldId": "<status field id>", "singleSelectOptions": [
    {"name": "Backlog", "color": "GRAY", "description": ""},
    {"id": "<Todo's id>", "name": "Ready", "color": "<its color>", "description": "<its description>"},
+   {"id": "<In Progress's id>", "name": "In Progress", "color": "<its color>", "description": "<its description>"},
+   {"name": "In review", "color": "PURPLE", "description": ""},
    ...the other existing options, in order, with their ids...
  ]}}}
 JSON
 ```
 
-Read the options again afterwards and check that every existing one kept its id. If the call fails, give the user the board's URL to add the options in its Status field settings instead.
+New options need a color: GRAY, BLUE, GREEN, YELLOW, ORANGE, RED, PINK or PURPLE. Read the options again afterwards and check that every existing one kept its id. If the call fails, give the user the board's URL to add the options in its Status field settings instead.
 
 ## 3. Record it
 
-Add an `Issue tracking` section to the project's agent instructions (`AGENTS.md`, or `CLAUDE.md` if the repo has no `AGENTS.md`). Put it outside any `<!-- toolkit:start -->` … `<!-- toolkit:end -->` block, which `toolkit init` replaces. Use the board's exact option names, read back from the board:
+Add or update the `Issue tracking` section in the project's agent instructions (`AGENTS.md`, or `CLAUDE.md` if the repo has no `AGENTS.md`). Put it outside any `<!-- toolkit:start -->` … `<!-- toolkit:end -->` block, which `toolkit init` replaces. If the instructions already declare one (for example `Mode: simple`), replace it rather than add a second. Use the board's exact option names, read back from the board:
 
 ```markdown
 ## Issue tracking
 - Mode: project
 - Project: <owner>/<number>
 - Claims: agent            # or assignee, without the Agent field
-- Status: Backlog, Ready, In Progress, In review, Done
-- Intake: Backlog          # Todo, without Backlog/Ready
+- Status: ready=Ready, in progress=In Progress, in review=In review, done=Done   # role=exact option name; leave out roles the board lacks
+- Intake: Backlog          # or Todo, without Backlog/Ready
 ```
 
 Show the section and the file before writing it.

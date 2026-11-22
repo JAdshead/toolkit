@@ -44,7 +44,7 @@ With no argument, list open issues (and pending changes, if such a workflow exis
    ```
    Use the project's worktree location if it has one; otherwise a sibling directory outside the repo. Then run the install and setup steps found above. If the project shares a resource between checkouts (a test database, a port), isolate it for this worktree.
 4. If the branch or worktree already exists, stop and suggest `--resume` or the cleanup commands.
-5. Claim the issue with the mode's Claim operation before writing any code. Asking for `implement <id>` is consent to claim it: don't ask, just say it in one line ("Claiming #42 as implement/42@studio"). With Agent claims, which go through `scripts/board`, the agent id is `implement/<id>@$(hostname -s)`. If someone else holds it, stop and tell the user who. If it isn't in Ready (for example Backlog or Needs decision), ask before claiming, whatever the claim style. With `--resume`, re-run the same claim.
+5. Claim the issue with the mode's Claim operation before writing any code. Asking for `implement <id>` is consent to claim it: don't ask, just say it in one line ("Claiming #42 as implement/42@studio"). With Agent claims, which go through `scripts/board`, the agent id is `implement/<id>@$(hostname -s)`. If someone else holds it, stop and tell the user who. With `--resume`, re-run the claim.
 
 ## Phase 2: Implement test-first
 
