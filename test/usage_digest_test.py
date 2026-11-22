@@ -56,6 +56,12 @@ class UsageDigestTest(unittest.TestCase):
             f.write(tool_result("2026-11-10T09:00:06Z", True, "boom"))
             f.write(tool_result("2026-11-10T09:00:07Z", True,
                                 "The user doesn't want to proceed with this tool use."))
+            f.write(tool_result("2026-11-10T09:00:08Z", False, "all tests passed"))
+            f.write(tool_result("2026-11-10T09:00:09Z", True,
+                                "Permission for this action was denied by the Claude Code auto mode classifier."
+                                " Reason: pushes to main."))
+            f.write(tool_result("2026-11-10T09:00:09Z", True,
+                                "The Claude Code auto mode classifier gave no verdict for this action."))
             f.write(user("2026-11-10T09:01:00Z", "<command-name>/review</command-name>"))
             f.write(user("2026-11-10T09:02:00Z", "caveat", isMeta=True))
             f.write(user("2026-11-10T09:03:00Z", "[Request interrupted by user]"))
@@ -104,8 +110,8 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual(s["slash_commands"], ["/review"])
         self.assertEqual(s["skills"], ["toolkit:implement"])
         self.assertEqual(s["tools"], {"Bash": 1, "Skill": 1, "mcp__github__create_pr": 1})
-        self.assertEqual(s["tool_errors"], 2)
-        self.assertEqual(s["denials"], 1)
+        self.assertEqual(s["tool_errors"], 4)
+        self.assertEqual(s["denials"], 2)
         self.assertEqual(s["interrupts"], 1)
         self.assertEqual(s["subagents"], 1)
         self.assertEqual(s["models"], ["claude-opus-5-5"])

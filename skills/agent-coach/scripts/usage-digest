@@ -2,8 +2,11 @@
 """Summarize a week of Claude Code and Codex usage from local session data.
 
 Reads Claude Code transcripts (<claude-dir>/projects/*/*.jsonl) and Codex threads
-(<codex-dir>/state_*.sqlite), read-only, and prints a compact digest: per session
-the project, prompts, slash commands, skills, tools, errors and denials, plus totals.
+(<codex-dir>/state_*.sqlite), read-only, and prints a compact digest with totals.
+Per Claude Code session: project, branch, entry point, models, prompts, slash
+commands, skills, tool counts, tool errors, denials, interrupts and subagent runs.
+Per Codex thread (from the threads table only): project (cwd), title, model,
+tokens used and the first user message.
 
 Usage: usage-digest [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--format md|json]
                     [--claude-dir DIR] [--codex-dir DIR] [--out FILE]
@@ -25,7 +28,8 @@ import sys
 MAX_PROMPTS = 8
 MAX_PROMPT_CHARS = 300
 COMPACTION_PREFIX = "This session is being continued from a previous conversation"
-DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied")
+DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied",
+                  "denied by the claude code auto mode classifier")
 
 
 def parse_args():

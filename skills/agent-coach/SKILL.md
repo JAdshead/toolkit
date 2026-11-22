@@ -25,7 +25,7 @@ python3 -I <this skill's folder>/scripts/usage-digest [--since D] [--until D] --
 
 `REPORT_DIR` is `$AGENT_COACH_DIR` if set, else `~/.agent-coach`. It is outside every repo on purpose: the digest quotes the user's prompts, which can hold pasted secrets, and must never be committed. `--out` keeps it as private as the transcripts it comes from: it creates `REPORT_DIR` if needed, sets it to `0700` (owner only) on every run, and writes the digest as `0600`. Always use `--out`, never a shell redirect. Write the report and `decisions.md` only inside `REPORT_DIR`.
 
-The digest covers Claude Code transcripts (`~/.claude/projects/*/*.jsonl`) and Codex threads (`~/.codex/state_*.sqlite`): per session the project, branch, entry point, models, human prompts (first few, clipped), slash commands, skills invoked, tool counts, tool errors, permission denials, interrupts and subagent runs, plus totals per project.
+The digest covers Claude Code transcripts (`~/.claude/projects/*/*.jsonl`) and Codex threads (`~/.codex/state_*.sqlite`), plus totals per project. For each Claude Code session it gives the project, branch, entry point, models, human prompts (first few, clipped), slash commands, skills invoked, tool counts, tool errors, permission denials, interrupts and subagent runs. For each Codex thread it gives only the project (cwd), title, model, tokens used and first user message. The digest has no Codex errors or denials, so do not read their absence as zero friction.
 
 Read the digest in full. If one agent has no sessions in the window, say so plainly and do not invent usage for it; still check what it offers, because "you have this and never use it" is a finding.
 
