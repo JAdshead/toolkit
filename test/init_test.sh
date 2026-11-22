@@ -208,6 +208,23 @@ ln -s ../../outside/s.json "$repo/.claude/settings.json"
 check "settings.json is a dangling link out of the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
 check "settings.json is a dangling link out of the repo: nothing is created outside" "no" "$([ -e "$outside/s.json" ] && echo yes || echo no)"
 
+# A link through a directory link plus "..": a logical cd would collapse the
+# ".." as text and miss that the write lands outside the repo.
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
+printf 'keep\n' > "$work/victim"
+ln -s . "$repo/d"
+ln -s ../victim "$repo/l"
+ln -s d/l "$repo/AGENTS.md"
+refuses "AGENTS.md reaches out through a directory link and .." "keep" "$work/victim"
+
+# Logically d/.. is the repo, so the link reads as $repo/.claude/settings.json;
+# physically d is $outside/sub, so d/.. is $outside.
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside/sub" "$outside/.claude" "$repo/.claude"
+printf '{"a":1}\n' > "$outside/.claude/settings.json"
+ln -s ../outside/sub "$repo/d"
+ln -s ../d/../.claude/settings.json "$repo/.claude/settings.json"
+refuses "settings.json reaches out through a directory link and .." '{"a":1}' "$outside/.claude/settings.json"
+
 repo="$(fresh)"
 printf 'not a directory\n' > "$repo/.claude"
 check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"

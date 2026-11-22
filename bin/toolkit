@@ -160,7 +160,9 @@ resolve() {
     t="$(readlink "$p")"
     case "$t" in /*) p="$t" ;; *) p="$(dirname "$p")/$t" ;; esac
   done
-  d="$(CDPATH='' cd -- "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
+  # -P: follow each directory link as it is reached, as the kernel will when
+  # writing. A logical cd would collapse "dir-link/.." as text and land elsewhere.
+  d="$(CDPATH='' cd -P -- "$(dirname "$p")" 2>/dev/null && pwd -P)" || return 1
   printf '%s/%s\n' "$d" "$(basename "$p")"
 }
 
@@ -185,7 +187,7 @@ init_repo() {
   local dir="${1:-.}" work
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
-  dir="$(CDPATH='' cd -- "$dir" && pwd -P)"
+  dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
   work="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$work'" EXIT
