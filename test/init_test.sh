@@ -322,6 +322,24 @@ printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo"
 init "$repo"
 check "a kept marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
 
+# Settings that already hold every key init would add are left as they are,
+# but what the repo chose is still reported.
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}},"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
+before="$(cat "$repo/.claude/settings.json")"
+init "$repo"
+check "complete settings the repo chose are left unchanged" "$before" "$(cat "$repo/.claude/settings.json")"
+check "complete settings: a plugin the repo turned off is reported" "yes" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
+check "complete settings: a marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
+check "complete settings: nothing claims the plugin was enabled" "no" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"JAdshead/toolkit"}}},"enabledPlugins":{"toolkit@toolkit":true}}\n' > "$repo/.claude/settings.json"
+init "$repo"
+check "settings already set up as init would: nothing said about them" "no" "$(grep -q 'settings.json' <<<"$out" && echo yes || echo no)"
+
 for source in '{"source":"git","url":"https://elsewhere.example/m.git","repo":"JAdshead/toolkit"}' \
               '{"source":"github","repo":"JAdshead/toolkit","ref":"other"}'; do
   repo="$(fresh)"

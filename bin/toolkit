@@ -19,7 +19,8 @@ Usage: toolkit <command>
 Commands:
   install   Link skills and rules for Codex and Gemini, install the Claude Code plugins
   init [dir]  Set up a repo (default: current directory) so every agent working in it
-            gets the toolkit's rules and Claude Code enables the plugin. Safe to re-run.
+            gets the toolkit's rules and Claude Code enables the plugin, unless the
+            repo already turned it off. Safe to re-run.
   update    Pull the latest toolkit and ui-ux-pro-max, refresh Claude Code plugins, relink
   validate  Check every skill's SKILL.md frontmatter and shared reference copies
   sync      Copy shared/ references into the skills that use them
@@ -108,21 +109,29 @@ plan_settings() {
 }
 
 # Say what the planned settings file does: whether the plugin ends up enabled,
-# and where the toolkit marketplace points when the repo set its own.
+# and where the toolkit marketplace points when the repo set its own. CHANGED
+# is yes when init writes the file. When it doesn't, say only what the repo
+# chose differently, if anything.
 settings_message() {
-  local file="$1" enabled source
+  local file="$1" changed="$2" enabled source note=""
   # Values come from the repo, which may be hostile: print them as JSON (-c,
   # not -r), so control characters are escaped instead of reaching the terminal.
   enabled="$(jq -c '.enabledPlugins["toolkit@toolkit"]' "$file")"
-  if [ "$enabled" = true ]; then
-    printf 'enabled the toolkit plugin in .claude/settings.json'
-  else
-    printf 'added the toolkit marketplace to .claude/settings.json; the repo sets toolkit@toolkit to %s, so it stays disabled' "$enabled"
-  fi
+  [ "$enabled" = true ] || note="the repo sets toolkit@toolkit to $enabled, so it stays disabled"
   # Anything but exactly the toolkit's own source is the repo's choice: show it whole.
   source="$(jq -c --arg repo "$MARKETPLACE_REPO" \
     '.extraKnownMarketplaces.toolkit.source | select(. != {source: "github", repo: $repo})' "$file")"
-  [ -z "$source" ] || printf ' (its toolkit marketplace is the repo'"'"'s own: %s)' "$source"
+  [ -z "$source" ] || note="${note:+$note; }its toolkit marketplace is the repo's own: $source"
+  if [ "$changed" = yes ]; then
+    if [ "$enabled" = true ]; then
+      printf 'enabled the toolkit plugin in .claude/settings.json'
+    else
+      printf 'added the toolkit marketplace to .claude/settings.json'
+    fi
+    [ -z "$note" ] || printf ' (%s)' "$note"
+  elif [ -n "$note" ]; then
+    printf 'left .claude/settings.json as it is (%s)' "$note"
+  fi
 }
 
 # Install SRC at DEST if it differs, and say so.
@@ -173,7 +182,7 @@ check_targets() {
 }
 
 init_repo() {
-  local dir="${1:-.}" work
+  local dir="${1:-.}" work msg
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
   dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
@@ -190,7 +199,12 @@ init_repo() {
   apply "$work/AGENTS.md" "$dir/AGENTS.md" "wrote the toolkit rules to AGENTS.md"
   init_import "$dir/CLAUDE.md" "@AGENTS.md"
   init_import "$dir/GEMINI.md" "@./AGENTS.md"
-  apply "$work/settings.json" "$dir/.claude/settings.json" "$(settings_message "$work/settings.json")"
+  if cmp -s "$work/settings.json" "$dir/.claude/settings.json"; then
+    msg="$(settings_message "$work/settings.json" no)"
+    [ -z "$msg" ] || echo "$msg"
+  else
+    apply "$work/settings.json" "$dir/.claude/settings.json" "$(settings_message "$work/settings.json" yes)"
+  fi
   echo "Review and commit the changes in $dir."
 }
 

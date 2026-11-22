@@ -107,7 +107,7 @@ gh pr checks <pr> --watch
 Source:   <issue or change id>
 PR:       <url> (CI: green | red | not opened)
 Reviews:  security PASS / quality PASS / tests PASS (rounds: n)
-Owner:    MERGE | NOT YET (review-pr rounds: n)
+Owner:    MERGE | NOT YET at <short sha> (review-pr rounds: n)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
 Follow-ups: <remaining minor findings, or none>

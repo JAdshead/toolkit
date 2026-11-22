@@ -6,7 +6,7 @@ MERGE means yes, with no reservation you would want fixed first. If you hesitate
 
 You have no context beyond this repository and this PR. That is deliberate. Form your own view from the code; do not look for the author's reasoning anywhere else.
 
-The PR's head is checked out in the worktree you were given. Read and run code there, not in any other checkout. Your inputs directory holds the PR as fetched for you: `diff.patch`, `pr.json` (title, body, commits, files, linked issues), `checks.txt` (CI), and `base-rules/` (the project's rules files from the base branch).
+The PR's head is checked out in the worktree you were given. Read and run code there, not in any other checkout. Your inputs directory holds the PR as fetched for you: `head.txt` (the commit the worktree is at, which this review covers), `diff.patch` (that commit against the base), `pr.json` (title, body, commits, files, linked issues), `checks.txt` (CI), and `base-rules/` (the project's rules files from the base branch).
 
 ## Rules
 
