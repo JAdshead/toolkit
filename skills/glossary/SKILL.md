@@ -16,13 +16,13 @@ This skill is the active discipline: it interrupts, asks which meaning is meant,
 
 - `glossary`: work alongside the current conversation. Challenge terms as they appear (see **Live**).
 - `glossary audit`: look for ambiguity in an existing glossary, or seed one from the code and docs (see **Audit**).
-- `glossary <term>`: settle one term now.
+- `glossary <term>`: settle one term now. Ask the **Live** questions about that term until it is settled, or the user parks it under **Open**.
 
 ## Where the glossary lives
 
 1. If `GLOSSARY-MAP.md` exists at the repo root, the repo has several contexts, each with its own `GLOSSARY.md`. Use the map to pick one; if the term could belong to more than one, ask.
 2. Otherwise use `GLOSSARY.md` at the repo root.
-3. If neither exists, create `GLOSSARY.md` when the first term is settled, not before.
+3. If neither exists, create `GLOSSARY.md` when the first entry is needed, not before: a term is settled, or a term is parked under **Open**.
 
 Also read issues, ADRs or docs the project points to for terminology, so a naming question already settled there is not raised again.
 
@@ -102,9 +102,9 @@ A glossary only works if agents read all of it. When it grows:
 
 ## Make agents use it
 
-A glossary agents never read changes nothing. When the glossary is first created, check whether the project's agent instructions (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) mention it. If not, offer to add this, and add it only if the user agrees:
+A glossary agents never read changes nothing. When the glossary is first created, and on every `glossary audit`, check whether the project's agent instructions (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) mention it. If not, offer to add this, and add it only if the user agrees:
 
 ```markdown
 ## Terminology
-Use the terms defined in GLOSSARY.md, with those meanings, in code, prompts, issues and replies. Don't use a word listed under _Avoid_. If a term is under Open, or a prompt uses a word in a way the glossary doesn't cover, ask which meaning is meant before acting on it.
+Use the terms defined in GLOSSARY.md (or, where GLOSSARY-MAP.md exists, in the glossary it lists for the context you're working in), with those meanings, in code, prompts, issues and replies. Don't use a word listed under _Avoid_. If a term is under Open, or a prompt uses a word in a way the glossary doesn't cover, ask which meaning is meant before acting on it.
 ```
