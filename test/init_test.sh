@@ -162,6 +162,48 @@ init "$repo"
 check "settings keep a toolkit marketplace the repo points elsewhere" "someone/fork" \
   "$(jq -r '.extraKnownMarketplaces.toolkit.source.repo' "$repo/.claude/settings.json")"
 
+# Links that lead out of the repo: init refuses and writes nothing anywhere.
+outside="$work/outside"
+refuses() {
+  local name="$1"
+  check "$name: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  check "$name: the outside file is untouched" "$2" "$(cat "$3")"
+  # A successful init always creates GEMINI.md.
+  check "$name: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
+}
+
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
+printf 'keep\n' > "$outside/victim.txt"
+ln -s ../outside/victim.txt "$repo/AGENTS.md"
+refuses "AGENTS.md links out of the repo" "keep" "$outside/victim.txt"
+
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
+printf 'keep\n' > "$outside/o.md"
+ln -s ../outside/o.md "$repo/CLAUDE.md"
+refuses "CLAUDE.md links out of the repo" "keep" "$outside/o.md"
+
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside/.claude"
+printf '{"a":1}\n' > "$outside/.claude/settings.json"
+ln -s ../outside/.claude "$repo/.claude"
+refuses ".claude links out of the repo" '{"a":1}' "$outside/.claude/settings.json"
+
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside" "$repo/.claude"
+printf '{"a":1}\n' > "$outside/s.json"
+ln -s ../../outside/s.json "$repo/.claude/settings.json"
+refuses "settings.json links out of the repo" '{"a":1}' "$outside/s.json"
+
+repo="$(fresh)"
+printf 'not a directory\n' > "$repo/.claude"
+check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+check ".claude is a file: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] || [ -e "$repo/CLAUDE.md" ] && echo yes || echo no)"
+
+repo="$(fresh)"
+mkdir -p "$repo/docs"
+printf '# Docs agents\n' > "$repo/docs/agents.md"
+ln -s docs/agents.md "$repo/AGENTS.md"
+init "$repo"
+check "AGENTS.md linking inside the repo still gets the block" "yes" "$(has "$repo/docs/agents.md" "<!-- toolkit:end -->")"
+
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"

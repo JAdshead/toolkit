@@ -60,7 +60,7 @@ It is safe to re-run, and re-running it after `toolkit update` refreshes the rul
 | Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended |
 | Enables the plugin for everyone who opens the repo in Claude Code | `.claude/settings.json`: adds the `toolkit` marketplace and `toolkit@toolkit`, keeping other keys and any value the repo already set |
 
-Codex reads `AGENTS.md` itself. Needs `jq`. It works out every change before writing any, so if the markers are broken or `.claude/settings.json` isn't a JSON object, it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
+Codex reads `AGENTS.md` itself. Needs `jq`. Before writing anything it checks that the markers are intact, that `.claude/settings.json` is a JSON object, and that none of the files it writes is a link out of the repo or the wrong kind of file (such as a `.claude` that isn't a directory). If a check fails it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
 Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
