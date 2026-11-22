@@ -197,6 +197,17 @@ printf '{"a":1}\n' > "$outside/s.json"
 ln -s ../../outside/s.json "$repo/.claude/settings.json"
 refuses "settings.json links out of the repo" '{"a":1}' "$outside/s.json"
 
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
+ln -s ../outside/new.md "$repo/AGENTS.md"
+check "AGENTS.md is a dangling link out of the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+check "AGENTS.md is a dangling link out of the repo: nothing is created outside" "no" "$([ -e "$outside/new.md" ] && echo yes || echo no)"
+check "AGENTS.md is a dangling link out of the repo: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
+
+repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside" "$repo/.claude"
+ln -s ../../outside/s.json "$repo/.claude/settings.json"
+check "settings.json is a dangling link out of the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+check "settings.json is a dangling link out of the repo: nothing is created outside" "no" "$([ -e "$outside/s.json" ] && echo yes || echo no)"
+
 repo="$(fresh)"
 printf 'not a directory\n' > "$repo/.claude"
 check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
@@ -228,6 +239,27 @@ mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
 out="$("$toolkit" init "$repo" 2>&1)"
 check "a kept marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
+
+for source in '{"source":"git","url":"https://elsewhere.example/m.git","repo":"JAdshead/toolkit"}' \
+              '{"source":"github","repo":"JAdshead/toolkit","ref":"other"}'; do
+  repo="$(fresh)"
+  mkdir -p "$repo/.claude"
+  printf '{"extraKnownMarketplaces":{"toolkit":{"source":%s}}}\n' "$source" > "$repo/.claude/settings.json"
+  out="$("$toolkit" init "$repo" 2>&1)"
+  check "a kept marketplace that differs in any field is named: $source" "yes" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
+done
+
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"evil/x\\u001b[2K\\r"}}}}\n' > "$repo/.claude/settings.json"
+out="$("$toolkit" init "$repo" 2>&1)"
+check "control characters from the repo's settings never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"enabledPlugins":{"toolkit@toolkit":"off\\u001b[2K\\r"}}\n' > "$repo/.claude/settings.json"
+out="$("$toolkit" init "$repo" 2>&1)"
+check "control characters in the repo's plugin value never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 

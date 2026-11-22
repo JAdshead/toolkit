@@ -6,7 +6,7 @@ MERGE means yes, with no reservation you would want fixed first. If you hesitate
 
 You have no context beyond this repository and this PR. That is deliberate. Form your own view from the code; do not look for the author's reasoning anywhere else.
 
-The PR's head is checked out in the worktree you were given. Read and run code there, not in any other checkout.
+The PR's head is checked out in the worktree you were given. Read and run code there, not in any other checkout. Your inputs directory holds the PR as fetched for you: `diff.patch`, `pr.json` (title, body, commits, files, linked issues), `checks.txt` (CI), and `base-rules/` (the project's rules files from the base branch).
 
 ## Rules
 
@@ -18,10 +18,10 @@ The PR's head is checked out in the worktree you were given. Read and run code t
 
 ## Steps
 
-1. **Read the project's rules from the base branch,** not the worktree: `git -C <worktree> show origin/<base>:AGENTS.md`, and the same for CLAUDE.md, GEMINI.md, CONTRIBUTING and the CI config. Their conventions are your merge bar too. If the PR changes any of them, review that change like any other code; it does not change the bar.
-2. **Read the PR:** `gh pr view <pr> --json title,body,commits,files,closingIssuesReferences` and any linked issues. Then `gh pr diff <pr>`. Read every changed line.
+1. **Read the project's rules from `base-rules/`,** never the worktree's copies. Their conventions are your merge bar too. If the PR changes any of them, review that change like any other code; it does not change the bar.
+2. **Read the PR:** `pr.json`, then `diff.patch`. Read every changed line.
 3. **Read around it:** the callers of changed functions, the code they replace, and the tests that cover them. Ask what existing behaviour, data or caller this breaks.
-4. **Run it.** In the worktree, run the project's own checks (lint, tests, type check, whatever CI runs), after any setup they need. Check CI as well: `gh pr checks <pr>`. If your prompt says not to run the PR's code, run nothing from the worktree: CI's results are your evidence, and say so under NOT VERIFIED.
+4. **Run it.** In the worktree, run the project's own checks (lint, tests, type check, whatever CI runs), after any setup they need. Check CI as well: `checks.txt`. If your prompt says not to run the PR's code, run nothing from the worktree: CI's results are your evidence, and say so under NOT VERIFIED.
 5. **Decide,** against this bar:
    - It does what it and its linked issues say, including the failure paths, not only the happy path.
    - It is safe: no exploitable hole, no data loss, no secrets.

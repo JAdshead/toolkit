@@ -19,15 +19,18 @@ A project's own instructions (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING) win
 Every reviewer starts empty:
 
 - **Claude Code:** a new `general-purpose` agent through the Agent tool. Never a fork, and never a reviewer from an earlier round continued with SendMessage.
-- **Other agents:** a fresh subagent if yours has one. Otherwise a new headless process given the same prompt (for example `codex exec`, or `gemini -p`). Start it in an empty directory outside the worktree, never inside it: these CLIs load agent instructions and project config (including MCP servers) from their working directory, which in the worktree are the PR's own files. Give it the worktree through the CLI's option for extra directories (for example Gemini's `--include-directories`), and allow shell commands there only when the PR's code may run locally (Part 0, step 2).
+- **Other agents:** a fresh subagent if yours has one. Otherwise a new headless process given the same prompt (for example `codex exec`, or `gemini -p`). Start it in an empty directory outside the worktree, never inside it: these CLIs load agent instructions and project config (including MCP servers) from their working directory, which in the worktree are the PR's own files. Give it the worktree and the inputs directory (Part 0, step 5) through the CLI's option for extra directories (for example Gemini's `--include-directories`).
 - **Neither available:** if this session neither wrote nor discussed the PR, it is fresh: do the reviews yourself, one lens at a time, then the owner review, reading each brief as written. If it did, stop and tell the user to run `review-pr <pr>` in a new session.
 
-Each prompt is thin: the PR number, the scratch worktree, the base ref (`origin/<base>`), the path to the brief, and whether the PR's code may run (Part 0). The reviewer reads the PR and the code itself. Never add your summary, your reasoning, or what the author meant.
+Each prompt is thin: the PR number, the scratch worktree, the inputs directory, the path to the brief, and whether the PR's code may run (Part 0). The reviewer reads the PR and the code itself. Never add your summary, your reasoning, or what the author meant.
 
 ## Part 0: Prepare
 
 1. Resolve the input (a number, URL or branch; none means the current branch's PR) to a number: `gh pr view <input> --json number,additions,deletions,files`.
-2. Decide whether the PR's code may run on this machine: `gh pr view <pr> --json isCrossRepository` and `gh api "repos/{owner}/{repo}/pulls/<pr>" --jq .author_association` (`gh` fills in `{owner}/{repo}`). Running it is fine when the PR is not from a fork and its author is `OWNER`, `MEMBER` or `COLLABORATOR`. Otherwise ask the user before anything runs it; on a no, add `Do not run the PR's code; rely on CI.` to every reviewer prompt, and give headless reviewers no shell access.
+2. Decide whether the PR's code may run on this machine: `gh pr view <pr> --json isCrossRepository` and `gh api "repos/{owner}/{repo}/pulls/<pr>" --jq .author_association` (`gh` fills in `{owner}/{repo}`). Running it is fine when the PR is not from a fork and its author is `OWNER`, `MEMBER` or `COLLABORATOR`. Otherwise ask the user before anything runs it. On a no, this round is **no-run**:
+   - Add `Do not run the PR's code; rely on CI.` to every reviewer prompt.
+   - Give every reviewer read-only file access and no shell, if your agent can: a subagent type without a shell tool, or a headless CLI with shell tools off. Step 5 gives them everything they need without one.
+   - If your agent can only give reviewers a shell (for example Claude Code's `general-purpose` agent), the no-run line is a prompt instruction, not a restriction. Tell the user that before starting, and let them choose: go ahead on that basis, or stop and rely on CI and their own reading.
 3. Wait for CI: `gh pr checks <pr> --watch`. If it fails, report that and stop; a red PR is not ready for review. A repo with no checks has nothing to wait for.
 4. Check out the head in a scratch worktree outside the repo (your temp or scratch directory), so reviewers read and run the PR's code and nobody's checkout changes. Fetch the base too, so reviewers can read the project's rules from it:
    ```bash
@@ -36,7 +39,16 @@ Each prompt is thin: the PR number, the scratch worktree, the base ref (`origin/
    git fetch origin "pull/<pr>/head"
    git worktree add --detach "<scratch>/pr-<pr>" FETCH_HEAD
    ```
-   Remove it when the round ends (`git worktree remove --force "<scratch>/pr-<pr>"`).
+5. Fetch every reviewer input into an inputs directory beside the worktree, so no reviewer needs `gh` or `git`, and none reads rules from the PR's own copies:
+   ```bash
+   in="<scratch>/pr-<pr>-inputs"; mkdir -p "$in/base-rules"
+   gh pr diff <pr> > "$in/diff.patch"
+   gh pr view <pr> --json title,body,commits,files,closingIssuesReferences > "$in/pr.json"
+   gh pr checks <pr> > "$in/checks.txt" 2>&1 || true
+   git -C "<scratch>/pr-<pr>" ls-tree -r --name-only "origin/$base" -- AGENTS.md CLAUDE.md GEMINI.md CONTRIBUTING.md .github/workflows |
+     while read -r f; do mkdir -p "$in/base-rules/$(dirname "$f")"; git -C "<scratch>/pr-<pr>" show "origin/$base:$f" > "$in/base-rules/$f"; done
+   ```
+   Remove both when the round ends (`git worktree remove --force "<scratch>/pr-<pr>"`, `rm -rf "$in"`).
 
 ## Part 1: Lens reviews (larger PRs only)
 
@@ -45,9 +57,9 @@ Skip to Part 2 when additions plus deletions are under about 200 and no file is 
 Otherwise spawn, in parallel, one fresh reviewer per lens from `references/review-prompts.md` (Correctness, Security, Tests, Simplicity; UX only when UI files changed). Prompt each with only:
 
 ```
-Review pull request <pr>. Its head is checked out at <worktree>; read code there. Its base is origin/<base>.
+Review pull request <pr>. Its head is checked out at <worktree>; read code there. Its inputs are in <inputs>.
 Read <absolute path to this skill>/references/review-prompts.md and apply its shared rules and the <lens> section.
-Get the diff with `gh pr diff <pr>`. Do not edit, commit, push or comment on the PR.
+The diff is <inputs>/diff.patch. Do not edit, commit, push or comment on the PR.
 ```
 
 Collect their outputs verbatim.
@@ -57,7 +69,7 @@ Collect their outputs verbatim.
 Spawn fresh owner reviewers in parallel, each with only:
 
 ```
-Review pull request <pr>. Its head is checked out at <worktree>. Its base is origin/<base>.
+Review pull request <pr>. Its head is checked out at <worktree>. Its inputs are in <inputs>.
 Read <absolute path to this skill>/references/owner-review.md and follow it.
 ```
 
@@ -74,7 +86,7 @@ Skip the validator when every owner returned MERGE.
 Otherwise spawn one fresh validator with only:
 
 ```
-Validate review findings on pull request <pr>. Its head is checked out at <worktree>. Its base is origin/<base>.
+Validate review findings on pull request <pr>. Its head is checked out at <worktree>. Its inputs are in <inputs>.
 Read <absolute path to this skill>/references/validate-findings.md and follow it.
 ```
 

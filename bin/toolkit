@@ -111,14 +111,18 @@ plan_settings() {
 # and where the toolkit marketplace points when the repo set its own.
 settings_message() {
   local file="$1" enabled source
-  enabled="$(jq -r '.enabledPlugins["toolkit@toolkit"]' "$file")"
-  source="$(jq -r '.extraKnownMarketplaces.toolkit.source | (.repo // .url // .path // tostring)' "$file")"
+  # Values come from the repo, which may be hostile: print them as JSON (-c,
+  # not -r), so control characters are escaped instead of reaching the terminal.
+  enabled="$(jq -c '.enabledPlugins["toolkit@toolkit"]' "$file")"
   if [ "$enabled" = true ]; then
     printf 'enabled the toolkit plugin in .claude/settings.json'
   else
     printf 'added the toolkit marketplace to .claude/settings.json; the repo sets toolkit@toolkit to %s, so it stays disabled' "$enabled"
   fi
-  [ "$source" = "$MARKETPLACE_REPO" ] || printf ' (its toolkit marketplace is the repo'"'"'s own: %s)' "$source"
+  # Anything but exactly the toolkit's own source is the repo's choice: show it whole.
+  source="$(jq -c --arg repo "$MARKETPLACE_REPO" \
+    '.extraKnownMarketplaces.toolkit.source | select(. != {source: "github", repo: $repo})' "$file")"
+  [ -z "$source" ] || printf ' (its toolkit marketplace is the repo'"'"'s own: %s)' "$source"
 }
 
 # Install SRC at DEST if it differs, and say so.
