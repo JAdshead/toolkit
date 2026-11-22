@@ -30,10 +30,15 @@ jobs:
           claude plugin validate .
 
       - name: Check shell scripts
-        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared shared/board shared/test/*
+        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared shared/board shared/test/* hooks/session-start test/*.sh
 
       - name: Test shared scripts
         run: shared/test/board_test.sh
+
+      - name: Test toolkit init and the SessionStart hook
+        run: |
+          test/init_test.sh
+          test/session_start_test.sh
 
       - name: Test agent-coach usage digest
         run: python3 test/usage_digest_test.py

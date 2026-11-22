@@ -18,6 +18,9 @@ Usage: toolkit <command>
 
 Commands:
   install   Link skills and rules for Codex and Gemini, install the Claude Code plugins
+  init [dir]  Set up a repo (default: current directory) so every agent working in it
+            gets the toolkit's rules and Claude Code enables the plugin (a value the
+            repo set itself is kept). Safe to re-run.
   update    Pull the latest toolkit and ui-ux-pro-max, refresh Claude Code plugins, relink
   validate  Check every skill's SKILL.md frontmatter and shared reference copies
   sync      Copy shared/ references into the skills that use them
@@ -40,7 +43,148 @@ update() {
   "$TOOLKIT_DIR/install.sh"
 }
 
+MARKETPLACE_REPO="JAdshead/toolkit"
+START="<!-- toolkit:start -->"
+END="<!-- toolkit:end -->"
+IMPORT_RE='^[[:space:]]*@(\./)?AGENTS\.md[[:space:]]*$'
+
+die() { echo "toolkit init: $*" >&2; exit 1; }
+
+# The shared rules, one heading level down, between markers.
+rules_block() {
+  printf '%s\n' "$START"
+  printf '%s\n' "<!-- Managed by \`toolkit init\`: edit rules/AGENTS.md in the toolkit, then re-run it. -->"
+  sed 's/^#/##/' "$TOOLKIT_DIR/rules/AGENTS.md"
+  printf '%s\n' "$END"
+}
+
+# Write to OUT what AGENTS.md should become: the existing block replaced, or a
+# block appended. A marker counts only on a line of its own (spaces and CR
+# allowed). Fails, changing nothing, unless there is exactly one start marker
+# followed by one end marker, or neither.
+plan_agents_md() {
+  local file="$1" out="$2" block rc=0
+  block="$(rules_block)"
+  if [ ! -e "$file" ]; then
+    printf '%s\n' "$block" > "$out"
+    return
+  fi
+  BLOCK="$block" awk -v start="$START" -v end="$END" '
+    function trim(s) { sub(/\r$/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    { line[NR] = $0; k = trim($0)
+      if (k == start) { if (!ns++) sl = NR }
+      else if (k == end) { if (!ne++) el = NR } }
+    END {
+      if (ns == 0 && ne == 0) exit 2
+      if (ns != 1 || ne != 1 || el < sl) exit 3
+      for (i = 1; i < sl; i++) print line[i]
+      print ENVIRON["BLOCK"]
+      for (i = el + 1; i <= NR; i++) print line[i]
+    }
+  ' "$file" > "$out" || rc=$?
+  case "$rc" in
+    0) ;;
+    2) { cat "$file"; printf '\n%s\n' "$block"; } > "$out" ;;
+    *) die "$file needs exactly one '$START' line followed by one '$END' line; fix the markers and re-run" ;;
+  esac
+}
+
+# Write to OUT what .claude/settings.json should become, keeping everything
+# already there, including a toolkit entry the repo set itself.
+plan_settings() {
+  local file="$1" out="$2"
+  if [ -s "$file" ]; then cp "$file" "$out"; else printf '{}\n' > "$out"; fi
+  jq -e 'type == "object"' "$out" >/dev/null 2>&1 || die "$file is not a JSON object; fix it and re-run"
+  jq --arg repo "$MARKETPLACE_REPO" '
+    .extraKnownMarketplaces = ((.extraKnownMarketplaces // {})
+      | if has("toolkit") then . else .toolkit = {source: {source: "github", repo: $repo}} end)
+    | .enabledPlugins = ((.enabledPlugins // {})
+      | if has("toolkit@toolkit") then . else .["toolkit@toolkit"] = true end)
+  ' "$out" > "$out.new"
+  if [ -s "$file" ] && jq -e --slurpfile a "$file" '. == $a[0]' "$out.new" >/dev/null; then
+    cp "$file" "$out"
+  else
+    mv "$out.new" "$out"
+  fi
+}
+
+# Install SRC at DEST if it differs, and say so.
+apply() {
+  local src="$1" dest="$2" what="$3"
+  cmp -s "$src" "$dest" && return 0
+  mkdir -p "$(dirname "$dest")"
+  cat "$src" > "$dest"
+  echo "$what"
+}
+
+# Make an agent's own instruction file import AGENTS.md, creating it if missing.
+init_import() {
+  local file="$1" import="$2" agents
+  agents="$(dirname "$file")/AGENTS.md"
+  if [ ! -e "$file" ]; then
+    printf '%s\n' "$import" > "$file"
+    echo "created $(basename "$file") importing AGENTS.md"
+  elif [ "$file" -ef "$agents" ] || grep -qE "$IMPORT_RE" "$file"; then
+    return 0
+  else
+    printf '\n%s\n' "$import" >> "$file"
+    echo "added $import to $(basename "$file")"
+  fi
+}
+
+# Refuse anything init would write that is not an ordinary file (or absent)
+# in DIR. A cloned repo is untrusted input, so init follows no links: the one
+# allowed is CLAUDE.md or GEMINI.md linking to the repo's own AGENTS.md, which
+# init then leaves alone. AGENTS.md itself must be a regular file or absent.
+check_targets() {
+  local dir="$1" rel
+  for rel in AGENTS.md CLAUDE.md GEMINI.md .claude .claude/settings.json; do
+    if [ -L "$dir/$rel" ]; then
+      case "$rel" in
+        CLAUDE.md|GEMINI.md)
+          case "$(readlink "$dir/$rel")" in AGENTS.md|./AGENTS.md) continue ;; esac ;;
+      esac
+      die "$rel is a link; init writes only regular files (CLAUDE.md and GEMINI.md may link to AGENTS.md). Replace it and re-run"
+    fi
+    [ -e "$dir/$rel" ] || continue
+    if [ "$rel" = .claude ]; then
+      [ -d "$dir/$rel" ] || die ".claude is not a directory; fix it and re-run"
+    elif [ ! -f "$dir/$rel" ]; then
+      die "$rel is not a regular file; fix it and re-run"
+    fi
+  done
+}
+
+init_repo() {
+  local dir="${1:-.}" work
+  [ -d "$dir" ] || die "no such directory: $dir"
+  command -v jq >/dev/null || die "needs jq"
+  dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
+  work="$(mktemp -d)"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$work'" EXIT
+
+  # Check every target and work out the AGENTS.md and settings changes before
+  # writing anything, so these problems leave the repo untouched.
+  check_targets "$dir"
+  plan_agents_md "$dir/AGENTS.md" "$work/AGENTS.md"
+  plan_settings "$dir/.claude/settings.json" "$work/settings.json"
+
+  apply "$work/AGENTS.md" "$dir/AGENTS.md" "wrote the toolkit rules to AGENTS.md"
+  init_import "$dir/CLAUDE.md" "@AGENTS.md"
+  init_import "$dir/GEMINI.md" "@./AGENTS.md"
+  apply "$work/settings.json" "$dir/.claude/settings.json" "updated .claude/settings.json"
+  # The repo may have set these itself, and may be hostile: print them as JSON
+  # (-c), so control characters such as ESC are escaped, not sent to the terminal.
+  echo "toolkit plugin in .claude/settings.json: $(jq -c '{
+    enabled: .enabledPlugins["toolkit@toolkit"],
+    marketplace: (.extraKnownMarketplaces.toolkit | if type == "object" then .source else . end)
+  }' "$dir/.claude/settings.json")"
+  echo "Review and commit the changes in $dir."
+}
+
 case "${1:-}" in
+  init) init_repo "${2:-}" ;;
   install) "$TOOLKIT_DIR/install.sh" ;;
   update) update ;;
   validate) "$TOOLKIT_DIR/bin/validate-skills" && "$TOOLKIT_DIR/bin/sync-shared" --check ;;
