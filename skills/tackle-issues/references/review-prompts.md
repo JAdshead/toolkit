@@ -30,7 +30,7 @@ FINDINGS:
 SUMMARY: one or two sentences.
 ```
 
-Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, and the diff (`git -C <WT> diff origin/<default>...HEAD`). A reviewer given only a PR reads the project's rules (AGENTS.md, CLAUDE.md, CONTRIBUTING) and linked issues itself.
+Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, and the diff (`git -C <WT> diff origin/<default>...HEAD`). A reviewer given only a PR reads the project's rules (AGENTS.md, CLAUDE.md, CONTRIBUTING) from the base branch (`git show origin/<base>:AGENTS.md`), never from the PR's own copy, and reads linked issues itself.
 
 ## Selecting reviewers
 

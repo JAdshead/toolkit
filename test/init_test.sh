@@ -40,6 +40,12 @@ check "empty repo: settings add the marketplace" "github JAdshead/toolkit" \
   "$(jq -r '.extraKnownMarketplaces.toolkit.source | "\(.source) \(.repo)"' "$repo/.claude/settings.json")"
 check "empty repo: GEMINI.md imports AGENTS.md" "@./AGENTS.md" "$(cat "$repo/GEMINI.md")"
 
+repo="$(fresh)"
+(cd "$repo" && "$toolkit" init >/dev/null)
+check "with no directory, init sets up the current directory" "yes" "$(has "$repo/AGENTS.md" "<!-- toolkit:end -->")"
+
+repo="$(fresh)"
+init "$repo"
 before="$(cd "$repo" && cat AGENTS.md CLAUDE.md GEMINI.md .claude/settings.json)"
 init "$repo"
 check "re-running changes nothing" "$before" "$(cd "$repo" && cat AGENTS.md CLAUDE.md GEMINI.md .claude/settings.json)"

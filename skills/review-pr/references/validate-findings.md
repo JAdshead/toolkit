@@ -20,13 +20,14 @@ The PR's head is checked out in the worktree you were given. Read and run code t
    - **CONFIRMED:** you showed the problem, or traced it with no gap.
    - **REFUTED:** you showed the code is right, the case cannot happen, or the finding misreads the code.
    - **UNCLEAR:** you could neither show nor rule it out. Say what would settle it. UNCLEAR blocks, like CONFIRMED.
-5. Check the severity against the owner brief's scale (`owner-review.md` next to this file). A real problem that would not stop you merging is P3.
+5. For an UNVERIFIED finding, try to do the check the owner could not. CONFIRMED means the check found a real problem; REFUTED means it passed or the item does not matter; UNCLEAR means you could not do it either.
+6. Check the severity against the owner brief's scale (`owner-review.md` next to this file). A real problem that would not stop you merging is P3.
 
 ## Output
 
 ```
 FINDINGS:
-- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|P3] file:line: the finding (raised by Owner A, B) -> your evidence: what you ran or read, and what happened
+- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|UNVERIFIED|P3] file:line: the finding (raised by Owner A, B) -> your evidence: what you ran or read, and what happened
 OWNER DISAGREEMENT: where the owners' verdicts differed, and which side the evidence supports
 SUMMARY: how many findings are confirmed, refuted and unclear, in one or two sentences.
 ```
