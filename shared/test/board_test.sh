@@ -195,7 +195,7 @@ check "BOARD_READY matches case-insensitively" "0 In progress me@mac" "$? $(fiel
 
 reset_board
 check "BOARD_DONE matches case-insensitively, so busy still leaves out Done issues" \
-  "$(printf '3\tIn progress\tPayments\tother@host\n5\tReady\tPricing\tstale@host')" "$(BOARD_DONE=done run busy)"
+  "$(printf '3\tIn progress\tPayments\tother@host\n5\tReady\tPricing\tstale@host')" "$(BOARD_DONE='done' run busy)"
 
 echo "$passes passed, $failures failed"
 [ "$failures" = 0 ]
