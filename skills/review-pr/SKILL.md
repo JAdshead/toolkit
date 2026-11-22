@@ -78,12 +78,14 @@ Validate review findings on pull request <pr>. Its head is checked out at <workt
 Read <absolute path to this skill>/references/validate-findings.md and follow it.
 ```
 
-followed by each owner's verdict and BLOCKING list verbatim, labelled `Owner A`, `Owner B`, and so on, with nothing of yours added.
+followed by each owner's verdict and BLOCKING list verbatim, under `Owner A`, `Owner B`, and so on. Number each owner's BLOCKING entries `A1`, `A2`, `B1` and so on, in their order; the labels are the only thing you add.
+
+Check the validator's output covers every label. If any is missing, run a new validator once; a label still missing after that counts as UNCLEAR.
 
 The result:
 
-- **NOT YET:** at least one finding is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED, after the validator's severity check. Those findings are the blocking list.
-- **MERGE:** otherwise. Every blocking finding was refuted or lowered to P3, or every owner said MERGE. Findings lowered to P3 become follow-ups.
+- **MERGE:** every owner said MERGE; or every label has a validator verdict, and each one is REFUTED or lowered to P3. Findings lowered to P3 become follow-ups.
+- **NOT YET:** anything else. The blocking list is every label that is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED, plus any label with no verdict.
 
 ## Part 4: Act on the verdict
 

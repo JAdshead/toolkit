@@ -155,6 +155,13 @@ before="$(cat "$repo/.claude/settings.json")"
 init "$repo"
 check "settings that already enable the plugin keep their own formatting" "$before" "$(cat "$repo/.claude/settings.json")"
 
+repo="$(fresh)"
+mkdir -p "$repo/.claude"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
+init "$repo"
+check "settings keep a toolkit marketplace the repo points elsewhere" "someone/fork" \
+  "$(jq -r '.extraKnownMarketplaces.toolkit.source.repo' "$repo/.claude/settings.json")"
+
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"

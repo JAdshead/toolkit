@@ -13,7 +13,7 @@ The PR's head is checked out in the worktree you were given. Read and run code t
 
 ## For each finding
 
-1. Merge duplicates: the same problem reported by several owners is one finding. Note who raised it.
+1. Each finding has a label (`A1`, `B2` and so on). Merge duplicates: the same problem reported by several owners is one finding, listed with all its labels. Every label must appear in your output exactly once.
 2. Find the code it points to. If the `file:line` is wrong but the problem exists elsewhere, say where.
 3. Try to show it: run the failing case, write a throwaway test on your copy, or remove the guard the finding says is untested and see whether the tests notice. Where that is not possible, trace the code path by reading.
 4. Decide:
@@ -27,7 +27,7 @@ The PR's head is checked out in the worktree you were given. Read and run code t
 
 ```
 FINDINGS:
-- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|UNVERIFIED|P3] file:line: the finding (raised by Owner A, B) -> your evidence: what you ran or read, and what happened
+- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|UNVERIFIED|P3] (A1, B2) file:line: the finding -> your evidence: what you ran or read, and what happened
 OWNER DISAGREEMENT: where the owners' verdicts differed, and which side the evidence supports
 SUMMARY: how many findings are confirmed, refuted and unclear, in one or two sentences.
 ```
