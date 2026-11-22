@@ -3,7 +3,9 @@
 # $FAKE_GH_STATE (a JSON file) and answers only the calls `board` makes,
 # for project acme/7. $FAKE_GH_BOARD picks the board's fields:
 #   ready (default)  Backlog, Ready, In progress, In review, Verifying, Ready to merge, Done; Agent field
-#   todo             GitHub's default Todo, In progress, Done; Agent field
+#   todo             Todo, In progress, Done; Agent field
+#   github           GitHub's default new board: Todo, In Progress, Done; Agent field
+#   noprogress       Backlog, Ready, In review, Done (no in-progress option); Agent field
 #   noagent          like ready, without the Agent field
 set -euo pipefail
 
@@ -11,6 +13,9 @@ state="${FAKE_GH_STATE:?}"
 
 case "${FAKE_GH_BOARD:-ready}" in
   todo) options='{"id":"o_todo","name":"Todo"},{"id":"o_progress","name":"In progress"},{"id":"o_done","name":"Done"}' ;;
+  github) options='{"id":"o_todo","name":"Todo"},{"id":"o_progress","name":"In Progress"},{"id":"o_done","name":"Done"}' ;;
+  noprogress) options='{"id":"o_backlog","name":"Backlog"},{"id":"o_ready","name":"Ready"},
+    {"id":"o_review","name":"In review"},{"id":"o_done","name":"Done"}' ;;
   *) options='{"id":"o_backlog","name":"Backlog"},{"id":"o_ready","name":"Ready"},
     {"id":"o_progress","name":"In progress"},{"id":"o_review","name":"In review"},
     {"id":"o_verify","name":"Verifying"},{"id":"o_merge","name":"Ready to merge"},
@@ -20,8 +25,12 @@ agent_field='{"id":"F_AGENT","name":"Agent"},'
 [ "${FAKE_GH_BOARD:-ready}" = noagent ] && agent_field=""
 fields="{\"fields\":[{\"id\":\"F_STATUS\",\"name\":\"Status\",\"options\":[$options]},$agent_field{\"id\":\"F_AREA\",\"name\":\"Area\",\"options\":[]}]}"
 
+# Like the real API, reject an option id the field doesn't have (including "").
 option_name() {
-  echo "$fields" | jq -r --arg id "$1" '.fields[].options[]? | select(.id == $id) | .name'
+  local name
+  name="$(echo "$fields" | jq -r --arg id "$1" '.fields[].options[]? | select(.id == $id) | .name')"
+  [ -n "$name" ] || { echo "fake-gh: no single-select option with id \"$1\"" >&2; exit 1; }
+  echo "$name"
 }
 
 project_is_acme_7() {
@@ -40,7 +49,7 @@ case "$1 $2" in
       case "$1" in
         --id) item="$2"; shift 2 ;;
         --field-id) field="$2"; shift 2 ;;
-        --single-select-option-id) value="$(option_name "$2")"; shift 2 ;;
+        --single-select-option-id) value="$(option_name "$2")" || exit 1; shift 2 ;;
         --text) value="$2"; shift 2 ;;
         --clear) clear=1; shift ;;
         *) shift ;;

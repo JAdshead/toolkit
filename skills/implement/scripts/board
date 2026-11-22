@@ -14,6 +14,8 @@
 # <agent> identifies one run, e.g. "issues/calendar-fixes@my-mac" (branch@host).
 # Status names: ready is "Ready" if the board has it, else "Todo"; then
 # "In progress" and "Done". Override with BOARD_READY, BOARD_IN_PROGRESS, BOARD_DONE.
+# Names match the board's options case-insensitively. A command that writes
+# checks every status it needs first, so a missing one changes nothing.
 # Exit codes: 0 ok, 1 refused or failed, 2 the board has no Agent field
 # (use the assignee claims in references/issue-tracking.md instead).
 set -euo pipefail
@@ -37,17 +39,10 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fields="$(gh project field-list "$number" --owner "$owner" --format json --limit 100)"
 project_id=""
 
-has_status() { jq -e --arg s "$1" '.fields[] | select(.name == "Status") | .options[] | select(.name == $s)' <<<"$fields" >/dev/null; }
 jq -e '.fields[] | select(.name == "Agent")' <<<"$fields" >/dev/null || {
   echo "board: $owner/$number has no Agent field; claim by assignee instead" >&2
   exit 2
 }
-if [ -n "${BOARD_READY:-}" ]; then ready="$BOARD_READY"
-elif has_status Ready; then ready=Ready
-else ready=Todo
-fi
-in_progress="${BOARD_IN_PROGRESS:-In progress}"
-done_status="${BOARD_DONE:-Done}"
 
 field_id() {
   local id
@@ -55,13 +50,35 @@ field_id() {
   [ -n "$id" ] || die "the board has no \"$1\" field"
   echo "$id"
 }
+status_field="$(field_id Status)"
+agent_field="$(field_id Agent)"
 
-status_option() {
-  local id
-  id="$(jq -r --arg s "$1" '.fields[] | select(.name == "Status") | .options[] | select(.name == $s) | .id' <<<"$fields")"
-  [ -n "$id" ] || die "the board's Status field has no option \"$1\""
-  echo "$id"
+# "<id>\t<name>" of the Status option matching $1 case-insensitively, or nothing.
+status_lookup() {
+  jq -r --arg s "$1" 'first(.fields[] | select(.name == "Status") | .options[]
+    | select((.name | ascii_downcase) == ($s | ascii_downcase))) | "\(.id)\t\(.name)"' <<<"$fields"
 }
+# The board's own spelling of status $1, or $1 itself if the board has no such option.
+status_name() {
+  local hit
+  hit="$(status_lookup "$1")"
+  if [ -n "$hit" ]; then echo "${hit#*$'\t'}"; else echo "$1"; fi
+}
+# The option id for status $1. Call it into a variable before any write: a
+# failure inside an argument's $(...) would not stop the script.
+status_option() {
+  local hit
+  hit="$(status_lookup "$1")"
+  [ -n "$hit" ] || die "the board's Status field has no option \"$1\""
+  echo "${hit%%$'\t'*}"
+}
+
+if [ -n "${BOARD_READY:-}" ]; then ready="$(status_name "$BOARD_READY")"
+elif [ -n "$(status_lookup Ready)" ]; then ready="$(status_name Ready)"
+else ready="$(status_name Todo)"
+fi
+in_progress="$(status_name "${BOARD_IN_PROGRESS:-In progress}")"
+done_status="$(status_name "${BOARD_DONE:-Done}")"
 
 items() {
   gh project item-list "$number" --owner "$owner" --format json --limit 1000 |
@@ -79,9 +96,10 @@ edit() {
   gh project item-edit --project-id "$project_id" --id "$@" >/dev/null
 }
 
-set_status() { edit "$1" --field-id "$(field_id Status)" --single-select-option-id "$(status_option "$2")"; }
-set_agent() { edit "$1" --field-id "$(field_id Agent)" --text "$2"; }
-clear_agent() { edit "$1" --field-id "$(field_id Agent)" --clear; }
+# set_status <item-id> <option-id>: take the option id from status_option first.
+set_status() { edit "$1" --field-id "$status_field" --single-select-option-id "$2"; }
+set_agent() { edit "$1" --field-id "$agent_field" --text "$2"; }
+clear_agent() { edit "$1" --field-id "$agent_field" --clear; }
 
 held_by() {
   local all item
@@ -93,12 +111,12 @@ held_by() {
 }
 
 release_quietly() {
-  local agent="$1" n id
-  shift
+  local agent="$1" ready_id="$2" n id
+  shift 2
   for n in "$@"; do
     id="$(held_by "$agent" "$n" 2>/dev/null)" || continue
     clear_agent "$id"
-    set_status "$id" "$ready"
+    set_status "$id" "$ready_id"
   done
 }
 
@@ -118,9 +136,11 @@ cmd_mine() {
 }
 
 cmd_claim() {
-  local agent="${1:?agent}" all n item holder status claimed=()
+  local agent="${1:?agent}" all n item holder status claimed=() progress_id ready_id
   shift
   [ $# -gt 0 ] || die "claim needs issue numbers"
+  progress_id="$(status_option "$in_progress")"
+  ready_id="$(status_option "$ready")"
   all="$(items)"
   for n in "$@"; do
     item="$(item_for "$all" "$n")"
@@ -135,7 +155,7 @@ cmd_claim() {
     item="$(item_for "$all" "$n")"
     if [ "$(jq -r '.agent // ""' <<<"$item")" != "$agent" ]; then
       set_agent "$(jq -r .id <<<"$item")" "$agent"
-      set_status "$(jq -r .id <<<"$item")" "$in_progress"
+      set_status "$(jq -r .id <<<"$item")" "$progress_id"
       claimed+=("$n")
     fi
   done
@@ -143,7 +163,7 @@ cmd_claim() {
   for n in "$@"; do
     holder="$(jq -r '.agent // ""' <<<"$(item_for "$all" "$n")")"
     if [ "$holder" != "$agent" ]; then
-      [ ${#claimed[@]} -eq 0 ] || release_quietly "$agent" "${claimed[@]}"
+      [ ${#claimed[@]} -eq 0 ] || release_quietly "$agent" "$ready_id" "${claimed[@]}"
       die "lost #$n to $holder; released this claim"
     fi
   done
@@ -151,30 +171,33 @@ cmd_claim() {
 }
 
 cmd_move() {
-  local agent="${1:?agent}" status="${2:?status}" n ids=() id
+  local agent="${1:?agent}" status n ids=() id status_id
+  status="$(status_name "${2:?status}")"
   shift 2
   [ $# -gt 0 ] || die "move needs issue numbers"
-  status_option "$status" >/dev/null
+  status_id="$(status_option "$status")"
   for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
-  for id in "${ids[@]}"; do set_status "$id" "$status"; done
+  for id in "${ids[@]}"; do set_status "$id" "$status_id"; done
   echo "moved $* to $status"
 }
 
 cmd_release() {
-  local agent="${1:?agent}" n ids=() id
+  local agent="${1:?agent}" n ids=() id ready_id
   shift
   [ $# -gt 0 ] || die "release needs issue numbers"
+  ready_id="$(status_option "$ready")"
   for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
   for id in "${ids[@]}"; do
     clear_agent "$id"
-    set_status "$id" "$ready"
+    set_status "$id" "$ready_id"
   done
   echo "released $*"
 }
 
 cmd_approve() {
-  local all n item holder ids=() id
+  local all n item holder ids=() id ready_id
   [ $# -gt 0 ] || die "approve needs issue numbers"
+  ready_id="$(status_option "$ready")"
   all="$(items)"
   for n in "$@"; do
     item="$(item_for "$all" "$n")"
@@ -183,7 +206,7 @@ cmd_approve() {
     [ -z "$holder" ] || die "#$n is held by $holder"
     ids+=("$(jq -r .id <<<"$item")")
   done
-  for id in "${ids[@]}"; do set_status "$id" "$ready"; done
+  for id in "${ids[@]}"; do set_status "$id" "$ready_id"; done
   echo "moved $* to $ready"
 }
 

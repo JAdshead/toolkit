@@ -60,7 +60,7 @@ Every agent signs in as the same GitHub user, so an assignee says an issue is ta
 
 **Agent id.** One per run (or per PR group in `tackle-issues`): `<branch>@$(hostname -s)`, for example `issues/calendar-fixes@studio`. Use the same id for every call about that work; `--resume` finds it again with `mine`.
 
-The script reads Status names as above: ready is Ready if the board has it, else Todo; then In progress and Done. If this board names them differently, prefix calls with `BOARD_READY=<option>`, `BOARD_IN_PROGRESS=<option>` or `BOARD_DONE=<option>`.
+The script reads Status names as above: ready is Ready if the board has it, else Todo; then In progress and Done. Case doesn't matter ("In Progress" matches), and a call that would need a status the board lacks fails before changing anything. If this board names them differently, prefix calls with `BOARD_READY=<option>`, `BOARD_IN_PROGRESS=<option>` or `BOARD_DONE=<option>`.
 
 | Operation | How (`B="scripts/board <owner>/<number>"`) |
 |---|---|
