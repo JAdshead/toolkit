@@ -141,6 +141,8 @@ cmd_claim() {
   shift
   [ $# -gt 0 ] || die "claim needs issue numbers"
   progress_id="$(status_option "$in_progress")"
+  # Resolved now, not in the rollback: a missing ready status found only after
+  # a lost race would leave half a claim.
   ready_id="$(status_option "$ready")"
   all="$(items)"
   for n in "$@"; do
