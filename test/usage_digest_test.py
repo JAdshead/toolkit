@@ -61,6 +61,12 @@ class UsageDigestTest(unittest.TestCase):
             f.write(user("2026-11-10T09:03:00Z", "[Request interrupted by user]"))
             f.write(user("2026-11-10T09:03:30Z", "This session is being continued from a previous conversation that ran out of context."))
             f.write(user("2026-11-10T09:04:00Z", "now run the linter too"))
+            f.write(user("2026-11-10T09:04:10Z", "subagent prompt in main file", isSidechain=True))
+            f.write(user("2026-11-10T09:04:20Z", "<local-command-stdout>done</local-command-stdout>"))
+            f.write(user("2026-11-10T09:04:30Z", [
+                {"type": "text", "text": "<system-reminder>context</system-reminder>"},
+                {"type": "text", "text": "and update the docs"},
+            ]))
         with open(os.path.join(proj, "s1", "subagents", "agent-1.jsonl"), "w") as f:
             f.write(user("2026-11-10T09:00:10Z", "subagent prompt", isSidechain=True))
         # Outside the window: must be ignored.
@@ -94,7 +100,7 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual([s["id"] for s in sessions], ["s1"])
         s = sessions[0]
         self.assertEqual(s["cwd"], "/work/app")
-        self.assertEqual(s["prompts"], ["fix the flaky booking test", "now run the linter too"])
+        self.assertEqual(s["prompts"], ["fix the flaky booking test", "now run the linter too", "and update the docs"])
         self.assertEqual(s["slash_commands"], ["/review"])
         self.assertEqual(s["skills"], ["toolkit:implement"])
         self.assertEqual(s["tools"], {"Bash": 1, "Skill": 1, "mcp__github__create_pr": 1})
@@ -108,7 +114,7 @@ class UsageDigestTest(unittest.TestCase):
     def test_claude_totals(self):
         totals = json.loads(self.run_digest("--format", "json"))["claude_code"]["totals"]
         self.assertEqual(totals["sessions"], 1)
-        self.assertEqual(totals["prompts"], 2)
+        self.assertEqual(totals["prompts"], 3)
         self.assertEqual(totals["by_project"], {"/work/app": 1})
         self.assertEqual(totals["mcp_servers"], {"github": 1})
 

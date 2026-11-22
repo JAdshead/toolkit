@@ -59,6 +59,14 @@ def text_of(content):
     return ""
 
 
+def human_text(content):
+    """The typed part of a user message: text blocks that aren't harness tags like <system-reminder>."""
+    blocks = [content] if isinstance(content, str) else [
+        b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+    ] if isinstance(content, list) else []
+    return "\n".join(t.strip() for t in blocks if t.strip() and not t.strip().startswith("<"))
+
+
 def clip(text):
     text = " ".join(text.split())
     return text if len(text) <= MAX_PROMPT_CHARS else text[: MAX_PROMPT_CHARS - 1] + "…"
@@ -121,10 +129,12 @@ def summarize_claude_session(path, since, until):
                 cmd = text.split("<command-name>", 1)[1].split("</command-name>", 1)[0].strip()
                 if cmd and cmd not in s["slash_commands"]:
                     s["slash_commands"].append(cmd)
-            elif text and not text.startswith("<") and not text.startswith(COMPACTION_PREFIX):
-                s["prompt_count"] += 1
-                if len(s["prompts"]) < MAX_PROMPTS:
-                    s["prompts"].append(clip(text))
+            else:
+                prompt = human_text(content)
+                if prompt and not prompt.startswith(COMPACTION_PREFIX):
+                    s["prompt_count"] += 1
+                    if len(s["prompts"]) < MAX_PROMPTS:
+                        s["prompts"].append(clip(prompt))
     if not in_window:
         return None
     s["id"] = s["id"] or os.path.splitext(os.path.basename(path))[0]
