@@ -69,7 +69,7 @@ _Avoid_: client, buyer, account
 _Not_: a **Login**, which is who signs in; one Customer can have many.
 
 **Login**:
-The identity a person signs in with.
+Who signs in: the identity a person uses to sign in.
 _Avoid_: user
 
 **Subscription**:
