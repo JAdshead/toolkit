@@ -130,7 +130,17 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual(codex["threads"][0]["first_user_message"], "add a rate limiter to the api")
         self.assertEqual(codex["totals"]["by_project"], {"/work/api": 1})
 
-    def test_missing_codex_dir_is_reported_not_fatal(self):
+    def test_corrupt_codex_db_is_warned_not_fatal(self):
+        with open(os.path.join(self.codex, "state_9.sqlite"), "wb") as f:
+            f.write(b"not a database")
+        out = subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
+                              "--codex-dir", self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
+                              "--format", "json"], capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("warning: could not read", out.stderr)
+        self.assertEqual([t["id"] for t in json.loads(out.stdout)["codex"]["threads"]], ["c1"])
+
+    def test_missing_codex_dir_is_not_fatal(self):
         out = subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
                               "--codex-dir", os.path.join(self.tmp.name, "nope"),
                               "--since", "2026-11-09", "--until", "2026-11-16", "--format", "json"],
