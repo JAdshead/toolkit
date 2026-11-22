@@ -18,4 +18,4 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Pull request review
 
-- **Review in a fresh context, to the owner's bar.** A PR is reviewed by an agent with none of the author's conversation, and passes only if that reviewer, acting as the repo's owner, would merge it as it stands. Use the `review-pr` skill.
+- **Before merging a pull request, review it with the `review-pr` skill.** It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.

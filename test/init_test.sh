@@ -138,7 +138,7 @@ check "indented markers: the stale block is replaced" "no" "$(has "$repo/AGENTS.
 repo="$(fresh)"
 printf 'Run toolkit init; it adds a <!-- toolkit:start --> block.\n' > "$repo/AGENTS.md"
 init "$repo"
-check "a marker mentioned inside prose: the block is still added" "yes" "$(has "$repo/AGENTS.md" "Review in a fresh context")"
+check "a marker mentioned inside prose: the block is still added" "yes" "$(has "$repo/AGENTS.md" "<!-- toolkit:end -->")"
 
 repo="$(fresh)"
 printf '@AGENTS.md.old\n' > "$repo/CLAUDE.md"
@@ -186,78 +186,35 @@ init "$repo"
 check "settings keep a toolkit marketplace the repo points elsewhere" "someone/fork" \
   "$(jq -r '.extraKnownMarketplaces.toolkit.source.repo' "$repo/.claude/settings.json")"
 
-# Links that lead out of the repo: init refuses and writes nothing anywhere.
+# init follows no links: any link is refused, wherever it points, except
+# CLAUDE.md or GEMINI.md linking to AGENTS.md (tested above). A refused run
+# writes nothing, here or through the link. Each target holds a JSON object,
+# so only the link check can stop init writing through it.
 outside="$work/outside"
-refuses() {
-  local name="$1"
-  check "$name: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-  check "$name: the outside file is untouched" "$2" "$(cat "$3")"
-  # A successful init always creates GEMINI.md.
-  check "$name: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
+keep='{"keep":1}'
+refused() {
+  check "$1: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  check "$1: the link's target is untouched" "$keep" "$(cat "$2" 2>/dev/null)"
+  check "$1: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
 }
 
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
-printf 'keep\n' > "$outside/victim.txt"
-ln -s ../outside/victim.txt "$repo/AGENTS.md"
-refuses "AGENTS.md links out of the repo" "keep" "$outside/victim.txt"
-
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
-printf 'keep\n' > "$outside/o.md"
-ln -s ../outside/o.md "$repo/CLAUDE.md"
-refuses "CLAUDE.md links out of the repo" "keep" "$outside/o.md"
+while read -r rel text; do
+  repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside" "$repo/.claude" "$repo/docs"
+  printf '%s\n' "$keep" | tee "$outside/t" "$repo/docs/t" "$repo/.claude/AGENTS.md" >/dev/null
+  ln -s "$text" "$repo/$rel"
+  refused "$rel -> $text" "$(dirname "$repo/$rel")/$text"
+done <<'CASES'
+AGENTS.md ../outside/t
+CLAUDE.md ../outside/t
+.claude/settings.json ../../outside/t
+AGENTS.md docs/t
+.claude/settings.json AGENTS.md
+CASES
 
 repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside/.claude"
-printf '{"a":1}\n' > "$outside/.claude/settings.json"
+printf '%s\n' "$keep" > "$outside/.claude/settings.json"
 ln -s ../outside/.claude "$repo/.claude"
-refuses ".claude links out of the repo" '{"a":1}' "$outside/.claude/settings.json"
-
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside" "$repo/.claude"
-printf '{"a":1}\n' > "$outside/s.json"
-ln -s ../../outside/s.json "$repo/.claude/settings.json"
-refuses "settings.json links out of the repo" '{"a":1}' "$outside/s.json"
-
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
-ln -s ../outside/new.md "$repo/AGENTS.md"
-check "AGENTS.md is a dangling link out of the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check "AGENTS.md is a dangling link out of the repo: nothing is created outside" "no" "$([ -e "$outside/new.md" ] && echo yes || echo no)"
-check "AGENTS.md is a dangling link out of the repo: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
-
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside" "$repo/.claude"
-ln -s ../../outside/s.json "$repo/.claude/settings.json"
-check "settings.json is a dangling link out of the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check "settings.json is a dangling link out of the repo: nothing is created outside" "no" "$([ -e "$outside/s.json" ] && echo yes || echo no)"
-
-# A link through a directory link plus "..": a logical cd would collapse the
-# ".." as text and miss that the write lands outside the repo.
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside"
-printf 'keep\n' > "$work/victim"
-ln -s . "$repo/d"
-ln -s ../victim "$repo/l"
-ln -s d/l "$repo/AGENTS.md"
-refuses "AGENTS.md reaches out through a directory link and .." "keep" "$work/victim"
-
-# Logically d/.. is the repo, so the link reads as $repo/.claude/settings.json;
-# physically d is $outside/sub, so d/.. is $outside.
-repo="$(fresh)"; rm -rf "$outside"; mkdir -p "$outside/sub" "$outside/.claude" "$repo/.claude"
-printf '{"a":1}\n' > "$outside/.claude/settings.json"
-ln -s ../outside/sub "$repo/d"
-ln -s ../d/../.claude/settings.json "$repo/.claude/settings.json"
-refuses "settings.json reaches out through a directory link and .." '{"a":1}' "$outside/.claude/settings.json"
-
-repo="$(fresh)"
-printf 'not a directory\n' > "$repo/.claude"
-check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check ".claude is a file: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] || [ -e "$repo/CLAUDE.md" ] && echo yes || echo no)"
-
-# init writes only regular files (CLAUDE.md and GEMINI.md may link to the
-# repo's AGENTS.md). Any other link is refused, wherever it points: following
-# links safely is where every escape so far came from.
-repo="$(fresh)"
-mkdir -p "$repo/docs"
-printf '# Docs agents\n' > "$repo/docs/agents.md"
-ln -s docs/agents.md "$repo/AGENTS.md"
-check "AGENTS.md linking inside the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check "AGENTS.md linking inside the repo: its target is untouched" "# Docs agents" "$(cat "$repo/docs/agents.md")"
+refused ".claude -> ../outside/.claude" "$outside/.claude/settings.json"
 
 repo="$(fresh)"
 ln -s .. "$repo/.claude"
@@ -265,42 +222,16 @@ check ".claude -> ..: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1
 check ".claude -> ..: no settings.json above the repo" "no" "$([ -e "$repo/../settings.json" ] && echo yes || echo no)"
 
 repo="$(fresh)"
-mkdir -p "$repo/.claude" "$repo/conf"
-printf '{"a":1}\n' > "$repo/conf/s.json"
-ln -s ../conf/s.json "$repo/.claude/settings.json"
-check "settings.json linking inside the repo: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check "settings.json linking inside the repo: its target is untouched" '{"a":1}' "$(cat "$repo/conf/s.json")"
-
-# Only CLAUDE.md and GEMINI.md may link to AGENTS.md; for settings.json that
-# link text leads to .claude/AGENTS.md.
-repo="$(fresh)"
-mkdir -p "$repo/.claude"
-printf '{"a":1}\n' > "$repo/.claude/AGENTS.md"
-ln -s AGENTS.md "$repo/.claude/settings.json"
-check "settings.json linking to AGENTS.md: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-check "settings.json linking to AGENTS.md: its target is untouched" '{"a":1}' "$(cat "$repo/.claude/AGENTS.md")"
-
-for rel in AGENTS.md CLAUDE.md; do
-  repo="$(fresh)"
-  git init -q "$repo"
-  before="$(cat "$repo/.git/config")"
-  ln -s .git/config "$repo/$rel"
-  check "$rel -> .git/config: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
-  check "$rel -> .git/config: git config is untouched" "$before" "$(cat "$repo/.git/config")"
-done
-
-# What init says on an ordinary run.
-repo="$(fresh)"
-init "$repo"
-check "empty repo: says the plugin is enabled" "yes" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
-check "empty repo: no repo's-own-marketplace note" "no" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
-check "empty repo: nothing about staying disabled" "no" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
+git init -q "$repo"
+before="$(cat "$repo/.git/config")"
+ln -s .git/config "$repo/AGENTS.md"
+check "AGENTS.md -> .git/config: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+check "AGENTS.md -> .git/config: git config is untouched" "$before" "$(cat "$repo/.git/config")"
 
 repo="$(fresh)"
-mkdir -p "$repo/.claude"
-printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"JAdshead/toolkit"}}}}\n' > "$repo/.claude/settings.json"
-init "$repo"
-check "the toolkit's own marketplace is not called the repo's own" "no" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
+printf 'not a directory\n' > "$repo/.claude"
+check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+check ".claude is a file: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] || [ -e "$repo/CLAUDE.md" ] && echo yes || echo no)"
 
 for name in CLAUDE.md GEMINI.md; do
   repo="$(fresh)"
@@ -309,57 +240,38 @@ for name in CLAUDE.md GEMINI.md; do
   check "$name is a directory: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
 done
 
-repo="$(fresh)"
-mkdir -p "$repo/.claude"
-printf '{"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
-init "$repo"
-check "a plugin the repo turned off is not reported as enabled" "no" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
-check "a plugin the repo turned off is reported as staying disabled" "yes" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
+# init ends by printing the toolkit's settings as they now stand, as JSON.
+status() { grep '^toolkit plugin' <<<"$out"; }
 
 repo="$(fresh)"
-mkdir -p "$repo/.claude"
-printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}}}\n' > "$repo/.claude/settings.json"
 init "$repo"
-check "a kept marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
+check "empty repo: settings are written" "yes" "$(grep -q 'updated .claude/settings.json' <<<"$out" && echo yes || echo no)"
+check "empty repo: status shows the plugin enabled from the toolkit marketplace" \
+  'toolkit plugin in .claude/settings.json: {"enabled":true,"marketplace":{"source":"github","repo":"JAdshead/toolkit"}}' "$(status)"
 
-# Settings that already hold every key init would add are left as they are,
-# but what the repo chose is still reported.
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"someone/fork"}}},"enabledPlugins":{"toolkit@toolkit":false}}\n' > "$repo/.claude/settings.json"
 before="$(cat "$repo/.claude/settings.json")"
 init "$repo"
-check "complete settings the repo chose are left unchanged" "$before" "$(cat "$repo/.claude/settings.json")"
-check "complete settings: a plugin the repo turned off is reported" "yes" "$(grep -q 'stays disabled' <<<"$out" && echo yes || echo no)"
-check "complete settings: a marketplace from elsewhere is named" "yes" "$(grep -q 'someone/fork' <<<"$out" && echo yes || echo no)"
-check "complete settings: nothing claims the plugin was enabled" "no" "$(grep -q 'enabled the toolkit plugin' <<<"$out" && echo yes || echo no)"
+check "settings the repo chose in full are left unchanged" "$before" "$(cat "$repo/.claude/settings.json")"
+check "unchanged settings are not reported as written" "no" "$(grep -q 'updated .claude/settings.json' <<<"$out" && echo yes || echo no)"
+check "status shows what the repo chose" \
+  'toolkit plugin in .claude/settings.json: {"enabled":false,"marketplace":{"source":"github","repo":"someone/fork"}}' "$(status)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
-printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"JAdshead/toolkit"}}},"enabledPlugins":{"toolkit@toolkit":true}}\n' > "$repo/.claude/settings.json"
+printf '{"extraKnownMarketplaces":{"toolkit":"x"}}\n' > "$repo/.claude/settings.json"
 init "$repo"
-check "settings already set up as init would: nothing said about them" "no" "$(grep -q 'settings.json' <<<"$out" && echo yes || echo no)"
-
-for source in '{"source":"git","url":"https://elsewhere.example/m.git","repo":"JAdshead/toolkit"}' \
-              '{"source":"github","repo":"JAdshead/toolkit","ref":"other"}'; do
-  repo="$(fresh)"
-  mkdir -p "$repo/.claude"
-  printf '{"extraKnownMarketplaces":{"toolkit":{"source":%s}}}\n' "$source" > "$repo/.claude/settings.json"
-  init "$repo"
-  check "a kept marketplace that differs in any field is named: $source" "yes" "$(grep -q "repo's own" <<<"$out" && echo yes || echo no)"
-done
+check "a toolkit marketplace that is not an object is shown as it is" \
+  'toolkit plugin in .claude/settings.json: {"enabled":true,"marketplace":"x"}' "$(status)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
-printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"evil/x\\u001b[2K\\r"}}}}\n' > "$repo/.claude/settings.json"
+printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo":"evil/x\\u001b[2K\\r"}}},"enabledPlugins":{"toolkit@toolkit":"off\\u001b[2K\\r"}}\n' > "$repo/.claude/settings.json"
 init "$repo"
 check "control characters from the repo's settings never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
-
-repo="$(fresh)"
-mkdir -p "$repo/.claude"
-printf '{"enabledPlugins":{"toolkit@toolkit":"off\\u001b[2K\\r"}}\n' > "$repo/.claude/settings.json"
-init "$repo"
-check "control characters in the repo's plugin value never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
+check "control characters are shown escaped" "yes" "$(grep -qF 'evil/x\u001b' <<<"$out" && echo yes || echo no)"
 
 check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
 

@@ -60,7 +60,7 @@ It is safe to re-run, and re-running it after `toolkit update` refreshes the rul
 | Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended. Left alone if it already imports `AGENTS.md` or is a link to it |
 | Enables the plugin for everyone who opens the repo in Claude Code | `.claude/settings.json`: adds the `toolkit` marketplace and `toolkit@toolkit`, keeping other keys and any value the repo already set |
 
-Codex reads `AGENTS.md` itself. Needs `jq`. Before writing anything it checks that the markers are intact, that `.claude/settings.json` is a JSON object, and that every file it writes is a regular file or absent and `.claude` a real directory. It follows no links: the only link it accepts is a `CLAUDE.md` or `GEMINI.md` whose target is exactly `AGENTS.md` or `./AGENTS.md`, which it leaves as is and does not write through. If a check fails it stops with a message and changes nothing. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
+Codex reads `AGENTS.md` itself. Needs `jq`. init follows no symlinks (a `CLAUDE.md` or `GEMINI.md` linking to `AGENTS.md` is left as it is) and refuses broken markers or settings that aren't a JSON object; if any check fails it changes nothing. It ends by printing the toolkit's settings as they stand. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
 Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
@@ -130,7 +130,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
 | `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; sets up a board |
 | `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
-| `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one to three independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
+| `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |

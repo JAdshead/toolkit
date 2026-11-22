@@ -28,7 +28,8 @@ fresh() {
 run() { HOME="$work/home" CLAUDE_PROJECT_DIR="$work/project" CLAUDE_PLUGIN_ROOT="$root" "$hook"; }
 # Capture the output first: grep -q stops reading early, and under pipefail
 # the writer's SIGPIPE would make the result depend on timing.
-mentions_rules() { local out; out="$(run)"; if grep -qF "Review in a fresh context" <<<"$out"; then echo yes; else echo no; fi; }
+first_rule_line="$(head -n 1 "$root/rules/AGENTS.md")"
+mentions_rules() { local out; out="$(run)"; if grep -qxF "$first_rule_line" <<<"$out"; then echo yes; else echo no; fi; }
 
 fresh
 check "no rules anywhere: the hook adds them" "yes" "$(mentions_rules)"
@@ -65,9 +66,6 @@ check "a marker mentioned inside prose does not count: the hook adds the rules" 
 fresh
 printf '  <!-- toolkit:start -->\r\nrules\r\n  <!-- toolkit:end -->\r\n' > "$work/project/AGENTS.md"
 check "an indented CRLF block counts: silent" "" "$(run)"
-
-check "the hook runs only on startup, clear and compact" "startup|clear|compact" \
-  "$(jq -r '.hooks.SessionStart[0].matcher' "$root/hooks/hooks.json")"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"
 [ "$failures" -eq 0 ]

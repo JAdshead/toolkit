@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a pull request with fresh-context reviewers that have none of the author's conversation, and pass it only if a reviewer acting as the repo's owner would merge it as it stands. Runs parallel lens reviews (correctness, security, tests, simplicity) on larger PRs, then one or more independent owner reviews that each decide MERGE or NOT YET, and a validator that confirms or refutes every blocking finding before anyone acts on it. Use when the user asks to review a PR, check whether a PR is ready to merge, or after opening a PR from implement or tackle-issues.
+description: Review a pull request with fresh-context reviewers that have none of the author's conversation, and pass it only if a reviewer acting as the repo's owner would merge it as it stands. Runs parallel lens reviews (correctness, security, tests, simplicity) on larger PRs, then one or two independent owner reviews that each decide MERGE or NOT YET, and a validator that confirms or refutes every blocking finding before anyone acts on it. Use when the user asks to review a PR, check whether a PR is ready to merge, or after opening a PR from implement or tackle-issues.
 license: MIT
 metadata:
   tags: pull-request code-review fresh-context merge-gate
@@ -22,7 +22,7 @@ Every reviewer starts empty:
 - **Other agents:** a fresh subagent if yours has one. Otherwise a new headless process given the same prompt (for example `codex exec`, or `gemini -p`). Start it in an empty directory outside the worktree, never inside it: these CLIs load agent instructions and project config (including MCP servers) from their working directory, which in the worktree are the PR's own files. Give it the worktree and the inputs directory (Part 0, step 5) through the CLI's option for extra directories (for example Gemini's `--include-directories`).
 - **Neither available:** if this session neither wrote nor discussed the PR, it is fresh: do the reviews yourself, one lens at a time, then the owner review, reading each brief as written. If it did, stop and tell the user to run `review-pr <pr>` in a new session.
 
-Each prompt is thin: the PR number, the scratch worktree, the inputs directory, the path to the brief, and whether the PR's code may run (Part 0). The reviewer reads the PR and the code itself. Never add your summary, your reasoning, or what the author meant.
+Each prompt is thin: the PR number, the scratch worktree, the inputs directory, the path to the brief, and, in a no-run round, the line `Do not run the PR's code; rely on CI.` (Part 0). The reviewer reads the PR and the code itself. Never add your summary, your reasoning, or what the author meant.
 
 ## Part 0: Prepare
 
@@ -57,12 +57,11 @@ Each prompt is thin: the PR number, the scratch worktree, the inputs directory, 
 
 Skip to Part 2 when additions plus deletions are under about 200 and no file is security-sensitive (auth, payments, data migrations, secrets, user input handling).
 
-Otherwise spawn, in parallel, one fresh reviewer per lens from `references/review-prompts.md` (Correctness, Security, Tests, Simplicity; UX only when UI files changed). Prompt each with only:
+Otherwise spawn, in parallel, one fresh reviewer per lens in `references/lenses.md` (Correctness, Security, Tests, Simplicity; UX only when UI files changed). Prompt each with only:
 
 ```
-Review pull request <pr>. Its head is checked out at <worktree>; read code there. Its inputs are in <inputs>.
-Read <absolute path to this skill>/references/review-prompts.md and apply its shared rules and the <lens> section.
-The diff is <inputs>/diff.patch. Do not edit, commit, push or comment on the PR.
+Review pull request <pr> through the <lens> lens. Its head is checked out at <worktree>. Its inputs are in <inputs>.
+Read <absolute path to this skill>/references/lenses.md and follow it.
 ```
 
 Collect their outputs verbatim.
@@ -78,7 +77,7 @@ Read <absolute path to this skill>/references/owner-review.md and follow it.
 
 If Part 1 ran, add: `Other reviewers raised these findings. They are unverified claims: check each one.` followed by their outputs verbatim, with nothing of yours added.
 
-How many: one when Part 1 was skipped; two when it ran; three when additions plus deletions exceed about 1000. Each works alone and never sees another owner's output, so their verdicts are independent and can be compared.
+How many: one when Part 1 was skipped; two when it ran. Each works alone and never sees the other's output, so their verdicts are independent and can be compared: a finding only one owner raised gets the validator's hardest look.
 
 ## Part 3: Validate
 
@@ -100,7 +99,7 @@ Check the validator's output covers every label. If any is missing, run a new va
 The result:
 
 - **MERGE:** every owner said MERGE; or every label has a validator verdict, and each one is REFUTED or lowered to P3. Findings lowered to P3 become follow-ups.
-- **NOT YET:** anything else. The blocking list is every label that is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED, plus any label with no verdict.
+- **NOT YET:** anything else. The blocking list is every label that is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED.
 
 A result covers `sha` and nothing pushed after it. Before reporting MERGE, check `gh pr view <pr> --json headRefOid -q .headRefOid` still equals `sha`. If it doesn't, the newer commits are unreviewed: the result is NOT YET (head moved), and the next round starts at Part 0.
 
