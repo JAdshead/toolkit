@@ -27,7 +27,7 @@ Each prompt is thin: the PR number, the scratch worktree, the path to the brief,
 ## Part 0: Prepare
 
 1. Resolve the input (a number, URL or branch; none means the current branch's PR) to a number: `gh pr view <input> --json number,additions,deletions,files`.
-2. Decide whether the PR's code may run on this machine: `gh pr view <pr> --json isCrossRepository,authorAssociation`. Running it is fine when the PR is not from a fork and its author is `OWNER`, `MEMBER` or `COLLABORATOR`. Otherwise ask the user before anything runs it; on a no, add `Do not run the PR's code; rely on CI.` to every reviewer prompt, and give headless reviewers no shell access.
+2. Decide whether the PR's code may run on this machine: `gh pr view <pr> --json isCrossRepository` and `gh api "repos/{owner}/{repo}/pulls/<pr>" --jq .author_association` (`gh` fills in `{owner}/{repo}`). Running it is fine when the PR is not from a fork and its author is `OWNER`, `MEMBER` or `COLLABORATOR`. Otherwise ask the user before anything runs it; on a no, add `Do not run the PR's code; rely on CI.` to every reviewer prompt, and give headless reviewers no shell access.
 3. Wait for CI: `gh pr checks <pr> --watch`. If it fails, report that and stop; a red PR is not ready for review. A repo with no checks has nothing to wait for.
 4. Check out the head in a scratch worktree outside the repo (your temp or scratch directory), so reviewers read and run the PR's code and nobody's checkout changes:
    ```bash
