@@ -101,7 +101,7 @@ When in doubt, it needs a proposal.
 
 Once the user confirms ("yes", "yep", "do it", "looks good", "create"):
 
-1. Check the repo and its labels: `gh repo view --json nameWithOwner` and `gh label list`. Prefer the repo's existing labels over inventing new ones.
+1. Check the repo and its labels: `gh repo view --json nameWithOwner,visibility` and `gh label list`. Prefer the repo's existing labels over inventing new ones. If the repo is public, show the full title and body of every issue before filing, not just the list, and file only after a second yes. Keep private details out of public bodies: other projects' names, customers, people, internal URLs and quotes from private conversations.
 2. File each item as an issue. Keep the user's words in the title (tidied, not rewritten). Every body must stand on its own: expand the raw phrasing into requirements, acceptance criteria and any known context such as file paths. When several items are parts of one feature, add `Part of: <feature>` to each body so they can be grouped later.
 
 **Labels** (map to the closest existing label):
