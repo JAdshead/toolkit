@@ -127,6 +127,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 
 | Skill | What it does |
 |-------|--------------|
+| `agent-coach` | Weekly, schedulable audit of your Claude Code and Codex sessions; recommends features, new skills and AGENTS.md additions, grounded in your usage |
 | `board-setup` | Creates and links a GitHub Project board, offers the Agent field, Backlog/Ready, In review and Area, and records it in the repo's agent instructions |
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
 | `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
