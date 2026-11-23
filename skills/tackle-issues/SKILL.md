@@ -44,6 +44,7 @@ This skill works in any coding agent that can run shell commands and `gh` (Claud
 Before touching any issue, read how this project wants work done. Look at, in order: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, `README`, and the CI config (`.github/workflows/`, `.gitlab-ci.yml`, etc.).
 
 Record:
+- **Issue-tracking mode**: simple or project, settled with `references/issue-tracking-mode.md`, and in project mode the board, its claim style and its Status names.
 - **Verify command**: the lint and test commands the project or CI actually runs. See `references/subagent-templates.md` for detection when nothing is documented.
 - **Conventions**: commit message style, branch naming, test standards, comment rules, design system or UI guide, files never to edit.
 - **Domain reviewers**: any area the project's docs treat as high-risk (payments, auth, data migrations, privacy, legal copy). These become extra reviewers in Phase 5.
@@ -67,6 +68,7 @@ With a focus filter:
 1. **Label match**: any argument that matches a label name (case-insensitive) becomes `gh issue list --label "<label>"`.
 2. **Text search**: remaining arguments become `gh issue list --search "<term>"`.
 3. **Union** the results, deduplicated by number.
+4. **Project mode:** keep only issues the mode's Find work also returned, so a focus can't pull in Backlog items.
 
 Exclude:
 - issues with any assignee (claimed);
