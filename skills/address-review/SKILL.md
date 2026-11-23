@@ -21,7 +21,7 @@ From `review-pr` Part 4: the PR number, your worktree on the PR branch (not `rev
 - **Patch** when the findings are few, isolated, and in code the problem needs.
 - **Re-solve** when this is round 2 or later, the findings cluster in one area, or they sit in code that earlier fixes added (`git log` on those lines) or that the problem doesn't need.
 
-A finding that can only be fixed by going beyond `problem.md` goes to the user, not to a subagent.
+A finding that can only be fixed by going beyond `problem.md` goes to the user, not to a subagent. A finding about the PR's title or description is yours: fix it with `gh pr edit` when you push.
 
 ## 2. Patch
 
@@ -39,13 +39,13 @@ Create a worktree on a new branch from the point the PR branched off, so the res
 
 Do not trust the subagent's report. Run the project's full local checks yourself, read the diff, and check each finding is gone and nothing beyond `problem.md` was added.
 
-On a re-solve, compare `git diff --stat origin/<base>...` for the old and new branches. Keep the new one only if its checks pass and it is smaller or simpler; otherwise patch instead (step 2). To keep it, make the PR branch match it in one new commit, so nothing is force-pushed:
+On a re-solve, compare `git diff --stat origin/<base>...<pr-branch>` with `git diff --stat origin/<base>...<pr-branch>-resolve`. Keep the new one only if its checks pass and it is smaller or simpler; otherwise patch instead (step 2). To keep it, make the PR branch match it in one new commit, so nothing is force-pushed:
 
 ```bash
 git -C <pr-worktree> restore --source=<pr-branch>-resolve --staged --worktree :/
 git -C <pr-worktree> commit -m "<what changed>"
 ```
 
-Either way, then remove the re-solve worktree and branch (`git worktree remove --force <scratch>/resolve-<pr>`, `git branch -D <pr-branch>-resolve`).
+If you re-solved, remove its worktree and branch (`git worktree remove --force <scratch>/resolve-<pr>`, `git branch -D <pr-branch>-resolve`).
 
-Then ask the user before pushing, push, and go back to `review-pr` Part 0.
+Then ask the user before pushing. If you kept a re-solve, update the PR title and description to match the new diff (`gh pr edit`) when you push. Go back to `review-pr` Part 0.
