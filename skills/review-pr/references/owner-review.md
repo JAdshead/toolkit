@@ -26,6 +26,8 @@ The PR's head is checked out in the worktree you were given; read and run code t
 
 ## Severity
 
+<!-- The same levels as lenses.md, plus UNVERIFIED. Each brief keeps its own copy on purpose, since a reviewer reads only its own: change both together. -->
+
 - **P1:** wrong behaviour, a security hole, data loss, or the PR does not do what it says.
 - **P2:** a real problem you would make the author fix first: a behaviour change with no proof that fails without it (a test, or an exception the PR names with a repeatable check and its output before and after; a bug fix needs a reproduction), an exception where a good test could reach the behaviour, an untested branch that matters, missing failure handling, a convention the project enforces, or code or complexity `problem.md` does not need.
 - **UNTRUE:** text (comment, doc, message, PR text) that misdescribes what the code does.

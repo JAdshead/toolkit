@@ -89,7 +89,7 @@ How many: one when Part 1 was skipped; two when it ran. Each works alone and nev
 
 ## Part 3: Validate
 
-First check each owner's output: MERGE must come with an empty BLOCKING list, and NOT YET with at least one entry. An owner whose output breaks that has not followed its brief: run a new owner in its place, once. If the new owner's output breaks it too, count that owner as NOT YET, and the result is NOT YET.
+First check each owner's output: MERGE must come with an empty BLOCKING list, and NOT YET with at least one entry. An owner whose output breaks that has not followed its brief: run a new owner in its place, once. If the new owner's output breaks it too, count that owner as NOT YET, and the result is NOT YET with the owner output malformed.
 
 Skip the validator when every owner returned MERGE.
 
@@ -119,6 +119,7 @@ Show the user the result as returned, without softening it: the commit it covers
 
 - **MERGE:** say so. List the follow-ups (P3) and offer to draft one follow-up issue for them.
 - **NOT YET:** list the confirmed blocking findings. If you are the author (you came here from `implement` or `tackle-issues`), hand them off to the `address-review` skill with `problem.md` and the round number; it brings you back to Part 0, where **new** fresh reviewers are never told what changed or what the last reviewers said.
+- **NOT YET with the owner output malformed:** there is no finding to fix. Tell the user the owner's output was malformed twice, show it, and stop; do not hand off to `address-review`.
 - **You think a confirmed finding is wrong:** do not drop it. Show the user the finding and your reason, and let them decide.
 
 **Exit:** stop at MERGE. After 3 rounds without one, ask the user: keep going, merge with the open findings listed on the PR, or stop. If the user already told you to keep going until it passes, keep going, and still stop to ask if a round confirms the same finding a previous round did, since the fix is not working.

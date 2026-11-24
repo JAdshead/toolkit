@@ -60,7 +60,7 @@ It is safe to re-run, and re-running it after `toolkit update` refreshes the rul
 | Makes Gemini CLI read `AGENTS.md` | `GEMINI.md`: created as `@./AGENTS.md`, or that line appended. Left alone if it already imports `AGENTS.md` or is a link to it |
 | Enables the plugin for everyone who opens the repo in Claude Code | `.claude/settings.json`: adds the `toolkit` marketplace and `toolkit@toolkit`, keeping other keys and any value the repo already set |
 
-Codex reads `AGENTS.md` itself. Needs `jq`. init follows no symlinks (a `CLAUDE.md` or `GEMINI.md` linking to `AGENTS.md` is left as it is) and refuses broken markers or settings that aren't a JSON object; if any check fails it changes nothing. It ends by printing the toolkit's settings as they stand. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
+Codex reads `AGENTS.md` itself. Needs `jq`. init follows no symlinks (a `CLAUDE.md` or `GEMINI.md` linking to `AGENTS.md` is left as it is) and refuses broken markers or a `.claude/settings.json` that isn't a single JSON object (or whose `enabledPlugins` or `extraKnownMarketplaces` isn't one); if any check fails it changes nothing. It ends by printing the toolkit's settings as they stand, with a warning if the `toolkit` marketplace points anywhere but `JAdshead/toolkit`. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
 Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
@@ -83,7 +83,7 @@ In Claude Code 2.1.275 or later:
 
 On earlier versions, `/plugin marketplace add JAdshead/toolkit`, then `/plugin install toolkit@toolkit`.
 
-The plugin's SessionStart hook ([`hooks/session-start`](hooks/session-start)) adds the shared rules to each session, so plugin-only users get them too. It stays silent when the rules already reach the session: the repo has a `toolkit init` block, or `~/.claude/CLAUDE.md` is the rules file from step 1.
+The plugin's SessionStart hook ([`hooks/session-start`](hooks/session-start)) adds the shared rules to each session, so plugin-only users get them too. It stays silent when the rules already reach the session: the repo's `CLAUDE.md` has a `toolkit init` block or imports (or links to) an `AGENTS.md` that has one, or `~/.claude/CLAUDE.md` is the rules file from step 1 (a link or a copy).
 
 ### Check it worked
 

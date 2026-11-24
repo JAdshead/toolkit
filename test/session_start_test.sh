@@ -35,9 +35,26 @@ fresh
 check "no rules anywhere: the hook adds them" "yes" "$(mentions_rules)"
 check "the hook exits cleanly" "0" "$(run >/dev/null; echo $?)"
 
+block='x\n<!-- toolkit:start -->\nrules\n<!-- toolkit:end -->\n'
+
 fresh
-printf 'x\n<!-- toolkit:start -->\nrules\n<!-- toolkit:end -->\n' > "$work/project/AGENTS.md"
-check "project AGENTS.md has the block: silent" "" "$(run)"
+printf '%b' "$block" > "$work/project/AGENTS.md"
+printf '# Notes\n@AGENTS.md\n' > "$work/project/CLAUDE.md"
+check "project AGENTS.md has the block and CLAUDE.md imports it: silent" "" "$(run)"
+
+fresh
+printf '%b' "$block" > "$work/project/AGENTS.md"
+ln -s AGENTS.md "$work/project/CLAUDE.md"
+check "project AGENTS.md has the block and CLAUDE.md links to it: silent" "" "$(run)"
+
+fresh
+printf '%b' "$block" > "$work/project/AGENTS.md"
+check "project AGENTS.md has the block but there is no CLAUDE.md: the hook adds the rules" "yes" "$(mentions_rules)"
+
+fresh
+printf '%b' "$block" > "$work/project/AGENTS.md"
+printf '# Notes\n@AGENTS.md.old\n' > "$work/project/CLAUDE.md"
+check "project AGENTS.md has the block but CLAUDE.md does not import it: the hook adds the rules" "yes" "$(mentions_rules)"
 
 fresh
 printf '<!-- toolkit:start -->\nrules\n<!-- toolkit:end -->\n' > "$work/project/CLAUDE.md"
@@ -47,6 +64,11 @@ fresh
 mkdir -p "$work/home/.claude"
 ln -s "$root/rules/AGENTS.md" "$work/home/.claude/CLAUDE.md"
 check "global CLAUDE.md is the toolkit rules: silent" "" "$(run)"
+
+fresh
+mkdir -p "$work/home/.claude"
+cp "$root/rules/AGENTS.md" "$work/home/.claude/CLAUDE.md"
+check "global CLAUDE.md is a plain copy of the toolkit rules: silent" "" "$(run)"
 
 fresh
 mkdir -p "$work/home/.claude"
@@ -65,7 +87,13 @@ check "a marker mentioned inside prose does not count: the hook adds the rules" 
 
 fresh
 printf '  <!-- toolkit:start -->\r\nrules\r\n  <!-- toolkit:end -->\r\n' > "$work/project/AGENTS.md"
-check "an indented CRLF block counts: silent" "" "$(run)"
+printf '@AGENTS.md\r\n' > "$work/project/CLAUDE.md"
+check "an indented CRLF block imported with a CRLF line counts: silent" "" "$(run)"
+
+fresh
+mkdir -p "$work/plugin"
+check "the plugin has no rules file: the hook exits cleanly and says nothing" "0:" \
+  "$(out="$(HOME="$work/home" CLAUDE_PROJECT_DIR="$work/project" CLAUDE_PLUGIN_ROOT="$work/plugin" "$hook")"; echo "$?:$out")"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"
 [ "$failures" -eq 0 ]

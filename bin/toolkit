@@ -94,7 +94,10 @@ plan_agents_md() {
 plan_settings() {
   local file="$1" out="$2"
   if [ -s "$file" ]; then cp "$file" "$out"; else printf '{}\n' > "$out"; fi
-  jq -e 'type == "object"' "$out" >/dev/null 2>&1 || die "$file is not a JSON object; fix it and re-run"
+  jq -se 'length == 1 and (.[0] | type == "object")' "$out" >/dev/null 2>&1 ||
+    die "$file is not a single JSON object; fix it and re-run"
+  jq -e 'all(.enabledPlugins, .extraKnownMarketplaces; . == null or type == "object")' "$out" >/dev/null ||
+    die "$file has enabledPlugins or extraKnownMarketplaces that is not a JSON object; fix it and re-run"
   jq --arg repo "$MARKETPLACE_REPO" '
     .extraKnownMarketplaces = ((.extraKnownMarketplaces // {})
       | if has("toolkit") then . else .toolkit = {source: {source: "github", repo: $repo}} end)
@@ -180,6 +183,12 @@ init_repo() {
     enabled: .enabledPlugins["toolkit@toolkit"],
     marketplace: (.extraKnownMarketplaces.toolkit | if type == "object" then .source else . end)
   }' "$dir/.claude/settings.json")"
+  # A toolkit marketplace the repo pointed elsewhere was kept, and the plugin
+  # init enables comes from it.
+  jq -e --arg repo "$MARKETPLACE_REPO" \
+    '(.extraKnownMarketplaces.toolkit | objects | .source | objects | .source == "github" and .repo == $repo) // false' \
+    "$dir/.claude/settings.json" >/dev/null ||
+    echo "warning: the toolkit marketplace in .claude/settings.json is not github $MARKETPLACE_REPO (shown above); check you trust it" >&2
   echo "Review and commit the changes in $dir."
 }
 
