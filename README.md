@@ -140,6 +140,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
+| `ux-goal` | Judges a running app against one user goal: a fresh subagent with no source code attempts it in a browser, then the run is scored against an observable success state and the shortest path, with friction ranked by cost to the goal |
 
 In Claude Code they appear as `toolkit:<name>`.
 
