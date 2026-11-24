@@ -1,6 +1,6 @@
 ---
 name: address-review
-description: Turn a review-pr NOT YET verdict into a fix. A fresh subagent that never wrote the code either patches the confirmed findings or re-solves the PR's problem from the base branch, and the orchestrator keeps a re-solve only if it passes its checks and is smaller or simpler than the current diff. Use only from review-pr Part 4, when it returns NOT YET on a PR you authored.
+description: Turn a review-pr NOT YET verdict into a fix. A fresh subagent that never wrote the code either patches the confirmed findings or re-solves the PR's problem from the base branch, and the orchestrator keeps a re-solve only if it passes its checks and is smaller or simpler than the current diff. Use from review-pr Part 4 or ship-pr, when review-pr returns NOT YET.
 license: MIT
 metadata:
   tags: pull-request code-review fix-loop fresh-context
@@ -14,7 +14,7 @@ The author fixing their own findings stays anchored on their design and patches 
 
 ## Inputs
 
-From `review-pr` Part 4: the PR number, your worktree on the PR branch (not `review-pr`'s detached scratch worktree), the confirmed blocking findings verbatim (this round's, and every earlier round's), the path to `problem.md`, and the round number.
+From `review-pr` Part 4 or `ship-pr`: the PR number, your worktree on the PR branch (not `review-pr`'s detached scratch worktree), the confirmed blocking findings verbatim (this round's, and every earlier round's), the path to `problem.md`, and the round number.
 
 ## 1. Patch or re-solve
 
