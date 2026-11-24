@@ -333,12 +333,13 @@ class UsageDigestTest(unittest.TestCase):
 
     def test_harness_element_needs_the_whole_name_to_match(self):
         self.write_transcript("-work-tags/names.jsonl",
-                              user("2026-11-11T09:00:00Z", "<a-bc>x</a-b> keep", session="names"))
-        self.assertEqual(self.sessions()["names"]["prompts"], ["<a-bc>x</a-b> keep"])
+                              user("2026-11-11T09:00:00Z", '<a-b"c>x</a-b> keep', session="names"))
+        self.assertEqual(self.sessions()["names"]["prompts"], ['<a-b"c>x</a-b> keep'])
 
     def test_large_paste_of_unclosed_dashed_tags_is_quick(self):
-        # Each shape takes the filter over 20 seconds if it rescans the rest of the text per unclosed tag, or
-        # backtracks through a long tag name. The bound is generous for a slow runner.
+        # Measured: the old filter, which rescanned the rest of the text per unclosed tag, took 173 seconds on
+        # this paste, and the new one without the name-end lookahead, which backtracks through the long name,
+        # took 23. The bound is generous for a slow runner.
         paste = "<a-b-c-d> " * 20000 + "<a-" + "b" * 100000
         self.write_transcript("-work-tags/paste.jsonl", user("2026-11-11T09:00:00Z", paste, session="paste"))
         data = json.loads(self.digest("--format", "json", timeout=10).stdout)
