@@ -15,14 +15,14 @@ This skill edits and closes issues. It never writes code (that is `implement` or
 ## Input
 
 - `refine-issues`: every open issue, oldest first.
-- `refine-issues <focus>`: a label (`--label <label>`) or keyword (`--search "<keyword> sort:created-asc"`), unioned and deduplicated.
+- `refine-issues <focus>`: a label (`--label <label> --search "sort:created-asc"`) or keyword (`--search "<keyword> sort:created-asc"`), unioned and deduplicated.
 - `one at a time`: batches of one instead of the default 3 to 5. The user can switch at any point.
 
 ```bash
 gh issue list --state open --limit 500 --search "sort:created-asc" --json number,title,labels,body,url,createdAt,subIssuesSummary
 ```
 
-GitHub sorts before the limit, so a backlog over 500 still starts at its oldest issue. Keep the sort in every `--search`.
+GitHub sorts before the limit, so a backlog over 500 still starts at its oldest issue. Keep `sort:created-asc` in every fetch.
 
 Skip parents with open sub-issues (`subIssuesSummary` has `total > completed`); their sub-issues are the work. Say how many issues are selected before starting.
 
