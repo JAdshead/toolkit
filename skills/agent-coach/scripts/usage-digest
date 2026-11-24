@@ -34,8 +34,9 @@ COMPACTION_PREFIX = "This session is being continued from a previous conversatio
 DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied",
                   "denied by the claude code auto mode classifier", "denied by a built-in claude code safety check")
 # Claude Code's own elements (<system-reminder>, <bash-stdout>, <ide_opened_file>...) all have a - or _ in
-# their name and HTML's never do, so a complete element named that way is the harness, not typed or pasted
-# text. <pasted_content> is the exception: it holds what the user pasted.
+# their name and standard HTML element names never do, so a complete element named that way is treated as
+# the harness and dropped. Pasted custom elements (<my-widget>) and snake_case XML are dropped too.
+# <pasted_content> is the exception: it holds what the user pasted.
 HARNESS_ELEMENT = re.compile(r"<(?!pasted_content[\s>])([A-Za-z][\w.-]*[-_][\w.-]*)(?=[\s>])[^>]*>.*?</\1>", re.S)
 
 
