@@ -324,30 +324,37 @@ class UsageDigestTest(unittest.TestCase):
                 "<command-message>review</command-message>",
                 "<command-args>--fast</command-args>",
                 "<html><body>pasted page</body></html> is this valid?",
+                "</a-b> see <a-b>x</a-b> end",
+                "</a-b> see <a-b>x",
             ])])
         tags = self.sessions()["tags"]
-        self.assertEqual(tags["prompt_count"], 4)
+        self.assertEqual(tags["prompt_count"], 6)
         self.assertEqual(tags["prompts"], [
             '<div class="card">misaligned</div> why does this wrap?',
             "and also the footer",
             "<pasted_content>a pasted log</pasted_content>",
             "<html><body>pasted page</body></html> is this valid?",
+            "</a-b> see end",
+            "</a-b> see <a-b>x",
         ])
 
     def test_harness_element_needs_the_whole_name_to_match(self):
         self.write_transcript("-work-tags/names.jsonl",
-                              user("2026-11-11T09:00:00Z", '<a-b"c>x</a-b> keep', session="names"))
-        self.assertEqual(self.sessions()["names"]["prompts"], ['<a-b"c>x</a-b> keep'])
+                              user("2026-11-11T09:00:00Z", '<a-b"c>x</a-b> keep', session="names"),
+                              user("2026-11-11T09:01:00Z", '<x-y a="<b>">x</x-y> keep', session="names"))
+        self.assertEqual(self.sessions()["names"]["prompts"], ['<a-b"c>x</a-b> keep', '<x-y a="<b>">x</x-y> keep'])
 
     def test_large_paste_of_unclosed_dashed_tags_is_quick(self):
         # Measured: the old filter, which rescanned the rest of the text per unclosed tag, took 173 seconds on
         # this paste, and the new one without the name-end lookahead, which backtracks through the long name,
         # took 23. The bound is generous for a slow runner.
-        paste = "<a-b-c-d> " * 20000 + "<a-" + "b" * 100000
-        self.write_transcript("-work-tags/paste.jsonl", user("2026-11-11T09:00:00Z", paste, session="paste"))
+        # The other two pastes need the name to split at its first - or _, and the tag not to span a <.
+        pastes = ["<a-b-c-d> " * 20000 + "<a-" + "b" * 100000, "<a" + "-b" * 50000 + "!", "<a-b " * 100000]
+        self.write_transcript("-work-tags/paste.jsonl", *[
+            user(f"2026-11-11T09:0{i}:00Z", paste, session="paste") for i, paste in enumerate(pastes)])
         data = json.loads(self.digest("--format", "json", timeout=10).stdout)
         paste_session = {s["id"]: s for s in data["claude_code"]["sessions"]}["paste"]
-        self.assertEqual(paste_session["prompts"], [paste[:299] + "…"])
+        self.assertEqual(paste_session["prompts"], [" ".join(paste.split())[:299] + "…" for paste in pastes])
 
     def test_each_denial_wording_counts_once(self):
         wordings = {
