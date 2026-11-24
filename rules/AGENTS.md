@@ -18,6 +18,8 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Fixes
 
 - **Adversarially review your own fix.** Before calling it done, ask how the fix itself fails: which inputs, states, or callers it now gets wrong. Look for an existing green test that encodes the bug. A fix's failure modes are often worse than the bug it replaces.
+- **Attack the premise.** When two fixes that share an assumption both fail the same check, write the assumption down and test it before writing another fix on it.
+- **Fix the root cause.** Trace a symptom back to where things first went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
 
 ## Review loops
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The review loop (review-pr, address-review, ship-pr) keeps what it needs
-# across rounds, and the Finishing rule cleans up only what is safe to touch.
+# across rounds, the Fixes rules stop fixes built on a wrong premise, and the
+# Finishing rule cleans up only what is safe to touch.
 # Usage: test/review_loop_test.sh
 set -uo pipefail
 
@@ -48,6 +49,12 @@ check "ship-pr treats a repo with no checks as green" "yes" "$(has "$ship" "no c
 check "ship-pr says what keep going does to the review cap" "yes" "$(has "$ship" "three more reviews")"
 check "ship-pr maps squash to its repo setting" "yes" "$(has "$ship" "allow_squash_merge\` → \`--squash")"
 check "ship-pr no longer says it updates main" "" "$(grep -niE "main updated|local main" "$ship" "$root/README.md" || true)"
+
+fixes="$(awk '/^## Fixes/{on=1; next} /^## /{on=0} on' "$rules")"
+check "the Fixes rules say to attack the premise" "yes" \
+  "$(grep -qF "**Attack the premise.**" <<<"$fixes" && echo yes || echo no)"
+check "the Fixes rules say to fix the root cause" "yes" \
+  "$(grep -qF "**Fix the root cause.**" <<<"$fixes" && echo yes || echo no)"
 
 finishing="$(awk '/^## Finishing/{on=1; next} /^## /{on=0} on' "$rules")"
 check "the Finishing rule pulls only on the default branch" "yes" \
