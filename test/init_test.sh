@@ -84,7 +84,8 @@ check "existing AGENTS.md gets the block" "yes" "$(has "$repo/AGENTS.md" "<!-- t
 # sections outside the block that Claude Code has not read before.
 lists() { if grep -qxF -- "  $1" <<<"$out"; then echo yes; else echo no; fi; }
 repo="$(fresh)"
-printf '# Old rules\n\n## Landing the plane\nYou must push.\n```sh\n# not a heading\n```\n<!-- toolkit:start -->\n## Stale block heading\n<!-- toolkit:end -->\n' > "$repo/AGENTS.md"
+fence="\`\`\`"
+printf '# Old rules\n\n## Landing the plane\nYou must push.\n%ssh\n# not a heading\n%s\n<!-- toolkit:start -->\n## Stale block heading\n<!-- toolkit:end -->\n' "$fence" "$fence" > "$repo/AGENTS.md"
 init "$repo"
 check "AGENTS.md with its own content: init warns" "yes" "$(grep -q '^warning: .*AGENTS.md' <<<"$out" && echo yes || echo no)"
 check "the warning lists the top heading" "yes" "$(lists "# Old rules")"
@@ -116,7 +117,7 @@ repo="$(fresh)"
 printf '# Ev\xc2\x9b2Jil \xc2\x9d0;x\xc2\x9cna\xe2\x80\xaeme caf\xc3\xa9\n' > "$repo/AGENTS.md"
 init "$repo"
 for seq in '\xc2\x9b' '\xc2\x9d' '\xc2\x9c' '\xe2\x80\xae'; do
-  check "a listed heading drops $seq" "no" "$(LC_ALL=C grep -qF "$(printf "$seq")" <<<"$out" && echo yes || echo no)"
+  check "a listed heading drops $seq" "no" "$(LC_ALL=C grep -qF "$(printf '%b' "$seq")" <<<"$out" && echo yes || echo no)"
 done
 check "a listed heading keeps its visible text" "yes" "$(lists "$(printf '# Ev2Jil 0;xname caf\xc3\xa9')")"
 

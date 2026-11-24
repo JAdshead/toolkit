@@ -76,7 +76,7 @@ check "review-pr: a twice-malformed owner gives NOT YET with the owner output ma
 check "review-pr: a twice-malformed owner's output is shown to the user and the review stops" "yes" \
   "$(grep -qF 'show it, and stop' <<<"$malformed_owner" && echo yes || echo no)"
 check "review-pr: a twice-malformed owner is not handed to address-review" "yes" \
-  "$(grep -qF 'do not hand off to `address-review`' <<<"$malformed_owner" && echo yes || echo no)"
+  "$(grep -qF "do not hand off to \`address-review\`" <<<"$malformed_owner" && echo yes || echo no)"
 
 implement="$root/skills/implement/SKILL.md"
 check "implement's Test quality reviewer accepts a named exception with a before-and-after check" "yes" \
