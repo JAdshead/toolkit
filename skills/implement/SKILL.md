@@ -55,7 +55,7 @@ Delegate this to one implementation subagent if your tool supports them (for exa
 > 2. **Green:** write the least code that makes it pass.
 > 3. **Refactor:** clean up with the tests green.
 >
-> Repeat until every requirement and acceptance criterion is covered. Never write production code without a failing test first; never weaken an assertion to make a test pass. If something genuinely cannot be tested first, say so explicitly.
+> Repeat until every requirement and acceptance criterion is covered. Never write production code without a failing test first; never weaken an assertion to make a test pass. For a bug, the first test reproduces it. Only a change with no behaviour (docs, comments, formatting, plain config) skips the test, and the commit says so.
 >
 > For a spec/proposal change, work through its task list in order and tick items off as they are done, committing the task list with the code.
 >
@@ -77,7 +77,7 @@ Run three reviewers in parallel (separate subagents where supported, otherwise t
 
 Consolidate:
 
-- **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same TDD rules (a regression test first where it applies), rerun the full local gate, and rerun only the reviewers that failed. Also ask how each fix could itself fail.
+- **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same TDD rules (for a bug, a test that reproduces it first), rerun the full local gate, and rerun only the reviewers that failed. Also ask how each fix could itself fail.
 - **Exit rule:** stop when no reviewer fails and nothing in the diff is untrue, or after 3 rounds. Collect remaining MEDIUM/LOW findings into one follow-up note or issue rather than another round.
 
 ## Phase 4: Pull request
@@ -97,7 +97,7 @@ The body has: a Summary (what and why), a Test plan listing the tests added, and
 gh pr checks <pr> --watch
 ```
 
-- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first where it applies, push, and watch again. Stop after 3 rounds and report.
+- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a test that reproduces the failure, unless the fix has no behaviour: lint, formatting, config), push, and watch again. Stop after 3 rounds and report.
 - **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 ## Phase 6: Report

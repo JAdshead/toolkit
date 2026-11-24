@@ -35,9 +35,10 @@ jobs:
       - name: Test shared scripts
         run: shared/test/board_test.sh
 
-      - name: Test toolkit init and the SessionStart hook
+      - name: Test toolkit init, the TDD rules and the SessionStart hook
         run: |
           test/init_test.sh
+          test/tdd_test.sh
           test/session_start_test.sh
 
       - name: Test bin/sync-shared
