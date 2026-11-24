@@ -151,5 +151,15 @@ check "plain sync refuses to touch a copy behind a symlinked folder" \
   "1 yes" "$rc $([ -e "$work/outside/notes.md" ] && echo yes || echo no)"
 rm -rf "$work/outside"
 
+fresh
+mkdir -p "$work/outside"
+echo "outside" > "$work/outside/notes.md"
+rm "$t/skills/alpha/references/notes.md"
+ln -s "$work/outside/notes.md" "$t/skills/alpha/references/notes.md"
+sync
+check "plain sync refuses to write through a copy that is a symlink" \
+  "1 outside" "$rc $(cat "$work/outside/notes.md")"
+rm -rf "$work/outside"
+
 echo "$passes passed, $failures failed"
 [ "$failures" = 0 ]
