@@ -184,6 +184,7 @@ init_repo() {
   local dir="${1:-.}" work new_to_claude=""
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
+  command -v perl >/dev/null || die "needs perl"
   dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
   work="$(mktemp -d)"
   # shellcheck disable=SC2064
