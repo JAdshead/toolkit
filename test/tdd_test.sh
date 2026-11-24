@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Projects set up with the toolkit follow TDD strictly: the rules that
-# `toolkit init` writes demand test-first with no "by default" opt-out, no
-# skill softens it, and review-pr blocks untested behaviour.
+# Projects set up with the toolkit write tests first, never write a bad test,
+# prove behaviour another way only with before-and-after evidence and a named
+# exception, and check the real thing before calling work done. No skill
+# softens that, and review-pr blocks behaviour with no proof.
 # Usage: test/tdd_test.sh
 set -uo pipefail
 
@@ -28,27 +29,41 @@ mkdir -p "$work/repo"
 "$root/bin/toolkit" init "$work/repo" >/dev/null 2>&1
 agents="$work/repo/AGENTS.md"
 
-check "an init'd repo's rules require TDD always" "yes" "$(has "$agents" "**TDD, always.**")"
-check "an init'd repo's rules forbid code without a failing test" "yes" \
-  "$(has "$agents" "No production code without a failing test")"
-check "an init'd repo's rules make bug fixes start with a reproducing test" "yes" \
-  "$(has "$agents" "Every bug fix starts with a test that reproduces it")"
+check "an init'd repo's rules require tests first" "yes" "$(has "$agents" "**Test first.**")"
+check "an init'd repo's rules make bug fixes start with a reproduction" "yes" \
+  "$(has "$agents" "Every bug fix starts with a reproduction")"
+check "an init'd repo's rules say a bad test is worse than none" "yes" \
+  "$(has "$agents" "A bad test is worse than none")"
 check "an init'd repo's rules no longer say TDD is only a default" "no" "$(has "$agents" "TDD by default")"
-check "an init'd repo's rules block merging untested behaviour" "yes" \
+check "an init'd repo's rules require checking the real thing" "yes" \
+  "$(has "$agents" "Check the real thing before calling it done")"
+check "an init'd repo's rules block merging unproven behaviour" "yes" \
   "$(has "$agents" "not ready to merge")"
 
-softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where it applies" "$root/skills" "$root/shared" "$root/rules" || true)"
+softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where (it|one) applies" "$root/skills" "$root/shared" "$root/rules" || true)"
 check "no skill or rule softens test-first" "" "$softened"
 
 exceptions="docs, comments, formatting, plain config"
+fallback="closest repeatable check"
 for f in rules/AGENTS.md skills/implement/SKILL.md skills/tackle-issues/references/subagent-templates.md; do
   check "$f names the same no-behaviour exceptions" "yes" "$(has "$root/$f" "$exceptions")"
+  check "$f allows the same fallback when no good test can reach the behaviour" "yes" "$(has "$root/$f" "$fallback")"
+  check "$f checks the real thing before done" "yes" "$(has "$root/$f" "real thing")"
 done
 
-check "review-pr's Tests lens blocks behaviour with no failing-first test" "yes" \
-  "$(has "$root/skills/review-pr/references/lenses.md" "behaviour change with no test that fails without it is P2")"
-check "review-pr's owner blocks behaviour with no failing-first test" "yes" \
-  "$(has "$root/skills/review-pr/references/owner-review.md" "behaviour change with no test that fails without it")"
+# The fallback is never a free pass: wherever it appears, it needs the check
+# seen failing before the change and a named exception.
+while IFS= read -r f; do
+  check "${f#"$root"/} pairs the fallback with failing-before evidence" "yes" "$(has "$f" "failing before the change")"
+  check "${f#"$root"/} pairs the fallback with a named exception" "yes" "$(has "$f" "name the exception")"
+done < <(grep -rliF "$fallback" "$root/skills" "$root/shared" "$root/rules")
+
+check "review-pr's Tests lens blocks behaviour with no proof" "yes" \
+  "$(has "$root/skills/review-pr/references/lenses.md" "behaviour change with no proof that fails without it is P2")"
+check "review-pr's owner blocks behaviour with no proof" "yes" \
+  "$(has "$root/skills/review-pr/references/owner-review.md" "behaviour change with no proof that fails without it")"
+check "review-pr's owner blocks an exception a good test could have covered" "yes" \
+  "$(has "$root/skills/review-pr/references/owner-review.md" "a good test could reach")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

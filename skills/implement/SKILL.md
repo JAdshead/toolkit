@@ -55,13 +55,13 @@ Delegate this to one implementation subagent if your tool supports them (for exa
 > 2. **Green:** write the least code that makes it pass.
 > 3. **Refactor:** clean up with the tests green.
 >
-> Repeat until every requirement and acceptance criterion is covered. Never write production code without a failing test first; never weaken an assertion to make a test pass. For a bug, the first test reproduces it. Only a change with no behaviour (docs, comments, formatting, plain config) skips the test, and the commit says so.
+> Repeat until every requirement and acceptance criterion is covered. Never write production code without a failing test first; never weaken an assertion to make a test pass. For a bug, the first test reproduces it. Never write a bad test (one that would pass with the code deleted, mostly tests its mocks, or depends on timing). When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception and why in the commit. Only a change with no behaviour (docs, comments, formatting, plain config) skips both, and the commit says so.
 >
 > For a spec/proposal change, work through its task list in order and tick items off as they are done, committing the task list with the code.
 >
-> Finish by running the project's full local gate (lint, security audit, all test suites, coverage floor). Commit with a message that says what changed and why.
+> Finish by running the project's full local gate (lint, security audit, all test suites, coverage floor). Then check the real thing: run the changed command, walk the changed flow in the running app, or read back the stored value, and keep the output. Commit with a message that says what changed and why.
 >
-> Return: FILES_CHANGED, TESTS_ADDED (noting which were written before the code they test), VERIFICATION (PASS/FAIL with the relevant output), COMMIT_SHA.
+> Return: FILES_CHANGED, TESTS_ADDED (noting which were written before the code they test), EXCEPTIONS (each behaviour proved by a check instead of a test: why, the check, its output before and after), VERIFICATION (PASS/FAIL with the relevant output), REAL_CHECK (what you ran on the real thing and what happened), COMMIT_SHA.
 
 If verification fails, show the output and ask the user whether to keep fixing or stop.
 
@@ -77,7 +77,7 @@ Run three reviewers in parallel (separate subagents where supported, otherwise t
 
 Consolidate:
 
-- **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same TDD rules (for a bug, a test that reproduces it first), rerun the full local gate, and rerun only the reviewers that failed. Also ask how each fix could itself fail.
+- **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same test rules (for a bug, a reproduction first), rerun the full local gate, and rerun only the reviewers that failed. Also ask how each fix could itself fail.
 - **Exit rule:** stop when no reviewer fails and nothing in the diff is untrue, or after 3 rounds. Collect remaining MEDIUM/LOW findings into one follow-up note or issue rather than another round.
 
 ## Phase 4: Pull request
@@ -89,7 +89,7 @@ git -C <worktree> push -u origin implement/<id>
 gh pr create --title "<concise title>" --body "<body>"
 ```
 
-The body has: a Summary (what and why), a Test plan listing the tests added, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. Then apply the mode's In review operation.
+The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. Then apply the mode's In review operation.
 
 ## Phase 5: CI loop
 
@@ -97,7 +97,7 @@ The body has: a Summary (what and why), a Test plan listing the tests added, and
 gh pr checks <pr> --watch
 ```
 
-- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a test that reproduces the failure, unless the fix has no behaviour: lint, formatting, config), push, and watch again. Stop after 3 rounds and report.
+- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: lint, formatting, config), push, and watch again. Stop after 3 rounds and report.
 - **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 ## Phase 6: Report
@@ -120,7 +120,7 @@ Remove after merge: git worktree remove <path>
 ## Guardrails
 
 - Keep the change scoped to the requested outcome; prefer the simplest implementation that meets it.
-- Production code is written only to make a failing test pass.
+- Production code is written only to make a failing test, or a named exception's failing check, pass.
 - Fix security findings above LOW before the PR is opened.
 - Mock only at the system boundary; mocking internal code is a review failure.
 - Never merge, force-push over requested changes, or skip hooks without the user's say-so.
