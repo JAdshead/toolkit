@@ -26,7 +26,7 @@ check "the refine-issues skill exists" "yes" "$([ -f "$skill" ] && echo yes || e
 check "GitHub sorts oldest first, so a large backlog still reaches its oldest issues" "yes" "$(has "$skill" '--search "sort:created-asc"')"
 check "a keyword focus folds into the same search as the sort" "yes" "$(has "$skill" '--search "<keyword> sort:created-asc"')"
 check "a label focus keeps the oldest-first sort" "yes" "$(has "$skill" '--label <label> --search "sort:created-asc"')"
-check "the skill no longer sorts by createdAt after fetching" "no" "$(has "$skill" 'sort by `createdAt`')"
+check "the skill no longer sorts by createdAt after fetching" "no" "$(has "$skill" "sort by \`createdAt\`")"
 check "open sub-issues means total greater than completed" "yes" "$(has "$skill" "total > completed")"
 check "a text containing the heredoc delimiter gets another delimiter" "yes" "$(has "$skill" "line that is exactly \`GH_TEXT\`")"
 
