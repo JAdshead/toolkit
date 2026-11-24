@@ -41,6 +41,8 @@ agents="$work/repo/AGENTS.md"
 check "an init'd repo's rules say never call UI done unseen" "yes" \
   "$(has "$agents" "Never call UI work done without seeing it")"
 check "an init'd repo's rules point to the ui-design skill" "yes" "$(has "$agents" "\`ui-design\` skill")"
+check "an init'd repo's rules keep critique for new looks, matching the skill's small-change path" "yes" \
+  "$(has "$agents" "screenshot every UI change, and for a new look")"
 
 check "the skill ships a DESIGN.md template" "yes" "$([ -f "$template" ] && echo yes || echo no)"
 check "the skill copies in the template when there is no DESIGN.md" "yes" \
