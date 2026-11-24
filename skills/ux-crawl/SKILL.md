@@ -10,6 +10,8 @@ metadata:
 
 Explore a running web app the way a careful human tester would, and find the issues scripted tests miss. This is exploratory, not scripted: you decide where to look, but you record everything you find.
 
+To judge whether a user can reach one specific goal, and score the attempt against it, use the `ux-goal` skill instead.
+
 ## Requirements
 
 - **Browser automation.** Use whichever browser tools this session provides (for example Playwright MCP: `browser_navigate`, `browser_snapshot`, `browser_click`). Tool names below are examples; map them to your tools. If no browser tool is available, stop and tell the user. Do not fake a crawl from source code.
