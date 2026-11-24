@@ -8,7 +8,7 @@ metadata:
 
 # Agent coach
 
-A weekly review of how the user works with their coding agents, and what to change. Built to run unattended (for example every Monday at 9:00), so it **never edits** config, rules or skills: it writes a report and proposes exact changes for the user to apply.
+A weekly review of how the user works with their coding agents, and what to change. Built to run unattended, ideally at a non-peak time (for example Monday at 1:00, so the report is ready by morning), so it **never edits** config, rules or skills: it writes a report and proposes exact changes for the user to apply.
 
 ## Arguments
 
