@@ -127,6 +127,16 @@ check "plain sync keeps a copy that a hand-written reference the skill uses ment
   "0 yes" "$rc $(exists scripts/tool)"
 
 fresh
+echo "Read references/more.md." > "$t/shared/notes.md"
+echo "Run scripts/tool." > "$t/shared/more.md"
+printf 'Read references/notes.md.\n' > "$t/skills/alpha/SKILL.md"
+sync
+check "plain sync keeps a copy mentioned two references deep" \
+  "0 yes" "$rc $(exists scripts/tool)"
+sync --check
+check "--check passes on a copy mentioned two references deep" "0" "$rc"
+
+fresh
 echo "Run scripts/tool." > "$t/shared/notes.md"
 "$t/bin/sync-shared" >/dev/null
 printf 'See references/own.md.\n' > "$t/skills/alpha/SKILL.md"
