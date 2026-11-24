@@ -37,7 +37,7 @@ check "an init'd repo's rules no longer say TDD is only a default" "no" "$(has "
 check "an init'd repo's rules block merging untested behaviour" "yes" \
   "$(has "$agents" "not ready to merge")"
 
-softened="$(grep -rliE "where practical,? write a failing test|TDD by default" "$root/skills" "$root/shared" "$root/rules" || true)"
+softened="$(grep -rliE "where practical,? write a failing test|TDD by default|cannot be tested first|test(-| )first where it applies" "$root/skills" "$root/shared" "$root/rules" || true)"
 check "no skill or rule softens test-first" "" "$softened"
 
 check "review-pr's Tests lens blocks behaviour with no failing-first test" "yes" \
