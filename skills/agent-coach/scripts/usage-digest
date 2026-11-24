@@ -20,6 +20,7 @@ The window is [since, until) in local time. Default: the 7 days before today.
 import argparse
 import collections
 import datetime as dt
+import errno
 import glob
 import json
 import os
@@ -32,10 +33,10 @@ MAX_PROMPT_CHARS = 300
 COMPACTION_PREFIX = "This session is being continued from a previous conversation"
 DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied",
                   "denied by the claude code auto mode classifier", "denied by a built-in claude code safety check")
-HARNESS_TAGS = ("system-reminder", "task-notification", "ci-monitor-event", "create-pr-command", "command-name",
-                "command-message", "command-args", "local-command-stdout", "local-command-stderr",
-                "local-command-caveat")
-HARNESS_ELEMENT = re.compile(rf"<({'|'.join(HARNESS_TAGS)})\b[^>]*>.*?</\1>", re.S)
+# Claude Code's own elements (<system-reminder>, <bash-stdout>, <ide_opened_file>...) all have a - or _ in
+# their name and HTML's never do, so a complete element named that way is the harness, not typed or pasted
+# text. <pasted_content> is the exception: it holds what the user pasted.
+HARNESS_ELEMENT = re.compile(r"<(?!pasted_content[\s>])([A-Za-z][\w.-]*[-_][\w.-]*)(?=[\s>])[^>]*>.*?</\1>", re.S)
 
 
 def parse_args():
@@ -146,7 +147,8 @@ def summarize_claude_session(path, since, until):
         return None
     stem = os.path.splitext(path)[0]
     s["id"] = s["id"] or os.path.basename(stem)
-    s["subagents"] = sum(any(entries(p, since, until)) for p in glob.glob(os.path.join(stem, "subagents", "*.jsonl")))
+    runs = glob.glob(os.path.join(stem, "subagents", "*.jsonl"))
+    s["subagents"] = sum(next(entries(p, since, until), None) is not None for p in runs)  # runs with an entry in the window
     s["tools"] = dict(s["tools"].most_common())
     s["start"], s["end"] = s["start"].isoformat(), s["end"].isoformat()
     return s
@@ -246,7 +248,9 @@ def write_private(path, text):
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
     except OSError as err:
-        sys.exit(f"error: can't write {path} ({err.strerror}); it must be a file of yours, not a symlink")
+        if err.errno == errno.ELOOP:
+            sys.exit(f"error: {path} is a symlink; the digest is only written to a plain file of yours")
+        sys.exit(f"error: can't write {path} ({err.strerror})")
     os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(text)

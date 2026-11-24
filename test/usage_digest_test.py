@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for skills/agent-coach/scripts/usage-digest. Usage: python3 test/usage_digest_test.py"""
 import datetime as dt
+import errno
 import json
 import os
 import sqlite3
@@ -131,10 +132,10 @@ class UsageDigestTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def digest(self, *args, codex=None, check=True):
+    def digest(self, *args, codex=None, check=True, env=None):
         return subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
                                "--codex-dir", codex or self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
-                               *args], capture_output=True, text=True, check=check)
+                               *args], capture_output=True, text=True, check=check, env=env)
 
     def write_transcript(self, rel_path, *lines):
         path = os.path.join(self.claude, "projects", rel_path)
@@ -142,8 +143,9 @@ class UsageDigestTest(unittest.TestCase):
         with open(path, "w") as f:
             f.writelines(lines)
 
-    def sessions(self):
-        return {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}
+    def sessions(self, env=None):
+        data = json.loads(self.digest("--format", "json", env=env).stdout)
+        return {s["id"]: s for s in data["claude_code"]["sessions"]}
 
     def run_digest(self, *args):
         return self.digest(*args).stdout
@@ -152,8 +154,7 @@ class UsageDigestTest(unittest.TestCase):
         return json.loads(self.run_digest("--format", "json"))
 
     def test_claude_session_summary(self):
-        sessions = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}
-        s = sessions["s1"]
+        s = self.sessions()["s1"]
         self.assertEqual(s["cwd"], "/work/app")
         self.assertEqual(s["prompts"], ["fix the flaky booking test", "now run the linter too", "and update the docs"])
         self.assertEqual(s["slash_commands"], ["/review"])
@@ -171,12 +172,12 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual([s["id"] for s in sessions], ["s2", "s1", "edge-in"])
 
     def test_window_upper_bound_is_exclusive_for_claude(self):
-        sessions = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}
+        sessions = self.sessions()
         self.assertNotIn("edge-out", sessions)
         self.assertEqual(sessions["edge-in"]["prompts"], ["last second of the window"])
 
     def test_prompts_are_capped_and_clipped(self):
-        s2 = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}["s2"]
+        s2 = self.sessions()["s2"]
         self.assertEqual(s2["prompt_count"], 10)
         self.assertEqual(len(s2["prompts"]), 8)
         self.assertEqual(s2["prompts"][1:], [f"step {i}" for i in range(1, 8)])
@@ -270,7 +271,7 @@ class UsageDigestTest(unittest.TestCase):
 
     def test_prompts_keep_pasted_markup_and_drop_harness_tags(self):
         self.write_transcript("-work-tags/tags.jsonl", *[
-            user(f"2026-11-11T09:0{i}:00Z", text, session="tags") for i, text in enumerate([
+            user(f"2026-11-11T09:{i:02}:00Z", text, session="tags") for i, text in enumerate([
                 "<div class=\"card\">misaligned</div> why does this wrap?",
                 "<system-reminder>context</system-reminder>\nand also the footer",
                 "<task-notification><status>completed</status></task-notification>",
@@ -279,11 +280,23 @@ class UsageDigestTest(unittest.TestCase):
                 "<local-command-caveat>Caveat: generated</local-command-caveat>",
                 "<local-command-stderr>oops</local-command-stderr>",
                 "<pasted_content>a pasted log</pasted_content>",
+                "<side-sessions-event>a side session finished</side-sessions-event>",
+                "<system-reminder>context</system-reminder>\n<side-sessions-event>finished</side-sessions-event>",
+                '<scheduled-task name="nightly" file="/x/SKILL.md">run the nightly task</scheduled-task>',
+                "<bash-input>ls</bash-input>",
+                "<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>",
+                "<ide_opened_file>The user opened /work/app/a.py</ide_opened_file>",
+                "<command-message>review</command-message>",
+                "<command-args>--fast</command-args>",
+                "<html><body>pasted page</body></html> is this valid?",
             ])])
-        self.assertEqual(self.sessions()["tags"]["prompts"], [
+        tags = self.sessions()["tags"]
+        self.assertEqual(tags["prompt_count"], 4)
+        self.assertEqual(tags["prompts"], [
             '<div class="card">misaligned</div> why does this wrap?',
             "and also the footer",
             "<pasted_content>a pasted log</pasted_content>",
+            "<html><body>pasted page</body></html> is this valid?",
         ])
 
     def test_each_denial_wording_counts_once(self):
@@ -309,7 +322,8 @@ class UsageDigestTest(unittest.TestCase):
                               user("2026-11-15T23:59:59", "naive, last local second", session="naive-in"))
         self.write_transcript("-work-naive/naive-out.jsonl",
                               user("2026-11-16T00:00:00", "naive, first local second after", session="naive-out"))
-        sessions = self.sessions()
+        # A fixed zone 5 hours from UTC, so the test tells local time from UTC even where the suite runs in UTC.
+        sessions = self.sessions(env={**os.environ, "TZ": "Etc/GMT-5"})
         self.assertEqual(sessions["naive-in"]["prompts"], ["naive, last local second"])
         self.assertNotIn("naive-out", sessions)
 
@@ -384,6 +398,16 @@ class UsageDigestTest(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
         with open(victim) as f:
             self.assertEqual(f.read(), "keep me")
+
+    def test_out_that_cant_be_opened_reports_why_without_blaming_a_symlink(self):
+        out = os.path.join(self.tmp.name, "reports", "digest.md")
+        os.makedirs(out)
+        result = self.digest("--out", out, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(out, result.stderr)
+        self.assertIn(os.strerror(errno.EISDIR), result.stderr)
+        self.assertNotIn("symlink", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_markdown_mentions_window_and_prompts(self):
         md = self.run_digest()
