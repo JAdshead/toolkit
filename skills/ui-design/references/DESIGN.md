@@ -1,64 +1,33 @@
 # Design
 
-The source of truth for how this app looks. Agents building UI use these values and nothing else; change this file first when the design changes.
+The source of truth for how this project's UI looks. Agents follow it; the `ui-design` skill keeps it current.
 
-## Users
+## Users and purpose
 
-- **Who:** <!-- e.g. ops engineers on a laptop, checking in many times a day -->
-- **Main task:** <!-- the one thing they come to do; it gets the most visual weight -->
+Who uses this, on which devices, and what they come to do.
 
 ## Direction
 
-- **Feel:** <!-- three adjectives, e.g. dense, calm, precise -->
-- **References:** <!-- apps or sites to look like, and what to take from each -->
-- **Not:** <!-- what it must not feel like, e.g. playful, marketing-heavy -->
+The chosen look in two or three sentences, and what it is not.
 
-## Tokens
+## Type
 
-Where these live in code: <!-- e.g. tailwind.config.ts, src/styles/tokens.css -->
+Font families, the scale (sizes and weights per level) and line heights.
 
-### Colour
+## Colour
 
-| Role | Value |
-|---|---|
-| Background | |
-| Surface | |
-| Border | |
-| Text | |
-| Text, muted | |
-| Accent (one only) | |
-| Success / Warning / Danger | |
+Tokens with values: background, surface, text, muted text, accent, danger, success. Contrast meets WCAG AA.
 
-Contrast: body text at least 4.5:1 against its background.
+## Spacing and layout
 
-### Type
-
-| Role | Font | Size / line height | Weight |
-|---|---|---|---|
-| Display | | | |
-| Heading | | | |
-| Body | | | |
-| Small | | | |
-
-### Spacing, radius, shadow
-
-- **Spacing scale:** 4, 8, 12, 16, 24, 32, 48, 64 px
-- **Radius:** <!-- e.g. 6px controls, 10px cards -->
-- **Shadow:** <!-- one or two levels at most -->
-
-## Layout
-
-- **Max content width:** <!-- e.g. 1200px -->
-- **Breakpoints:** 375 (mobile), 768, 1280
-- **Navigation:** <!-- e.g. left sidebar on desktop, bottom bar on mobile -->
+The spacing scale, max content width, grid, and radius and shadow tokens.
 
 ## Components
 
-- **Library:** <!-- e.g. shadcn/ui on Radix and Tailwind -->
-- **Conventions:** <!-- e.g. one primary button per screen; destructive actions confirm -->
+Buttons, inputs, cards, navigation: how each looks in its states (default, hover, focus, disabled, error).
 
 ## Don't
 
-The `ui-design` skill's Banned defaults apply. This project's own:
+Avoid the Banned defaults in the `ui-design` skill (do not copy them here), plus this project's own:
 
-- <!-- e.g. no modals for forms longer than three fields -->
+-
