@@ -65,10 +65,10 @@ Verify command: <VERIFY_CMD>
 Steps:
 1. Read the issue. If anything is unclear, run `gh issue view <n> --comments`.
 2. If the change touches UI, read the project's design system or UI guide first and follow it.
-3. Write a failing test first and confirm it fails for the expected reason. No production code without a failing test that needs it; for a bug, the test reproduces it. Only a change with no behaviour (docs, comments, formatting, plain config) skips this, and NOTES must say so.
+3. Write a failing test first and confirm it fails for the expected reason. No production code without a failing test that needs it; for a bug, the test reproduces it. Never write a bad test (one that would pass with the code deleted, mostly tests its mocks, or depends on timing). When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception, why, and the check in NOTES. Only a change with no behaviour (docs, comments, formatting, plain config) skips both, and NOTES must say so.
 4. Make the smallest change that fully resolves the issue.
 5. Cover new behaviour and its failure paths with tests that assert observable outcomes.
-6. Run the verify command in the worktree, in the foreground. Fix what fails.
+6. Run the verify command in the worktree, in the foreground. Fix what fails. Then check the real thing: run the changed command, walk the changed flow in the running app, or read back the stored value, and put what you ran and what happened in NOTES.
 7. Commit in the worktree using the project's commit style, referencing #<n>.
 
 Do NOT:
@@ -105,7 +105,7 @@ Before fixing, check whether several findings share one root cause. If they do, 
 Steps:
 1. Read the relevant files.
 2. Fix each finding minimally. If a fix needs a product or design decision, do not guess: report it.
-3. Add or adjust tests so each fixed bug would be caught if it came back.
+3. Add or adjust tests so each fixed bug would be caught if it came back. Never write a bad test. When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception, why, and the check in NOTES.
 4. Run the verify command in the foreground.
 5. Commit with a message that says what was fixed.
 
@@ -116,6 +116,7 @@ Report:
 - NOT_FIXED: finding -> reason (decision needed, disagree, out of scope)
 - VERIFICATION: PASS or FAIL
 - COMMITS: shas
+- NOTES: any named exception, with its check's output before and after
 ```
 
 Verify the commits the same way as after implementation.
@@ -154,6 +155,12 @@ Closes #<n>
 
 ## Changes
 - <bullet per meaningful change>
+
+## Exceptions
+<from the subagents' NOTES: each behaviour proved by a check instead of a test, why, the check, its output before and after; or "none">
+
+## Real-thing check
+<from the subagents' NOTES: what was run on the real thing and what happened>
 
 ## Review
 Specialist review (correctness, security, tests, simplicity<, UX><, domain>): no open P1/P2 after <k> rounds.
