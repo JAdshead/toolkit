@@ -89,7 +89,7 @@ How many: one when Part 1 was skipped; two when it ran. Each works alone and nev
 
 ## Part 3: Validate
 
-First check each owner's output: MERGE must come with an empty BLOCKING list, and NOT YET with at least one entry. An owner whose output breaks that has not followed its brief: run a new owner in its place, once. If the new owner's output breaks it too, count that owner as NOT YET, and the result is NOT YET with the owner output malformed.
+First check each owner's output: MERGE must come with an empty BLOCKING list, and NOT YET with at least one entry. An owner whose output breaks that has not followed its brief: run a new owner in its place, once. If the new owner's output breaks it too, count that owner as NOT YET, and the result is NOT YET with the owner output malformed, unless another owner has a CONFIRMED or UNCLEAR blocking finding: then the result is plain NOT YET, and you also tell the user that owner's output was malformed.
 
 Skip the validator when every owner returned MERGE.
 

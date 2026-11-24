@@ -69,7 +69,7 @@ plan_agents_md() {
     printf '%s\n' "$block" > "$out"
     return
   fi
-  BLOCK="$block" awk -v start="$START" -v end="$END" '
+  BLOCK="$block" LC_ALL=C awk -v start="$START" -v end="$END" '
     function trim(s) { sub(/\r$/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     { line[NR] = $0; k = trim($0)
       if (k == start) { if (!ns++) sl = NR }
@@ -140,12 +140,13 @@ init_import() {
 
 # Print the headings in FILE outside the toolkit block (not in code fences),
 # indented, or a note if it has other text but no headings. Prints nothing if
-# the block is all there is. The repo may be hostile, so the text is read as
-# UTF-8 (invalid bytes become U+FFFD) and every Unicode control (Cc: C0, DEL,
-# C1) and format (Cf, e.g. bidi overrides) character except the newline is
-# dropped; other non-ASCII text is kept.
+# the block is all there is. The repo may be hostile, so awk reads bytes (some
+# awks fail on invalid UTF-8 otherwise) and jq then reads the text as UTF-8
+# (invalid bytes become U+FFFD) and drops every Unicode control (Cc: C0, DEL,
+# C1) and format (Cf, e.g. bidi overrides) character; other non-ASCII text is
+# kept.
 outside_headings() {
-  awk -v start="$START" -v end="$END" '
+  LC_ALL=C awk -v start="$START" -v end="$END" '
     { k = $0; sub(/\r$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", k) }
     k == start { inblock = 1; next }
     k == end { inblock = 0; next }
@@ -154,7 +155,7 @@ outside_headings() {
     !fence && k ~ /^#+([ \t]|$)/ { print "  " k; n++; next }
     { other = 1 }
     END { if (!n && other) print "  (text with no headings)" }
-  ' "$1" | perl -MEncode -ne 'print encode("UTF-8", decode("UTF-8", $_) =~ s/(?!\n)[\p{Cc}\p{Cf}]//gr)'
+  ' "$1" | jq -Rr 'gsub("[\\p{Cc}\\p{Cf}]"; "")'
 }
 
 # Refuse anything init would write that is not an ordinary file (or absent)
@@ -184,7 +185,6 @@ init_repo() {
   local dir="${1:-.}" work new_to_claude=""
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
-  command -v perl >/dev/null || die "needs perl"
   dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
   work="$(mktemp -d)"
   # shellcheck disable=SC2064

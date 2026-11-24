@@ -73,6 +73,8 @@ check "review-pr's owner blocks an exception a good test could have covered" "ye
 malformed_owner="$(grep -F '**NOT YET with the owner output malformed:**' "$root/skills/review-pr/SKILL.md")"
 check "review-pr: a twice-malformed owner gives NOT YET with the owner output malformed" "yes" \
   "$(has "$root/skills/review-pr/SKILL.md" "the result is NOT YET with the owner output malformed")"
+check "review-pr: another owner's confirmed findings still go to address-review" "yes" \
+  "$(has "$root/skills/review-pr/SKILL.md" "unless another owner has a CONFIRMED or UNCLEAR blocking finding")"
 check "review-pr: a twice-malformed owner's output is shown to the user and the review stops" "yes" \
   "$(grep -qF 'show it, and stop' <<<"$malformed_owner" && echo yes || echo no)"
 check "review-pr: a twice-malformed owner is not handed to address-review" "yes" \

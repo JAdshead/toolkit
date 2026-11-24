@@ -56,7 +56,8 @@ check "empty repo: settings add the marketplace" "github JAdshead/toolkit" \
 check "empty repo: GEMINI.md imports AGENTS.md" "@./AGENTS.md" "$(cat "$repo/GEMINI.md")"
 said() { if grep -qxF -- "$1" <<<"$out"; then echo yes; else echo no; fi; }
 check "empty repo: init says it created CLAUDE.md" "yes" "$(said "created CLAUDE.md importing AGENTS.md")"
-check "empty repo: the managed comment links to the toolkit" "yes" "$(has "$repo/AGENTS.md" "https://github.com/JAdshead/toolkit")"
+check "empty repo: the managed comment links to the toolkit" "yes" \
+  "$(grep '^<!-- Managed by' "$repo/AGENTS.md" | grep -qF "https://github.com/JAdshead/toolkit" && echo yes || echo no)"
 check "empty repo: no warning about AGENTS.md" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
@@ -121,10 +122,11 @@ for seq in '\xc2\x9b' '\xc2\x9d' '\xc2\x9c' '\xe2\x80\xae'; do
 done
 check "a listed heading keeps its visible text" "yes" "$(lists "$(printf '# Ev2Jil 0;xname caf\xc3\xa9')")"
 
-# A raw C1 byte that is not valid UTF-8 is dropped too, and the warning still lists the heading.
+# A raw C1 byte that is not valid UTF-8 is dropped too, and the warning still lists the heading,
+# also under a UTF-8 locale, where some awks reject invalid bytes.
 repo="$(fresh)"
 printf '# raw\x9bbyte\n' > "$repo/AGENTS.md"
-init "$repo"
+LC_ALL=en_US.UTF-8 init "$repo"
 check "a heading that is not valid UTF-8: the raw byte is dropped" "no" "$(LC_ALL=C grep -qF "$(printf '\x9b')" <<<"$out" && echo yes || echo no)"
 check "a heading that is not valid UTF-8: the warning still lists it" "yes" "$(LC_ALL=C grep -q '^  # raw.*byte$' <<<"$out" && echo yes || echo no)"
 
