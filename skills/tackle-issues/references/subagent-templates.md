@@ -65,7 +65,7 @@ Verify command: <VERIFY_CMD>
 Steps:
 1. Read the issue. If anything is unclear, run `gh issue view <n> --comments`.
 2. If the change touches UI, read the project's design system or UI guide first and follow it.
-3. Write a failing test first and confirm it fails for the expected reason. No production code without a failing test that needs it; for a bug, the test reproduces it. Only a change with no behaviour (docs, comments, plain config) skips this, and NOTES must say so.
+3. Write a failing test first and confirm it fails for the expected reason. No production code without a failing test that needs it; for a bug, the test reproduces it. Only a change with no behaviour (docs, comments, formatting, plain config) skips this, and NOTES must say so.
 4. Make the smallest change that fully resolves the issue.
 5. Cover new behaviour and its failure paths with tests that assert observable outcomes.
 6. Run the verify command in the worktree, in the foreground. Fix what fails.

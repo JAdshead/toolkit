@@ -37,8 +37,13 @@ check "an init'd repo's rules no longer say TDD is only a default" "no" "$(has "
 check "an init'd repo's rules block merging untested behaviour" "yes" \
   "$(has "$agents" "not ready to merge")"
 
-softened="$(grep -rliE "where practical,? write a failing test|TDD by default|cannot be tested first|test(-| )first where it applies" "$root/skills" "$root/shared" "$root/rules" || true)"
+softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where it applies" "$root/skills" "$root/shared" "$root/rules" || true)"
 check "no skill or rule softens test-first" "" "$softened"
+
+exceptions="docs, comments, formatting, plain config"
+for f in rules/AGENTS.md skills/implement/SKILL.md skills/tackle-issues/references/subagent-templates.md; do
+  check "$f names the same no-behaviour exceptions" "yes" "$(has "$root/$f" "$exceptions")"
+done
 
 check "review-pr's Tests lens blocks behaviour with no failing-first test" "yes" \
   "$(has "$root/skills/review-pr/references/lenses.md" "behaviour change with no test that fails without it is P2")"
