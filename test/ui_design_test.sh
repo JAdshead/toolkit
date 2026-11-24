@@ -47,8 +47,13 @@ check "the skill copies in the template when there is no DESIGN.md" "yes" \
   "$(has "$skill" "references/DESIGN.md")"
 check "the skill proposes two or three directions before building" "yes" \
   "$(has "$skill" "two or three genuinely different directions")"
-check "the skill screenshots at desktop width" "yes" "$(has "$skill" "1280")"
-check "the skill screenshots at mobile width" "yes" "$(has "$skill" "375")"
+look="$(section "$skill" "4.")"
+check "the look step screenshots at desktop width" "yes" \
+  "$(printf '%s' "$look" | grep -qF "1280" && echo yes || echo no)"
+check "the look step screenshots at mobile width" "yes" \
+  "$(printf '%s' "$look" | grep -qF "375" && echo yes || echo no)"
+check "a small change inside an existing look skips the design source step" "yes" \
+  "$(section "$skill" "1." | grep -qiF "small change inside an existing look" && echo yes || echo no)"
 
 # One banned list, in the skill. Each item leads with a bold name.
 banned="$(section "$skill" "Banned defaults" | grep -oE '^- \*\*[^*]+\*\*' | sed -E 's/^- \*\*//; s/\*\*$//')"
@@ -68,6 +73,8 @@ check "the critic is given the Banned defaults" "yes" \
   "$(printf '%s' "$critique" | grep -qiF "Banned defaults" && echo yes || echo no)"
 check "the critique stops after two rounds" "yes" \
   "$(printf '%s' "$critique" | grep -qiF "two rounds" && echo yes || echo no)"
+check "the critique falls back to a headless process without subagents" "yes" \
+  "$(printf '%s' "$critique" | grep -qiF "codex exec" && echo yes || echo no)"
 
 check "the README lists the skill" "yes" "$(has "$root/README.md" "| \`ui-design\` |")"
 
