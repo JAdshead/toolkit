@@ -70,5 +70,14 @@ check "review-pr's owner blocks behaviour with no proof" "yes" \
 check "review-pr's owner blocks an exception a good test could have covered" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "a good test could reach")"
 
+tackle="$root/skills/tackle-issues/references"
+check "tackle-issues' Tests reviewer accepts a named exception with a before-and-after check" "yes" \
+  "$(has "$tackle/review-prompts.md" "an exception named with a repeatable check and its output before and after")"
+check "tackle-issues' Tests reviewer blocks an exception a good test could reach" "yes" \
+  "$(has "$tackle/review-prompts.md" "an exception that a good test could reach is P2")"
+check "the tackle-issues PR body names exceptions" "yes" "$(has "$tackle/subagent-templates.md" "## Exceptions")"
+check "the tackle-issues PR body reports the real-thing check" "yes" \
+  "$(has "$tackle/subagent-templates.md" "## Real-thing check")"
+
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

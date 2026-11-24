@@ -155,6 +155,12 @@ Closes #<n>
 ## Changes
 - <bullet per meaningful change>
 
+## Exceptions
+<from the subagents' NOTES: each behaviour proved by a check instead of a test, why, the check, its output before and after; or "none">
+
+## Real-thing check
+<from the subagents' NOTES: what was run on the real thing and what happened>
+
 ## Review
 Specialist review (correctness, security, tests, simplicity<, UX><, domain>): no open P1/P2 after <k> rounds.
 Minor follow-ups: <link to follow-up issue, or "none">
