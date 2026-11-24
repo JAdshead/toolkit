@@ -107,6 +107,10 @@ run release me@mac 1 >/dev/null
 check "release clears the agent and returns the issue to Ready" "Ready|" "$(field_of 1 status)|$(field_of 1 agent)"
 
 reset_board
+check "move with no issue numbers says so, even with a status the board lacks" \
+  "board: move needs issue numbers" "$(run move me@mac bogus 2>&1)"
+
+reset_board
 run release me@mac 3 >/dev/null 2>&1
 check "release refuses an issue another agent holds" "1 other@host" "$? $(field_of 3 agent)"
 
@@ -127,6 +131,10 @@ check "approve refuses an issue another agent holds" "1 In progress" "$? $(field
 reset_board
 FAKE_GH_BOARD=noagent run ready >/dev/null 2>&1
 check "a board with no Agent field exits 2 (use assignee claims)" "2" "$?"
+
+reset_board
+FAKE_GH_BOARD=malformed run ready >/dev/null 2>&1
+check "fields gh returns as malformed JSON fail with 1, not jq's code" "1" "$?"
 
 reset_board
 "$board" ready >/dev/null 2>&1

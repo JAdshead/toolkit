@@ -37,6 +37,7 @@ esac
 
 repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fields="$(gh project field-list "$number" --owner "$owner" --format json --limit 100)"
+jq empty <<<"$fields" 2>/dev/null || die "could not read the fields of $owner/$number"
 project_id=""
 
 agent_field="$(jq -r 'first(.fields[] | select(.name == "Agent")) | .id' <<<"$fields")"
@@ -73,9 +74,8 @@ status_option() {
   echo "${hit%%$'\t'*}"
 }
 
-ready_hit="$(status_lookup Ready)"
 if [ -n "${BOARD_READY:-}" ]; then ready="$(status_name "$BOARD_READY")"
-elif [ -n "$ready_hit" ]; then ready="${ready_hit#*$'\t'}"
+elif [ -n "$(status_lookup Ready)" ]; then ready="$(status_name Ready)"
 else ready="$(status_name Todo)"
 fi
 in_progress="$(status_name "${BOARD_IN_PROGRESS:-In progress}")"
@@ -174,16 +174,13 @@ cmd_claim() {
 }
 
 cmd_move() {
-  local agent="${1:?agent}" hit status n ids=() id status_id
-  hit="$(status_lookup "${2:?status}")"
-  [ -n "$hit" ] || die "the board's Status field has no option \"$2\""
-  status_id="${hit%%$'\t'*}"
-  status="${hit#*$'\t'}"
+  local agent="${1:?agent}" status="${2:?status}" n ids=() id status_id
   shift 2
   [ $# -gt 0 ] || die "move needs issue numbers"
+  status_id="$(status_option "$status")"
   for n in "$@"; do ids+=("$(held_by "$agent" "$n")"); done
   for id in "${ids[@]}"; do set_status "$id" "$status_id"; done
-  echo "moved $* to $status"
+  echo "moved $* to $(status_name "$status")"
 }
 
 cmd_release() {
