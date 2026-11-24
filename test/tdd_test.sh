@@ -83,6 +83,15 @@ check "tackle-issues' Tests reviewer accepts a named exception with a before-and
   "$(has "$tackle/review-prompts.md" "an exception named with a repeatable check and its output before and after")"
 check "tackle-issues' Tests reviewer blocks an exception a good test could reach" "yes" \
   "$(has "$tackle/review-prompts.md" "an exception that a good test could reach is P2")"
+check "tackle-issues gives each Phase 5 reviewer the subagents' named exceptions" "yes" \
+  "$(grep -F "Each reviewer also receives" "$tackle/review-prompts.md" | grep -qiF "named exceptions" && echo yes || echo no)"
+fix_subagent="$work/fix-subagent.md"
+awk '/^## Fix subagent/{on=1; next} /^## /{on=0} on' "$tackle/subagent-templates.md" >"$fix_subagent"
+check "the tackle-issues fix subagent may use the fallback" "yes" "$(has "$fix_subagent" "$fallback")"
+check "the tackle-issues fix subagent shows its check failing before the change" "yes" \
+  "$(has "$fix_subagent" "failing before the change")"
+check "the tackle-issues fix subagent reports a named exception in NOTES" "yes" \
+  "$(has "$fix_subagent" "name the exception, why, and the check in NOTES")"
 check "the tackle-issues PR body names exceptions" "yes" "$(has "$tackle/subagent-templates.md" "## Exceptions")"
 check "the tackle-issues PR body reports the real-thing check" "yes" \
   "$(has "$tackle/subagent-templates.md" "## Real-thing check")"

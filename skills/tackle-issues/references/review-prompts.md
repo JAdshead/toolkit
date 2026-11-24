@@ -30,7 +30,7 @@ FINDINGS:
 SUMMARY: one or two sentences.
 ```
 
-Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, and the diff (`git -C <WT> diff origin/<default>...HEAD`).
+Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, the named exceptions from every implementation and fix subagent's NOTES so far (or "none"), and the diff (`git -C <WT> diff origin/<default>...HEAD`).
 
 ## Selecting reviewers
 

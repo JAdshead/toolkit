@@ -105,7 +105,7 @@ Before fixing, check whether several findings share one root cause. If they do, 
 Steps:
 1. Read the relevant files.
 2. Fix each finding minimally. If a fix needs a product or design decision, do not guess: report it.
-3. Add or adjust tests so each fixed bug would be caught if it came back.
+3. Add or adjust tests so each fixed bug would be caught if it came back. Never write a bad test. When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception, why, and the check in NOTES.
 4. Run the verify command in the foreground.
 5. Commit with a message that says what was fixed.
 
@@ -116,6 +116,7 @@ Report:
 - NOT_FIXED: finding -> reason (decision needed, disagree, out of scope)
 - VERIFICATION: PASS or FAIL
 - COMMITS: shas
+- NOTES: any named exception, with its check's output before and after
 ```
 
 Verify the commits the same way as after implementation.
