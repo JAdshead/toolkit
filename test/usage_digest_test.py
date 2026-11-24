@@ -2,6 +2,8 @@
 """Tests for skills/agent-coach/scripts/usage-digest. Usage: python3 test/usage_digest_test.py"""
 import datetime as dt
 import errno
+import importlib.machinery
+import importlib.util
 import json
 import os
 import sqlite3
@@ -9,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIGEST = os.path.join(HERE, "..", "skills", "agent-coach", "scripts", "usage-digest")
@@ -460,6 +463,41 @@ class UsageDigestTest(unittest.TestCase):
         with open(out) as f:
             self.assertEqual(f.read(), self.run_digest())
         self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+
+    def load_digest_module(self):
+        loader = importlib.machinery.SourceFileLoader("usage_digest", DIGEST)
+        module = importlib.util.module_from_spec(importlib.util.spec_from_loader("usage_digest", loader))
+        loader.exec_module(module)
+        return module
+
+    def test_out_in_a_folder_that_cant_take_a_new_file_reports_why(self):
+        module = self.load_digest_module()
+        out = os.path.join(self.tmp.name, "reports", "digest.md")
+        denied = PermissionError(errno.EACCES, os.strerror(errno.EACCES))
+        with mock.patch.object(module.tempfile, "mkstemp", side_effect=denied):
+            with self.assertRaises(SystemExit) as stop:
+                module.write_private(out, "digest")
+        self.assertEqual(str(stop.exception), f"error: can't write {out} ({os.strerror(errno.EACCES)})")
+
+    def test_out_interrupted_before_the_rename_leaves_no_temp_file(self):
+        module = self.load_digest_module()
+        report_dir = os.path.join(self.tmp.name, "reports")
+        with mock.patch.object(module.os, "replace", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                module.write_private(os.path.join(report_dir, "digest.md"), "digest")
+        self.assertEqual(os.listdir(report_dir), [])
+
+    def test_out_with_a_lone_surrogate_in_a_prompt_completes_and_leaves_no_temp_file(self):
+        with open(os.path.join(self.claude, "projects", "-work-app", "odd.jsonl"), "w") as f:
+            f.write('{"type": "user", "timestamp": "2026-11-11T09:00:00Z", "sessionId": "odd", "cwd": "/work/app",'
+                    ' "message": {"content": "broken \\ud800 text"}}\n')
+        report_dir = os.path.join(self.tmp.name, "reports")
+        out = os.path.join(report_dir, "digest.md")
+        result = self.digest("--out", out, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.listdir(report_dir), ["digest.md"])
+        with open(out, encoding="utf-8") as f:
+            self.assertIn("> broken ? text", f.read())
 
     def test_out_that_cant_be_opened_reports_why_without_blaming_a_symlink(self):
         out = os.path.join(self.tmp.name, "reports", "digest.md")

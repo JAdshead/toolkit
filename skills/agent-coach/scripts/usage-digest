@@ -286,14 +286,21 @@ def write_private(path, text):
     if os.path.islink(path):
         sys.exit(f"error: {path} is a symlink; the digest is only written to a plain file of yours")
     # A new 0600 file renamed into place replaces a symlink or hard link at path instead of writing through it.
-    fd, tmp = tempfile.mkstemp(dir=folder, prefix=".usage-digest-")
+    tmp = None
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        fd, tmp = tempfile.mkstemp(dir=folder, prefix=".usage-digest-")
+        with os.fdopen(fd, "w", encoding="utf-8", errors="replace") as f:  # a lone surrogate in a prompt becomes ?
             f.write(text)
         os.replace(tmp, path)
+        tmp = None
     except OSError as err:
-        os.unlink(tmp)
         sys.exit(f"error: can't write {path} ({err.strerror})")
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def main():
