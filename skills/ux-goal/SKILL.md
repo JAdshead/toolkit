@@ -35,7 +35,7 @@ Several goals: frame each one and run them one after another, never in parallel 
 A real user doesn't search forever. The attempter stops and records Failed when any of these happens:
 
 - three tries at the same step without progress
-- 25 actions in total, or twice the shortest path if that is longer
+- 25 actions in total (for a long goal, the user can raise the cap when you frame it)
 - it would need something a real user wouldn't do: typing a URL it guessed, reading page source, or using dev tools
 
 ## 2. Attempt
