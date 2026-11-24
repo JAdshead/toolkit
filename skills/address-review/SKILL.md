@@ -1,6 +1,6 @@
 ---
 name: address-review
-description: Turn a review-pr NOT YET verdict into a fix. A fresh subagent that never wrote the code either patches the confirmed findings or re-solves the PR's problem from the base branch, and the orchestrator keeps whichever result is smaller and passes its checks. Use when review-pr returns NOT YET on a PR you authored, or when the user asks to address or fix confirmed review findings.
+description: Turn a review-pr NOT YET verdict into a fix. A fresh subagent that never wrote the code either patches the confirmed findings or re-solves the PR's problem from the base branch, and the orchestrator keeps a re-solve only if it passes its checks and is smaller or simpler than the current diff. Use from review-pr Part 4 or ship-pr, when review-pr returns NOT YET.
 license: MIT
 metadata:
   tags: pull-request code-review fix-loop fresh-context
@@ -14,7 +14,7 @@ The author fixing their own findings stays anchored on their design and patches 
 
 ## Inputs
 
-From `review-pr` Part 4: the PR number, your worktree on the PR branch (not `review-pr`'s detached scratch worktree), the confirmed blocking findings verbatim, the path to `problem.md`, and the round number.
+From `review-pr` Part 4 or `ship-pr`: the PR number, your worktree on the PR branch (not `review-pr`'s detached scratch worktree), the confirmed blocking findings verbatim (this round's, and every earlier round's), the path to `problem.md`, and the round number.
 
 ## 1. Patch or re-solve
 
@@ -31,13 +31,13 @@ Spawn one fresh subagent with the findings verbatim, `problem.md`, the PR's work
 
 ## 3. Re-solve
 
-Create a worktree on a new branch from the point the PR branched off, so the result replaces only the PR's own changes: `git worktree add -b <pr-branch>-resolve <scratch>/resolve-<pr> "$(git merge-base origin/<base> <pr-branch>)"`. Spawn one fresh subagent with `problem.md`, the findings, that worktree and the project's test rules. Never give it the old diff, the PR branch or the PR's worktree. Tell it:
+Create a worktree on a new branch from the point the PR branched off, so the result replaces only the PR's own changes: `git worktree add -b <pr-branch>-resolve <scratch>/resolve-<pr> "$(git merge-base origin/<base> <pr-branch>)"`. Spawn one fresh subagent with `problem.md`, the confirmed findings from this and every earlier round, that worktree and the project's test rules. Never give it the old diff, the PR branch or the PR's worktree. Tell it:
 
 > Solve `problem.md` from this base, test-first, with the least code that solves it. These findings were raised against an earlier attempt; your solution must not have them. Commit with a message that says what changed.
 
 ## 4. Verify
 
-Do not trust the subagent's report. Run the project's full local checks yourself, read the diff, and check each finding is gone and nothing beyond `problem.md` was added.
+Do not trust the subagent's report. Run the project's full local checks yourself, read the diff, and check each finding, this round's and earlier ones, is gone and nothing beyond `problem.md` was added.
 
 On a re-solve, compare `git diff --stat origin/<base>...<pr-branch>` with `git diff --stat origin/<base>...<pr-branch>-resolve`. Keep the new one only if its checks pass and it is smaller or simpler; otherwise patch instead (step 2). To keep it, make the PR branch match it in one new commit, so nothing is force-pushed:
 
