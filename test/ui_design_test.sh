@@ -42,8 +42,11 @@ check "the skill bans generic defaults" "yes" "$(has "$skill" "## Banned default
 check "the skill checks screenshots at desktop and mobile" "yes" "$(has "$skill" "at 1280 and 375 px wide")"
 check "the skill has a fresh-context critique" "yes" "$(has "$skill" "fresh subagent")"
 check "the critique loop has a finite exit" "yes" "$(has "$skill" "after two rounds")"
-check "the template's Don't list matches the skill's banned defaults" "yes" \
-  "$(has "$template" "Banned defaults in the \`ui-design\` skill")"
+check "the template points to the skill's banned defaults" "yes" \
+  "$(has "$template" "\`ui-design\` skill's Banned defaults")"
+banned="$(sed -n '/^## Banned defaults/,/^## /p' "$skill" | grep '^- ')"
+copied="$(printf '%s\n' "$banned" | grep -cxF -f - "$template")"
+check "the template does not keep its own copy of the banned defaults" "0" "$copied"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

@@ -59,12 +59,6 @@ Contrast: body text at least 4.5:1 against its background.
 
 ## Don't
 
-Banned defaults in the `ui-design` skill, plus this project's own:
+The `ui-design` skill's Banned defaults apply. This project's own:
 
-- Purple, indigo or pink gradients; gradient text
-- Cards inside cards; border, shadow and tinted background all on one element
-- Emoji used as icons
-- Everything centred; every element the same size and weight
-- More than one accent colour; grey text on a coloured background
-- Spacing or font sizes off the scale
-- Filler copy: "Welcome to X", "Unlock the power of"
+- <!-- e.g. no modals for forms longer than three fields -->
