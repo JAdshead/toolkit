@@ -21,7 +21,7 @@ From `review-pr` Part 4 or `ship-pr`: the PR number, your worktree on the PR bra
 - **Patch** when the findings are few, isolated, and in code the problem needs.
 - **Re-solve** when this is round 2 or later, the findings cluster in one area, or they sit in code that earlier fixes added (`git log` on those lines) or that the problem doesn't need.
 
-A finding that can only be fixed by going beyond `problem.md` goes to the user, not to a subagent. A finding about the PR's title or description is yours: fix it with `gh pr edit` when you push.
+A finding that can only be fixed by going beyond `problem.md` goes to the user, not to a subagent. A finding about the PR's title or description is yours: fix it with `gh pr edit` when you push. A finding about a commit message goes to the user: fixing it would rewrite history, and a squash merge would replace it.
 
 ## 2. Patch
 
@@ -47,5 +47,7 @@ git -C <pr-worktree> commit -m "<what changed>"
 ```
 
 If you re-solved, remove its worktree and branch (`git worktree remove --force <scratch>/resolve-<pr>`, `git branch -D <pr-branch>-resolve`).
+
+If a patch fails the checks or leaves a finding in place, stop: show the user what failed and don't push.
 
 Then ask the user before pushing. If you kept a re-solve, update the PR title and description to match the new diff (`gh pr edit`) when you push. Go back to `review-pr` Part 0.

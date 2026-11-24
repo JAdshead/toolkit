@@ -34,6 +34,12 @@ check "ship-pr passes every round's findings to address-review" "yes" \
   "$(grep -F "address-review" "$ship" | grep -qiF "every round so far" && echo yes || echo no)"
 check "ship-pr names the same findings file" "yes" "$(has "$ship" "$findings")"
 
+address="$root/skills/address-review/SKILL.md"
+check "address-review stops on a patch that still fails" "yes" \
+  "$(has "$address" "If a patch fails the checks or leaves a finding in place, stop")"
+check "address-review never rewrites history for an untrue commit message" "yes" \
+  "$(has "$address" "A finding about a commit message goes to the user")"
+
 finishing="$(awk '/^## Finishing/{on=1; next} /^## /{on=0} on' "$rules")"
 check "the Finishing rule pulls only on the default branch" "yes" \
   "$(grep -qiF "clean and on the default branch" <<<"$finishing" && echo yes || echo no)"
