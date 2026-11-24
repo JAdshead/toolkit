@@ -122,7 +122,7 @@ If the worktree or branch already exists, ask: resume or recreate. Use the proje
 
 ## Phase 4: Implement (per group)
 
-For each issue in the group, in order, spawn an **implementation subagent** (template in `references/subagent-templates.md`). It works only inside the group's worktree, writes a failing test first, implements, runs the verify command, and commits.
+For each issue in the group, in order, spawn an **implementation subagent** (template in `references/subagent-templates.md`). It works only inside the group's worktree, writes a failing test first (or a named exception's failing check), implements, runs the verify command, checks the real thing, and commits.
 
 **After every subagent returns, verify its work yourself:**
 

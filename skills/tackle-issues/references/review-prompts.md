@@ -30,7 +30,7 @@ FINDINGS:
 SUMMARY: one or two sentences.
 ```
 
-Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, and the diff (`git -C <WT> diff origin/<default>...HEAD`).
+Each reviewer also receives: the issue numbers and titles, the list of changed files, the project rules gathered in Phase 0, the named exceptions from every implementation and fix subagent's NOTES so far (or "none"), and the diff (`git -C <WT> diff origin/<default>...HEAD`).
 
 ## Selecting reviewers
 
@@ -89,6 +89,8 @@ You are reviewing the tests: do they exist where they should, and would they cat
 Coverage:
 - New behaviour has tests, including failure and error paths, not only the happy path.
 - Each bug fix has a test that fails without the fix.
+- In place of a test, accept an exception named with a repeatable check and its output before and after;
+  an exception that a good test could reach is P2.
 - Authorization checks have a "forbidden / not found" test.
 - State transitions and callbacks are exercised end to end.
 

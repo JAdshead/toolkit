@@ -22,7 +22,7 @@ Each lens asks one question. Check whatever that question needs.
 
 - **Correctness:** does it solve the problem in `problem.md` and do what it says, on the failure paths too, without breaking existing callers or data?
 - **Security:** can hostile input (a user, a request, a cloned repo, a PR) make it do harm? Only an exploitable path is P1 or P2.
-- **Tests:** would the tests fail if this change were broken or reverted? A test that still passes with the implementation deleted is P2. A behaviour change with no test that fails without it is P2 (a bug fix needs a test that reproduces the bug).
+- **Tests:** would the tests fail if this change were broken or reverted? A test that still passes with the implementation deleted is P2. A behaviour change with no proof that fails without it is P2 (a bug fix needs a reproduction). The proof is a test, or an exception the PR names with a repeatable check and its output before and after; an exception that a good test could reach is P2. A bad test (mostly tests its mocks, depends on timing or shared state) is P2.
 - **Simplicity:** is there a clearly simpler change that solves `problem.md`? Code or complexity the problem does not need is P2; smaller simplifications are P3.
 - **UX** (only when UI files changed): can a user tell what happened and recover from an error, by keyboard and screen reader too?
 

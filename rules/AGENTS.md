@@ -4,11 +4,16 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Tests
 
-- **TDD, always.** Write the failing test first, run it, and confirm it fails for the reason you expect. Then write the least code that makes it pass, then refactor. No production code without a failing test that needs it.
-- **Every bug fix starts with a test that reproduces it.** See it fail before touching the code.
-- **Only changes with no behaviour skip the test** (docs, comments, formatting, plain config). Name the exception in the commit or PR; never skip silently.
+- **Test first.** Write the failing test first, run it, and confirm it fails for the reason you expect. Then write the least code that makes it pass, then refactor.
+- **Every bug fix starts with a reproduction.** See it fail before touching the code.
+- **A bad test is worse than none.** It costs upkeep, breaks on harmless refactors, and gives false confidence. A test is bad when it would still pass with the implementation deleted, mostly tests its mocks, depends on timing or shared state, or needs setup out of proportion to the change. Assert observable state or return values; mock only at the system boundary (third-party APIs, network, email, filesystem).
+- **When no good test can reach the behaviour, prove it another way.** Use the closest repeatable check against the real code: a script, a repro command, browser automation, an assertion on output or logs. Show it failing before the change and passing after, and name the exception, why no good test fits, and the check in the PR. "Hard to test" is not a reason when a unit or integration test could reach it.
+- **Only changes with no behaviour skip both** (docs, comments, formatting, plain config). Name the exception in the commit or PR; never skip silently.
 - **No `sleep` in tests.** Wait on a condition (a waiting matcher, a poll with a deadline), never on a fixed delay. Freeze the clock around any assertion about time.
-- **A test that would still pass with the implementation deleted is broken.** Assert observable state or return values; mock only at the system boundary (third-party APIs, network, email, filesystem).
+
+## Done
+
+- **Check the real thing before calling it done.** Passing tests are not enough. Run the changed command, walk the changed flow in the running app, or read back the stored value, and show what happened. A self-report, cached output, or "it compiles" does not count. Script the check when you can, so a reviewer can rerun it.
 
 ## Fixes
 
@@ -21,11 +26,15 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Pull request review
 
 - **After opening or updating a pull request, and before merging it, review it with the `review-pr` skill.** Don't report a PR as ready until it passes. It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
-- **A behaviour change with no test that fails without it is not ready to merge.**
+- **A behaviour change with no proof that fails without it is not ready to merge.** The proof is a test, or a named exception with a repeatable check seen failing before the change (see Tests).
 
 ## Finishing
 
-- **When a session's last pull request merges, clean up before reporting done:** delete its branch (local and remote) and its worktree, fast-forward `main` in the main checkout if it is clean, then offer to archive the session.
+- **When a session's last pull request merges, clean up before reporting done:** delete the session's merged branches (local and remote) and their worktrees, except the worktree you are running in and its local branch, which you keep and say so; fast-forward the default branch in the main checkout if it is clean; then offer to archive the session if your tool supports it.
+
+## UI
+
+- **Never call UI work done without seeing it.** Use the `ui-design` skill to build, screenshot and critique UI changes.
 
 ## Terminology
 

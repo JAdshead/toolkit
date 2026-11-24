@@ -136,10 +136,12 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `refine-issues` | Goes through open issues a few at a time: a subagent proposes keep, close, retitle, rewrite or split, a validator confirms or refutes it, and only what you approve is applied |
 | `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `address-review` | Turns a `review-pr` NOT YET into a fix: a fresh subagent patches the findings or re-solves the problem from the base, and a re-solve is kept only if it passes and is smaller or simpler |
-| `ship-pr` | Takes PRs from opened to merged: loops review-pr and address-review until MERGE (three rounds, then asks), merges only the reviewed commit, removes the branch and worktree, updates local main |
+| `ship-pr` | Takes PRs from opened to merged: loops review-pr and address-review until MERGE (three reviews, then asks), merges only the reviewed commit, removes the branch and worktree, updates local main |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
+| `ui-design` | Builds or restyles UI by looking at it: follows `DESIGN.md`, proposes distinct directions, bans AI-default styles, screenshots every state on desktop and mobile, and has a fresh subagent critique them |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
+| `ux-goal` | Judges a running app against one user goal: a fresh subagent with no source code attempts it in a browser, then the run is scored against an observable success state and the shortest path, with friction ranked by cost to the goal |
 
 In Claude Code they appear as `toolkit:<name>`.
 
