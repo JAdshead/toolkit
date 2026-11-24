@@ -139,6 +139,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `ship-pr` | Takes PRs from opened to merged: loops review-pr and address-review until MERGE (three rounds, then asks), merges only the reviewed commit, removes the branch and worktree, updates local main |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
+| `ui-design` | Builds or restyles UI by looking at it: follows `DESIGN.md`, proposes distinct directions, bans AI-default styles, screenshots every state on desktop and mobile, and has a fresh subagent critique them |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
 
 In Claude Code they appear as `toolkit:<name>`.
