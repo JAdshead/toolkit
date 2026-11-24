@@ -69,11 +69,11 @@ If verification fails, show the output and ask the user whether to keep fixing o
 
 Get the diff: `git -C <worktree> diff origin/<default-branch>...HEAD`.
 
-Run three reviewers in parallel (separate subagents where supported, otherwise three separate passes). Give each the diff and changed-file list, and the code, not your own conclusions, so the review is not anchored on yours. Each returns `VERDICT: PASS|FAIL` and findings as `[severity] [file:line] description`.
+Run three reviewers in parallel (separate subagents where supported, otherwise three separate passes). Give each the diff and changed-file list, and the code, not your own conclusions, so the review is not anchored on yours. Also give the Test quality reviewer the subagent's EXCEPTIONS. Each returns `VERDICT: PASS|FAIL` and findings as `[severity] [file:line] description`.
 
 1. **Security:** injection, XSS, CSRF, mass assignment, authentication and authorization on every entry point, secrets in code, unsafe redirects, file upload handling, sensitive data in logs. FAIL on any CRITICAL or HIGH.
 2. **Code quality:** readability, the project's conventions, duplication, single responsibility, error handling, query efficiency (N+1, missing indexes). FAIL needs a HIGH finding.
-3. **Test quality:** every new public behaviour is tested on the happy path, edge cases and error paths; tests exercise real logic. Mocking the subject under test, tautological tests and assertion-free tests are automatic FAILs. Test names describe behaviour.
+3. **Test quality:** every new public behaviour is tested on the happy path, edge cases and error paths; tests exercise real logic. In place of a test, accept an exception named with a repeatable check and its output before and after; an exception that a good test could reach is HIGH and a FAIL. Mocking the subject under test, tautological tests and assertion-free tests are automatic FAILs. Test names describe behaviour.
 
 Consolidate:
 

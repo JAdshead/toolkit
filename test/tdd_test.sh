@@ -70,6 +70,14 @@ check "review-pr's owner blocks behaviour with no proof" "yes" \
 check "review-pr's owner blocks an exception a good test could have covered" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "a good test could reach")"
 
+implement="$root/skills/implement/SKILL.md"
+check "implement's Test quality reviewer accepts a named exception with a before-and-after check" "yes" \
+  "$(has "$implement" "an exception named with a repeatable check and its output before and after")"
+check "implement's Test quality reviewer blocks an exception a good test could reach" "yes" \
+  "$(has "$implement" "an exception that a good test could reach is HIGH")"
+check "implement gives the Test quality reviewer the subagent's EXCEPTIONS" "yes" \
+  "$(has "$implement" "give the Test quality reviewer the subagent's EXCEPTIONS")"
+
 tackle="$root/skills/tackle-issues/references"
 check "tackle-issues' Tests reviewer accepts a named exception with a before-and-after check" "yes" \
   "$(has "$tackle/review-prompts.md" "an exception named with a repeatable check and its output before and after")"
