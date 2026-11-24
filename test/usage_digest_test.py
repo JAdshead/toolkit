@@ -326,9 +326,10 @@ class UsageDigestTest(unittest.TestCase):
                 "<html><body>pasted page</body></html> is this valid?",
                 "</a-b> see <a-b>x</a-b> end",
                 "</a-b> see <a-b>x",
+                "<system-reminder>a <bash-input>x</bash-input> b</system-reminder>typed",
             ])])
         tags = self.sessions()["tags"]
-        self.assertEqual(tags["prompt_count"], 6)
+        self.assertEqual(tags["prompt_count"], 7)
         self.assertEqual(tags["prompts"], [
             '<div class="card">misaligned</div> why does this wrap?',
             "and also the footer",
@@ -336,6 +337,7 @@ class UsageDigestTest(unittest.TestCase):
             "<html><body>pasted page</body></html> is this valid?",
             "</a-b> see end",
             "</a-b> see <a-b>x",
+            "typed",
         ])
 
     def test_harness_element_needs_the_whole_name_to_match(self):
