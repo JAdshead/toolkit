@@ -111,6 +111,22 @@ printf '# Evil\033[2K\r\n' > "$repo/AGENTS.md"
 init "$repo"
 check "control characters in a listed heading never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 
+# C1 controls (CSI, OSC ... ST) and format characters (right-to-left override) too.
+repo="$(fresh)"
+printf '# Ev\xc2\x9b2Jil \xc2\x9d0;x\xc2\x9cna\xe2\x80\xaeme caf\xc3\xa9\n' > "$repo/AGENTS.md"
+init "$repo"
+for seq in '\xc2\x9b' '\xc2\x9d' '\xc2\x9c' '\xe2\x80\xae'; do
+  check "a listed heading drops $seq" "no" "$(LC_ALL=C grep -qF "$(printf "$seq")" <<<"$out" && echo yes || echo no)"
+done
+check "a listed heading keeps its visible text" "yes" "$(lists "$(printf '# Ev2Jil 0;xname caf\xc3\xa9')")"
+
+# A raw C1 byte that is not valid UTF-8 is dropped too, and the warning still lists the heading.
+repo="$(fresh)"
+printf '# raw\x9bbyte\n' > "$repo/AGENTS.md"
+init "$repo"
+check "a heading that is not valid UTF-8: the raw byte is dropped" "no" "$(LC_ALL=C grep -qF "$(printf '\x9b')" <<<"$out" && echo yes || echo no)"
+check "a heading that is not valid UTF-8: the warning still lists it" "yes" "$(LC_ALL=C grep -q '^  # raw.*byte$' <<<"$out" && echo yes || echo no)"
+
 repo="$(fresh)"
 printf 'Before.\n\n<!-- toolkit:start -->\nold rules\n<!-- toolkit:end -->\n\nAfter.\n' > "$repo/AGENTS.md"
 init "$repo"

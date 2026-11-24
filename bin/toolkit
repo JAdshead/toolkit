@@ -140,8 +140,10 @@ init_import() {
 
 # Print the headings in FILE outside the toolkit block (not in code fences),
 # indented, or a note if it has other text but no headings. Prints nothing if
-# the block is all there is. Control characters are dropped: the repo may be
-# hostile.
+# the block is all there is. The repo may be hostile, so the text is read as
+# UTF-8 (invalid bytes become U+FFFD) and every Unicode control (Cc: C0, DEL,
+# C1) and format (Cf, e.g. bidi overrides) character except the newline is
+# dropped; other non-ASCII text is kept.
 outside_headings() {
   awk -v start="$START" -v end="$END" '
     { k = $0; sub(/\r$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", k) }
@@ -152,7 +154,7 @@ outside_headings() {
     !fence && k ~ /^#+([ \t]|$)/ { print "  " k; n++; next }
     { other = 1 }
     END { if (!n && other) print "  (text with no headings)" }
-  ' "$1" | LC_ALL=C tr -d '\000-\011\013-\037\177'
+  ' "$1" | perl -MEncode -ne 'print encode("UTF-8", decode("UTF-8", $_) =~ s/(?!\n)[\p{Cc}\p{Cf}]//gr)'
 }
 
 # Refuse anything init would write that is not an ordinary file (or absent)
