@@ -48,7 +48,8 @@ check "ship-pr checks a fork PR allows maintainer edits" "yes" "$(has "$ship" "m
 check "ship-pr names a fork PR's local branch itself" "yes" "$(has "$ship" "gh pr checkout <n> --branch pr-<n>")"
 check "ship-pr cleans up only its own fork branch" "yes" "$(has "$ship" "delete only \`pr-<n>\`")"
 check "ship-pr asks before running a fork's code" "yes" "$(has "$ship" "runs the contributor's code")"
-check "ship-pr pushes a fork fix to the fork's head ref" "yes" "$(has "$ship" "plain \`git push\` from \`pr-<n>\`")"
+check "ship-pr pushes a fork fix to the fork's head ref" "yes" \
+  "$(has "$ship" "git push \"\$(git config branch.pr-<n>.remote)\" HEAD:<headRefName>")"
 check "ship-pr treats a repo with no checks as green" "yes" "$(has "$ship" "no checks reported")"
 check "ship-pr says what keep going does to the review cap" "yes" "$(has "$ship" "three more reviews")"
 check "ship-pr maps squash to its repo setting" "yes" "$(has "$ship" "allow_squash_merge\` → \`--squash")"
