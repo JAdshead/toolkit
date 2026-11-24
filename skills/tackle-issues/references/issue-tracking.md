@@ -38,7 +38,7 @@ One table, two claim styles. Use the column for this board's claim style.
 Both claim styles:
 
 - **Find work:** skip parents that still have open sub-issues (`gh issue view <n> --json subIssuesSummary` per item); their sub-issues are the work.
-- **Before claiming:** if the issue isn't on the board (no `projectItems` entry with this board's title), run the `place-issues` skill on it first. If someone else holds it (an Agent or an assignee is set) or it is In progress or later, say who holds it and stop. Otherwise, if it isn't in Ready, ask the user; on a yes, Make ready, then claim. **Resuming** is the one exception: an issue this run already holds (its Agent is this run's id, or it is assigned to @me and In progress or later) skips these checks; just claim it again.
+- **Before claiming:** if the issue isn't on the board (no `projectItems` entry with this board's title), run the `place-issues` skill on it first. If someone else holds it (an Agent is set, or an assignee other than @me) or it is In progress or later, say who holds it and stop. Otherwise, if it isn't in Ready, ask the user; on a yes, Make ready, then claim. **Resuming** is the one exception: an issue this run already holds (its Agent is this run's id, or it is assigned to @me and In progress or later) skips these checks; just claim it again.
 - **In review:** add `Part of #<parent>` (no closing keyword) to the PR body. Move through later columns (Verifying, Ready to merge) the same way as In review, if the board has them.
 - **Make ready** only on the user's say-so, since deciding what is ready is theirs.
 
