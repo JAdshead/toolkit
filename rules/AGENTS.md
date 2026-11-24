@@ -18,7 +18,11 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Pull request review
 
-- **Before merging a pull request, review it with the `review-pr` skill.** It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
+- **After opening or updating a pull request, and before merging it, review it with the `review-pr` skill.** Don't report a PR as ready until it passes. It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
+
+## Finishing
+
+- **When a session's last pull request merges, clean up before reporting done:** delete its branch (local and remote) and its worktree, fast-forward `main` in the main checkout if it is clean, then offer to archive the session.
 
 ## Terminology
 
