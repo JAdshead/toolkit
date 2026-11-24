@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests for skills/agent-coach/scripts/usage-digest. Usage: python3 test/usage_digest_test.py"""
 import datetime as dt
+import errno
 import json
 import os
 import sqlite3
@@ -39,10 +40,10 @@ def tool_use(name, **inp):
     return {"type": "tool_use", "id": "t", "name": name, "input": inp}
 
 
-def tool_result(ts, is_error, text, session="s1"):
+def tool_result(ts, is_error, content, session="s1"):
     return line(type="user", timestamp=ts, sessionId=session,
                 message={"role": "user", "content": [
-                    {"type": "tool_result", "tool_use_id": "t", "is_error": is_error, "content": text}]})
+                    {"type": "tool_result", "tool_use_id": "t", "is_error": is_error, "content": content}]})
 
 
 class UsageDigestTest(unittest.TestCase):
@@ -131,10 +132,20 @@ class UsageDigestTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def digest(self, *args, codex=None, check=True):
+    def digest(self, *args, codex=None, check=True, env=None):
         return subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
                                "--codex-dir", codex or self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
-                               *args], capture_output=True, text=True, check=check)
+                               *args], capture_output=True, text=True, check=check, env=env)
+
+    def write_transcript(self, rel_path, *lines):
+        path = os.path.join(self.claude, "projects", rel_path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.writelines(lines)
+
+    def sessions(self, env=None):
+        data = json.loads(self.digest("--format", "json", env=env).stdout)
+        return {s["id"]: s for s in data["claude_code"]["sessions"]}
 
     def run_digest(self, *args):
         return self.digest(*args).stdout
@@ -143,8 +154,7 @@ class UsageDigestTest(unittest.TestCase):
         return json.loads(self.run_digest("--format", "json"))
 
     def test_claude_session_summary(self):
-        sessions = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}
-        s = sessions["s1"]
+        s = self.sessions()["s1"]
         self.assertEqual(s["cwd"], "/work/app")
         self.assertEqual(s["prompts"], ["fix the flaky booking test", "now run the linter too", "and update the docs"])
         self.assertEqual(s["slash_commands"], ["/review"])
@@ -162,12 +172,12 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual([s["id"] for s in sessions], ["s2", "s1", "edge-in"])
 
     def test_window_upper_bound_is_exclusive_for_claude(self):
-        sessions = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}
+        sessions = self.sessions()
         self.assertNotIn("edge-out", sessions)
         self.assertEqual(sessions["edge-in"]["prompts"], ["last second of the window"])
 
     def test_prompts_are_capped_and_clipped(self):
-        s2 = {s["id"]: s for s in self.json_digest()["claude_code"]["sessions"]}["s2"]
+        s2 = self.sessions()["s2"]
         self.assertEqual(s2["prompt_count"], 10)
         self.assertEqual(len(s2["prompts"]), 8)
         self.assertEqual(s2["prompts"][1:], [f"step {i}" for i in range(1, 8)])
@@ -234,18 +244,170 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual(os.stat(os.path.dirname(out)).st_mode & 0o777, 0o700)
         self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
 
-    def test_out_in_folder_not_owned_still_writes_private_file(self):
+    def test_out_in_folder_not_owned_is_refused(self):
         if os.stat("/tmp").st_uid == os.getuid():
             self.skipTest("/tmp is owned by this user")
+        mode = os.stat("/tmp").st_mode
         out = os.path.join("/tmp", f"usage-digest-test-{os.getpid()}.md")
         try:
             result = self.digest("--out", out, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("warning", result.stderr)
-            self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("is not yours", result.stderr)
+            self.assertFalse(os.path.exists(out))
+            self.assertEqual(os.stat("/tmp").st_mode, mode)
         finally:
             if os.path.exists(out):
                 os.remove(out)
+
+    def test_subagent_runs_outside_the_window_are_not_counted(self):
+        self.write_transcript("-work-app/s1/subagents/agent-old.jsonl",
+                              user("2026-10-01T09:00:00Z", "old subagent prompt", isSidechain=True))
+        self.write_transcript("-work-app/s1/subagents/agent-late.jsonl",
+                              user(zulu(UNTIL), "subagent after the window", isSidechain=True))
+        self.write_transcript("-work-app/s1/subagents/agent-2.jsonl",
+                              user("2026-10-01T09:00:00Z", "resumed", isSidechain=True),
+                              user("2026-11-10T10:00:00Z", "resumed in the window", isSidechain=True))
+        self.assertEqual(self.sessions()["s1"]["subagents"], 2)
+
+    def test_prompts_keep_pasted_markup_and_drop_harness_tags(self):
+        self.write_transcript("-work-tags/tags.jsonl", *[
+            user(f"2026-11-11T09:{i:02}:00Z", text, session="tags") for i, text in enumerate([
+                "<div class=\"card\">misaligned</div> why does this wrap?",
+                "<system-reminder>context</system-reminder>\nand also the footer",
+                "<task-notification><status>completed</status></task-notification>",
+                "<ci-monitor-event>checks passed</ci-monitor-event>",
+                "<create-pr-command>open a pull request</create-pr-command>",
+                "<local-command-caveat>Caveat: generated</local-command-caveat>",
+                "<local-command-stderr>oops</local-command-stderr>",
+                "<pasted_content>a pasted log</pasted_content>",
+                "<side-sessions-event>a side session finished</side-sessions-event>",
+                "<system-reminder>context</system-reminder>\n<side-sessions-event>finished</side-sessions-event>",
+                '<scheduled-task name="nightly" file="/x/SKILL.md">run the nightly task</scheduled-task>',
+                "<bash-input>ls</bash-input>",
+                "<bash-stdout>a.txt</bash-stdout><bash-stderr></bash-stderr>",
+                "<ide_opened_file>The user opened /work/app/a.py</ide_opened_file>",
+                "<command-message>review</command-message>",
+                "<command-args>--fast</command-args>",
+                "<html><body>pasted page</body></html> is this valid?",
+            ])])
+        tags = self.sessions()["tags"]
+        self.assertEqual(tags["prompt_count"], 4)
+        self.assertEqual(tags["prompts"], [
+            '<div class="card">misaligned</div> why does this wrap?',
+            "and also the footer",
+            "<pasted_content>a pasted log</pasted_content>",
+            "<html><body>pasted page</body></html> is this valid?",
+        ])
+
+    def test_each_denial_wording_counts_once(self):
+        wordings = {
+            "rejected": "The tool use was rejected (eg. if it was a file edit).",
+            "by-user": "Error: permission denied by user",
+            "user-denied": "User denied the request.",
+            "safety": "Permission for this command was denied by a built-in Claude Code safety check, not by the user.",
+            "blocks": [{"type": "text", "text": "The user doesn't want to proceed with this tool use."}],
+        }
+        for session, content in wordings.items():
+            self.write_transcript(f"-work-deny/{session}.jsonl",
+                                  user("2026-11-12T09:00:00Z", "go", session=session),
+                                  tool_result("2026-11-12T09:00:01Z", True, content, session=session),
+                                  tool_result("2026-11-12T09:00:02Z", True, "plain failure", session=session))
+        sessions = self.sessions()
+        for session in wordings:
+            with self.subTest(session):
+                self.assertEqual((sessions[session]["tool_errors"], sessions[session]["denials"]), (2, 1))
+
+    def test_naive_timestamps_are_local_time(self):
+        self.write_transcript("-work-naive/naive-in.jsonl",
+                              user("2026-11-15T23:59:59", "naive, last local second", session="naive-in"))
+        self.write_transcript("-work-naive/naive-out.jsonl",
+                              user("2026-11-16T00:00:00", "naive, first local second after", session="naive-out"))
+        # A fixed zone 5 hours from UTC, so the test tells local time from UTC even where the suite runs in UTC.
+        sessions = self.sessions(env={**os.environ, "TZ": "Etc/GMT-5"})
+        self.assertEqual(sessions["naive-in"]["prompts"], ["naive, last local second"])
+        self.assertNotIn("naive-out", sessions)
+
+    def test_session_id_falls_back_to_file_name_and_span_is_min_max(self):
+        entries = [user(ts, "hi", session=None) for ts in
+                   ("2026-11-12T10:00:00Z", "2026-11-12T08:00:00Z", "2026-11-12T12:00:00Z", "2026-11-12T09:00:00Z")]
+        self.write_transcript("-work-anon/anon-file.jsonl", *entries)
+        s = self.sessions()["anon-file"]
+        self.assertEqual(dt.datetime.fromisoformat(s["start"]), dt.datetime(2026, 11, 12, 8, tzinfo=dt.timezone.utc))
+        self.assertEqual(dt.datetime.fromisoformat(s["end"]), dt.datetime(2026, 11, 12, 12, tzinfo=dt.timezone.utc))
+
+    def test_session_tools_are_listed_most_used_first(self):
+        self.assertEqual(list(self.sessions()["s1"]["tools"]), ["Skill", "Bash", "mcp__github__create_pr"])
+        self.assertIn("\ntools: Skill (2), Bash (1), mcp__github__create_pr (1)\n", self.run_digest())
+
+    def test_codex_times_are_local_iso_strings(self):
+        c1 = {t["id"]: t for t in self.json_digest()["codex"]["threads"]}["c1"]
+        for key, epoch in (("created_at", 1794301200), ("updated_at", 1794304800)):
+            moment = dt.datetime.fromisoformat(c1[key])
+            self.assertEqual(moment.timestamp(), epoch)
+            self.assertEqual(moment.utcoffset(), dt.datetime.fromtimestamp(epoch).astimezone().utcoffset())
+
+    def test_codex_first_message_is_clipped(self):
+        db = sqlite3.connect(os.path.join(self.codex, "state_7.sqlite"))
+        db.execute("create table threads (id text, created_at int, updated_at int, first_user_message text)")
+        db.execute("insert into threads values ('c-long', 1794301200, 1794304800, ?)", (LONG_PROMPT,))
+        db.commit()
+        db.close()
+        long = {t["id"]: t for t in self.json_digest()["codex"]["threads"]}["c-long"]["first_user_message"]
+        self.assertEqual(long, LONG_PROMPT[:299] + "…")
+
+    def test_default_window_is_the_7_days_before_today(self):
+        for _ in range(2):  # a run that crosses local midnight is retried once
+            today = dt.date.today()
+            start = dt.datetime.combine(today - dt.timedelta(days=7), dt.time()).astimezone()
+            end = dt.datetime.combine(today, dt.time()).astimezone()
+            claude = os.path.join(self.tmp.name, f"claude-{today}")
+            proj = os.path.join(claude, "projects", "-work-now")
+            os.makedirs(proj, exist_ok=True)
+            for name, moment in (("first", start), ("before", start - dt.timedelta(seconds=1)),
+                                 ("last", end - dt.timedelta(seconds=1)), ("after", end)):
+                with open(os.path.join(proj, f"{name}.jsonl"), "w") as f:
+                    f.write(user(zulu(moment), name, session=name))
+            out = subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", claude, "--codex-dir", self.codex,
+                                  "--format", "json"], capture_output=True, text=True, check=True)
+            if dt.date.today() == today:
+                break
+        data = json.loads(out.stdout)
+        self.assertEqual((data["since"], data["until"]), ((today - dt.timedelta(days=7)).isoformat(), today.isoformat()))
+        self.assertEqual(sorted(s["id"] for s in data["claude_code"]["sessions"]), ["first", "last"])
+
+    def test_out_replaces_a_longer_existing_file(self):
+        out = os.path.join(self.tmp.name, "reports", "digest.md")
+        os.makedirs(os.path.dirname(out))
+        with open(out, "w") as f:
+            f.write("stale\n" * 20000)
+        self.run_digest("--out", out)
+        with open(out) as f:
+            self.assertEqual(f.read(), self.run_digest())
+
+    def test_out_refuses_a_symlink(self):
+        report_dir = os.path.join(self.tmp.name, "reports")
+        os.makedirs(report_dir)
+        victim = os.path.join(self.tmp.name, "victim.txt")
+        with open(victim, "w") as f:
+            f.write("keep me")
+        out = os.path.join(report_dir, "digest.md")
+        os.symlink(victim, out)
+        result = self.digest("--out", out, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("symlink", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        with open(victim) as f:
+            self.assertEqual(f.read(), "keep me")
+
+    def test_out_that_cant_be_opened_reports_why_without_blaming_a_symlink(self):
+        out = os.path.join(self.tmp.name, "reports", "digest.md")
+        os.makedirs(out)
+        result = self.digest("--out", out, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(out, result.stderr)
+        self.assertIn(os.strerror(errno.EISDIR), result.stderr)
+        self.assertNotIn("symlink", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_markdown_mentions_window_and_prompts(self):
         md = self.run_digest()
