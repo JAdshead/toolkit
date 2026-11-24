@@ -14,6 +14,8 @@ Never call UI work done without seeing it. Plausible CSS read as code produces g
 
 Follow the project's `DESIGN.md`. If it has none, copy [references/DESIGN.md](references/DESIGN.md) to the repo root and fill it in with the user before building.
 
+For a small change inside an existing look (a spacing, colour or copy fix), skip this step and the critique (step 5); still screenshot it (step 4).
+
 ## 2. Directions
 
 For a new look or a restyle, propose two or three genuinely different directions (type, colour, density, layout), each with a screenshot of one key screen, and let the user pick before building. Use the `ui-ux-pro-max` skill for palettes, font pairings and styles when it is available. Record the chosen direction in `DESIGN.md`. Skip this for changes inside an existing look.
@@ -28,7 +30,7 @@ Screenshot each state at 1280 and 375 px wide (the browser or Playwright tooling
 
 ## 5. Critique
 
-Spawn a fresh subagent: no fork, no code, nothing of your reasoning. Give it the screenshots, `DESIGN.md`, this skill's Banned defaults section verbatim, and who the user is and what the screen is for. Ask it to list what looks generic, broken or off-brand, and any banned default it sees, each marked serious or minor.
+Spawn a fresh subagent: no fork, no code, nothing of your reasoning. If your agent has no subagents, start a new headless process with the same prompt (for example `codex exec` or `gemini -p`) in an empty directory outside the repo. Give it the screenshots, `DESIGN.md`, this skill's Banned defaults section verbatim, and who the user is and what the screen is for. Ask it to list what looks generic, broken or off-brand, and any banned default it sees, each marked serious or minor.
 
 Fix the serious problems and take new screenshots. Stop when a round finds nothing serious, or after two rounds; hand the remaining minor findings to the user.
 

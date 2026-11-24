@@ -36,7 +36,7 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## UI
 
-- **Never call UI work done without seeing it.** Use the `ui-design` skill to build, screenshot and critique UI changes.
+- **Never call UI work done without seeing it.** Use the `ui-design` skill to screenshot every UI change, and to critique all but small changes inside an existing look (setting a new look's direction first).
 
 ## Terminology
 

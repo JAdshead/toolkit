@@ -17,7 +17,7 @@ For a broad sweep with no single goal, use the `ux-crawl` skill instead.
 ## Requirements
 
 - A browser tool that can open the running app and take screenshots. If there is none, stop and tell the user. Do not judge a goal from the source code.
-- A running app with test data, and a test account for the persona's role. Find them as in `ux-crawl` step 1; never use real credentials or personal data.
+- A running app with test data, and a test account for the persona's role. Find them as in `ux-crawl` step 1, but before the attempt read only the start URL and test accounts (README, launch config, seeds, fixtures), not routes or app code. Never use real credentials or personal data.
 
 ## 1. Frame the goal
 
@@ -27,6 +27,8 @@ Write these down and show them to the user before the attempt. Ask only for what
 - **Persona:** who is trying, and what they already know ("signed up yesterday, has never seen settings").
 - **Start:** the URL and state they begin in (signed out, signed in, empty account, account with data).
 - **Success:** an observable end state that a screenshot or the page can prove ("the teammate's email appears under Members with status Invited"). "The user feels done" is not one.
+
+Choose the output folder for screenshots and the report now, the way `ux-crawl` step 3 does, so the attempter can save into it.
 
 Several goals: frame each one and run them one after another, never in parallel in the same browser.
 
@@ -40,11 +42,11 @@ A real user doesn't search forever. The attempter stops and records Failed when 
 
 ## 2. Attempt
 
-Spawn a fresh subagent (not a fork). Give it the goal, persona, start, success state, the test account, and the give-up rule, and never the source code, routes, your shortest path, or your guesses about where things are. Tell it:
+Spawn a fresh subagent (not a fork). Give it the goal, persona, start, success state, the test account, the output folder, and the give-up rule, and never the source code, routes, your shortest path, or your guesses about where things are. Tell it:
 
-> You are this persona, using this app for the first time. Using only the browser, try to reach the goal. Before each action, write what you expect to happen; after it, write what happened. Note every moment you hesitate, guess, backtrack or misread something, and screenshot it. Stop at success or under the give-up rule. Do not change any code. Return the log as a table: `| Step | Action | Expected | Happened |`, then the outcome, the screenshots, and any console errors or failed requests you saw.
+> You are this persona, using this app for the first time. Using only the browser, try to reach the goal. Before each action, write what you expect to happen; after it, write what happened. Note every moment you hesitate, guess, backtrack or misread something, and screenshot it into the output folder. Stop at success or under the give-up rule. Do not change any code. Return the log as a table: `| Step | Action | Expected | Happened |`, then the outcome, the screenshots, and any console errors or failed requests you saw.
 
-If you cannot start a fresh subagent, do the attempt yourself before you read any code for this app, and say so in the report.
+If you cannot start a fresh subagent, do the attempt yourself before you read anything for this app but the start URL and test accounts, and say so in the report.
 
 ## 3. Find the shortest path
 
@@ -54,7 +56,7 @@ Now read the code (routes, nav, the forms involved) and write the shortest path 
 
 Compare the attempt's log with the shortest path. Check the success state yourself from the final page or screenshot; do not take the attempter's word for it.
 
-- **Verdict:** Completed | Completed with workaround | Failed. A workaround is anything off the intended path that a real user might not find (a search, a guessed link, a retry after an unexplained error).
+- **Verdict:** Completed | Completed with workaround | Failed. A workaround is anything off the intended path that a real user might not find (a search, clicking a link on a guess, a retry after an unexplained error).
 - **Efficiency:** steps taken vs steps on the shortest path, and where the detours began.
 - **Friction:** every step where Expected and Happened differ, plus each hesitation, backtrack and error. Rate each by what it cost the goal:
   - **HIGH:** blocked the goal or forced a workaround
@@ -67,11 +69,13 @@ For each friction point, propose the smallest change that would have kept the pe
 
 ## 5. Report
 
-Write `ux-goal-report.md` next to the screenshots, in the place `ux-crawl` step 3 would choose, and do not commit it:
+Write `ux-goal-report.md` in the output folder, next to the screenshots, and do not commit it:
 
 ```markdown
 # UX Goal Report
 
+**Date**: YYYY-MM-DD
+**App**: base URL (local or test environment)
 **Goal**: ...
 **Persona**: ...
 **Start**: ...
