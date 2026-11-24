@@ -18,6 +18,8 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Fixes
 
 - **Adversarially review your own fix.** Before calling it done, ask how the fix itself fails: which inputs, states, or callers it now gets wrong. Look for an existing green test that encodes the bug. A fix's failure modes are often worse than the bug it replaces.
+- **Attack the premise.** When two fixes that share an assumption both fail the same check, write the assumption down and test it before writing another fix on it.
+- **Fix the root cause.** Trace a symptom back to where things first went wrong and fix it there. A guard is a fix only when the state it handles is legitimate.
 
 ## Review loops
 
@@ -30,7 +32,7 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Finishing
 
-- **When a session's last pull request merges, clean up before reporting done:** delete the session's merged branches (local and remote) and their worktrees, except the worktree you are running in and its local branch, which you keep and say so; fast-forward the default branch in the main checkout if it is clean; then offer to archive the session if your tool supports it.
+- **When a session's last pull request merges, clean up before reporting done:** delete the session's merged branches (local and remote) and their worktrees, except the worktree you are running in and its local branch: keep those, and say so; fast-forward the main checkout if it is clean and on the default branch; then offer to archive the session if your tool supports it.
 
 ## UI
 
