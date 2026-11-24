@@ -108,7 +108,48 @@ check "--check ignores a hand-written reference" "0" "$rc"
 fresh
 echo "unused" > "$t/shared/orphan.md"
 sync --check
-check "a shared file no SKILL.md mentions is reported" "yes" "$(says "shared/orphan.md")"
+check "a shared file no SKILL.md mentions is reported, without failing the run" "0 yes" "$rc $(says "shared/orphan.md")"
+
+fresh
+echo "Run scripts/tool." > "$t/shared/notes.md"
+printf 'Read references/notes.md.\nSee references/own.md.\n' > "$t/skills/alpha/SKILL.md"
+sync
+check "plain sync keeps a copy that a shared reference the skill uses mentions" \
+  "0 yes" "$rc $(exists scripts/tool)"
+sync --check
+check "--check passes on a copy that a shared reference the skill uses mentions" "0" "$rc"
+
+fresh
+echo "Run scripts/tool." > "$t/skills/alpha/references/own.md"
+printf 'Read references/notes.md.\nSee references/own.md.\n' > "$t/skills/alpha/SKILL.md"
+sync
+check "plain sync keeps a copy that a hand-written reference the skill uses mentions" \
+  "0 yes" "$rc $(exists scripts/tool)"
+
+fresh
+echo "Run scripts/tool." > "$t/shared/notes.md"
+"$t/bin/sync-shared" >/dev/null
+printf 'See references/own.md.\n' > "$t/skills/alpha/SKILL.md"
+sync
+check "a copy only a stale reference mentions is removed in the same run" \
+  "0 no no" "$rc $(exists references/notes.md) $(exists scripts/tool)"
+
+fresh
+printf 'Keep references/notes.md.bak and run scripts/tool.\n' > "$t/skills/alpha/SKILL.md"
+sync --check
+check "a longer path that starts with a shared file's path is not a mention of it" \
+  "1 yes" "$rc $(says "FAIL alpha/references/notes.md is stale")"
+
+fresh
+mkdir -p "$work/outside"
+mv "$t/skills/alpha/references"/* "$work/outside/"
+rmdir "$t/skills/alpha/references"
+ln -s "$work/outside" "$t/skills/alpha/references"
+printf 'Run scripts/tool.\n' > "$t/skills/alpha/SKILL.md"
+sync
+check "plain sync refuses to touch a copy behind a symlinked folder" \
+  "1 yes" "$rc $([ -e "$work/outside/notes.md" ] && echo yes || echo no)"
+rm -rf "$work/outside"
 
 echo "$passes passed, $failures failed"
 [ "$failures" = 0 ]
