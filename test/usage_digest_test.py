@@ -181,12 +181,16 @@ class UsageDigestTest(unittest.TestCase):
                               user("2026-11-11T09:01:00Z", "<command-name>then explain the diff", session="s4"))
         self.assertEqual(self.sessions()["s4"]["slash_commands"], ["/review"])
 
-    def test_scratchpad_sessions_are_left_out(self):
+    def test_sessions_in_claude_temp_folder_are_left_out(self):
         self.write_transcript("-tmp-probe/p1.jsonl",
                               user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p1",
                                    cwd="/private/tmp/claude-501/-work-app/abc/scratchpad/proj"))
+        self.write_transcript("-tmp-probe/p2.jsonl",
+                              user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p2",
+                                   cwd="/tmp/claude-1001/-work-app/abc"))
         data = self.json_digest()["claude_code"]
         self.assertNotIn("p1", [s["id"] for s in data["sessions"]])
+        self.assertNotIn("p2", [s["id"] for s in data["sessions"]])
         self.assertEqual(data["totals"]["by_project"], {"/work/app": 2, "/work/web": 1})
 
     def test_sessions_are_ordered_by_start_time(self):
