@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Copy each shared/<file> into skills/<name>/references/<file> or
-# skills/<name>/scripts/<file> for every skill whose SKILL.md mentions that
-# path. Skills are linked one folder at a time, so each needs its own copy.
-# A copy whose SKILL.md no longer mentions it is stale and is removed.
+# skills/<name>/scripts/<file> for every skill that uses that path: its
+# SKILL.md mentions it, or a references/ file the skill uses does. Skills
+# are linked one folder at a time, so each needs its own copy. A copy no
+# longer used is stale and is removed.
 # With --check, change nothing and fail if any copy is missing, differs
 # from shared/ (content or executable bit) or is stale.
-# Fails when shared/ holds no files, since then nothing was checked.
+# Fails when shared/ holds no files, since then nothing was checked, and
+# refuses to touch a copy in a symlinked folder or that is itself a symlink.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
@@ -17,27 +19,71 @@ esac
 status=0
 count=0
 
+# The references/ and scripts/ paths mentioned in the given files.
+paths_in() {
+  grep -ohE '(references|scripts)/[A-Za-z0-9_.-]*[A-Za-z0-9_-]' "$@" | sort -u || true
+}
+
+# The paths skill folder $1 uses: those its SKILL.md mentions, then those
+# mentioned in each references/ file it uses (read from shared/ when that is
+# where the file comes from), until nothing new turns up.
+uses() {
+  local dir="$1" found new path files
+  found="$(paths_in "$dir/SKILL.md")"
+  while :; do
+    files=("$dir/SKILL.md")
+    while read -r path; do
+      case "$path" in references/*) ;; *) continue ;; esac
+      if [ -f "$root/shared/${path#references/}" ]; then files+=("$root/shared/${path#references/}")
+      elif [ -f "$dir/$path" ]; then files+=("$dir/$path")
+      fi
+    done <<<"$found"
+    new="$(paths_in "${files[@]}")"
+    [ "$new" = "$found" ] && break
+    found="$new"
+  done
+  echo "$found"
+}
+
 for src in "$root"/shared/*; do
   [ -f "$src" ] || continue
   count=$((count + 1))
   file="$(basename "$src")"
   used=0
   for skill in "$root"/skills/*/SKILL.md; do
+    dir="$(dirname "$skill")"
+    mentioned="$(uses "$dir")"
     for sub in references scripts; do
-      grep -qF "$sub/$file" "$skill" || continue
-      used=1
-      dir="$(dirname "$skill")"
       dest="$dir/$sub/$file"
       rel="$(basename "$dir")/$sub/$file"
-      if cmp -s "$src" "$dest" && { [ -x "$src" ] && [ -x "$dest" ] || { [ ! -x "$src" ] && [ ! -x "$dest" ]; }; }; then
-        echo "ok   $rel"
+      if grep -qxF "$sub/$file" <<<"$mentioned"; then
+        wanted=1
+        used=1
+      elif [ -e "$dest" ] || [ -L "$dest" ]; then
+        wanted=0
+      else
+        continue
+      fi
+      if [ -L "$dir/$sub" ] || [ -L "$dest" ]; then
+        echo "FAIL $rel: $sub/ or the copy is a symlink; fix it by hand"
+        status=1
+      elif [ "$wanted" -eq 1 ]; then
+        if cmp -s "$src" "$dest" && { [ -x "$src" ] && [ -x "$dest" ] || { [ ! -x "$src" ] && [ ! -x "$dest" ]; }; }; then
+          echo "ok   $rel"
+        elif [ "$check" -eq 1 ]; then
+          echo "FAIL $rel is missing or differs from shared/$file (run: bin/sync-shared)"
+          status=1
+        else
+          mkdir -p "$dir/$sub"
+          cp -p "$src" "$dest"
+          echo "sync $rel"
+        fi
       elif [ "$check" -eq 1 ]; then
-        echo "FAIL $rel is missing or differs from shared/$file (run: bin/sync-shared)"
+        echo "FAIL $rel is stale: the skill no longer mentions it (run: bin/sync-shared)"
         status=1
       else
-        mkdir -p "$dir/$sub"
-        cp -p "$src" "$dest"
-        echo "sync $rel"
+        rm "$dest"
+        echo "remove $rel"
       fi
     done
   done
@@ -48,26 +94,5 @@ if [ "$count" -eq 0 ]; then
   echo "sync-shared: nothing to sync: $root/shared holds no files" >&2
   exit 1
 fi
-
-# A copy of a shared file in a skill whose SKILL.md no longer mentions it.
-for skill in "$root"/skills/*/SKILL.md; do
-  dir="$(dirname "$skill")"
-  for sub in references scripts; do
-    for dest in "$dir/$sub"/*; do
-      [ -f "$dest" ] || continue
-      file="$(basename "$dest")"
-      [ -f "$root/shared/$file" ] || continue
-      grep -qF "$sub/$file" "$skill" && continue
-      rel="$(basename "$dir")/$sub/$file"
-      if [ "$check" -eq 1 ]; then
-        echo "FAIL $rel is stale: SKILL.md no longer mentions it (run: bin/sync-shared)"
-        status=1
-      else
-        rm "$dest"
-        echo "remove $rel"
-      fi
-    done
-  done
-done
 
 exit "$status"

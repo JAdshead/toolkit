@@ -33,7 +33,7 @@ Read the board's fields: `gh project field-list <number> --owner <owner> --forma
    ```bash
    gh project field-create <number> --owner <owner> --name Agent --data-type TEXT
    ```
-2. **Backlog and Ready.** Without them, every placed issue can be picked up at once. With them, new issues land in Backlog and only the user moves them to Ready. Rename Todo to Ready and add Backlog before it.
+2. **Backlog and Ready.** Without them, every placed issue can be picked up at once. With them, new issues land in Backlog and only the user moves them to Ready. Rename Todo to Ready and add Backlog before it. Renaming keeps Todo's option id, so every item now in Todo becomes Ready and claimable at once: say so in the offer, and ask whether to move those items to Backlog afterwards (`gh project item-list <number> --owner <owner> --format json --limit 500 --query 'status:Ready'`, then `gh project item-edit <number> --owner <owner> --url <issue-url> --field Status --value Backlog` for each).
 3. **In review.** An In review column between In Progress and Done, for issues with an open PR.
 4. **Area.** A single-select field naming parts of the codebase, so `tackle-issues` can flag two runs working in the same area. Propose options from the repo's top-level folders or labels; the user edits the list.
    ```bash
@@ -66,10 +66,11 @@ Add or update the `Issue tracking` section in the project's agent instructions (
 ## Issue tracking
 - Mode: project
 - Project: <owner>/<number>
-- Claims: agent            # or assignee, without the Agent field
 - Status: ready=Ready, in progress=In Progress, in review=In review, done=Done   # role=exact option name; leave out roles the board lacks
 - Intake: Backlog          # or Todo, without Backlog/Ready
 ```
+
+Leave out `Claims:`: the skills read the claim style from the board's Agent field. Add `- Claims: assignee` only if the user wants assignee claims on a board that has one, and drop any other `Claims:` line from an existing section.
 
 Show the section and the file before writing it.
 

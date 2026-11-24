@@ -8,6 +8,7 @@
 #   noprogress       Backlog, Ready, In review, Done (no in-progress option); Agent field
 #   upperready       Backlog, READY, In progress, Done; Agent field
 #   noagent          like ready, without the Agent field
+#   malformed        field-list returns text that isn't JSON
 set -euo pipefail
 
 state="${FAKE_GH_STATE:?}"
@@ -43,7 +44,8 @@ project_is_acme_7() {
 case "$1 $2" in
   "repo view") echo "acme/app" ;;
   "project view") project_is_acme_7 "$3" "$4" "$5"; echo '{"id":"PROJ"}' ;;
-  "project field-list") project_is_acme_7 "$3" "$4" "$5"; echo "$fields" ;;
+  "project field-list") project_is_acme_7 "$3" "$4" "$5"
+    if [ "${FAKE_GH_BOARD:-}" = malformed ]; then echo "{not json"; else echo "$fields"; fi ;;
   "project item-list") project_is_acme_7 "$3" "$4" "$5"; cat "$state" ;;
   "project item-edit")
     shift 2

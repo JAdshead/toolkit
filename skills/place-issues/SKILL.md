@@ -20,7 +20,7 @@ In a repo without a board (simple mode) there is nothing to do: the issue is whe
 ## 1. Find the board
 
 1. Settle the mode and the board with `references/issue-tracking-mode.md`. It also covers a missing `project` scope.
-2. In simple mode, say so in one line and stop. If the user wants a board, run the `board-setup` skill instead (an agent that can't invoke skills by name reads `../board-setup/SKILL.md`).
+2. In simple mode, stop. If the user wants a board, run the `board-setup` skill instead (an agent that can't invoke skills by name reads `../board-setup/SKILL.md`).
 
 ## 2. Learn the board
 
