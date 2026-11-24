@@ -175,6 +175,12 @@ class UsageDigestTest(unittest.TestCase):
                                    " <local-command-stdout>.\nMore summary text.", session="s3"))
         self.assertEqual(self.sessions()["s3"]["slash_commands"], ["/review"])
 
+    def test_text_in_command_tag_that_is_not_a_command_is_not_recorded(self):
+        self.write_transcript("-work-app/s4.jsonl",
+                              user("2026-11-11T09:00:00Z", "<command-name>/review</command-name>", session="s4"),
+                              user("2026-11-11T09:01:00Z", "<command-name>then explain the diff", session="s4"))
+        self.assertEqual(self.sessions()["s4"]["slash_commands"], ["/review"])
+
     def test_scratchpad_sessions_are_left_out(self):
         self.write_transcript("-tmp-probe/p1.jsonl",
                               user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p1",
