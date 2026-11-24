@@ -56,6 +56,8 @@ check "empty repo: settings add the marketplace" "github JAdshead/toolkit" \
 check "empty repo: GEMINI.md imports AGENTS.md" "@./AGENTS.md" "$(cat "$repo/GEMINI.md")"
 said() { if grep -qxF -- "$1" <<<"$out"; then echo yes; else echo no; fi; }
 check "empty repo: init says it created CLAUDE.md" "yes" "$(said "created CLAUDE.md importing AGENTS.md")"
+check "empty repo: the managed comment links to the toolkit" "yes" "$(has "$repo/AGENTS.md" "https://github.com/JAdshead/toolkit")"
+check "empty repo: no warning about AGENTS.md" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 rc=0
@@ -77,6 +79,37 @@ init "$repo"
 check "existing AGENTS.md keeps its content first" "# My project" "$(head -n 1 "$repo/AGENTS.md")"
 check "existing AGENTS.md keeps its own rules" "yes" "$(has "$repo/AGENTS.md" "Use pnpm.")"
 check "existing AGENTS.md gets the block" "yes" "$(has "$repo/AGENTS.md" "<!-- toolkit:end -->")"
+
+# CLAUDE.md importing AGENTS.md shows Claude Code all of it, so init names the
+# sections outside the block that Claude Code has not read before.
+lists() { if grep -qxF -- "  $1" <<<"$out"; then echo yes; else echo no; fi; }
+repo="$(fresh)"
+printf '# Old rules\n\n## Landing the plane\nYou must push.\n```sh\n# not a heading\n```\n<!-- toolkit:start -->\n## Stale block heading\n<!-- toolkit:end -->\n' > "$repo/AGENTS.md"
+init "$repo"
+check "AGENTS.md with its own content: init warns" "yes" "$(grep -q '^warning: .*AGENTS.md' <<<"$out" && echo yes || echo no)"
+check "the warning lists the top heading" "yes" "$(lists "# Old rules")"
+check "the warning lists a nested heading" "yes" "$(lists "## Landing the plane")"
+check "the warning skips a comment inside a code fence" "no" "$(lists "# not a heading")"
+check "the warning skips headings inside the toolkit block" "no" "$(lists "## Stale block heading")"
+init "$repo"
+check "re-running: no warning once CLAUDE.md imports AGENTS.md" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf '# Old rules\n' > "$repo/AGENTS.md"
+printf '# Notes\n@AGENTS.md\n' > "$repo/CLAUDE.md"
+init "$repo"
+check "CLAUDE.md already imported AGENTS.md: no warning" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf 'Use pnpm.\n' > "$repo/AGENTS.md"
+printf '# Notes\n' > "$repo/CLAUDE.md"
+init "$repo"
+check "AGENTS.md with text but no headings: init still warns" "yes" "$(grep -q '^warning: .*AGENTS.md' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf '# Evil\033[2K\r\n' > "$repo/AGENTS.md"
+init "$repo"
+check "control characters in a listed heading never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 printf 'Before.\n\n<!-- toolkit:start -->\nold rules\n<!-- toolkit:end -->\n\nAfter.\n' > "$repo/AGENTS.md"

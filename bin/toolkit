@@ -53,7 +53,7 @@ die() { echo "toolkit init: $*" >&2; exit 1; }
 # The shared rules, one heading level down, between markers.
 rules_block() {
   printf '%s\n' "$START"
-  printf '%s\n' "<!-- Managed by \`toolkit init\`: edit rules/AGENTS.md in the toolkit, then re-run it. -->"
+  printf '%s\n' "<!-- Managed by \`toolkit init\`: edit rules/AGENTS.md in the toolkit (https://github.com/$MARKETPLACE_REPO), then re-run it. -->"
   sed 's/^#/##/' "$TOOLKIT_DIR/rules/AGENTS.md"
   printf '%s\n' "$END"
 }
@@ -120,19 +120,39 @@ apply() {
   echo "$what"
 }
 
+# Whether an agent's instruction file already reads AGENTS.md: it links to it
+# or has an import line.
+imports_agents() { [ "$1" -ef "$(dirname "$1")/AGENTS.md" ] || grep -qE "$IMPORT_RE" "$1" 2>/dev/null; }
+
 # Make an agent's own instruction file import AGENTS.md, creating it if missing.
 init_import() {
-  local file="$1" import="$2" agents
-  agents="$(dirname "$file")/AGENTS.md"
+  local file="$1" import="$2"
   if [ ! -e "$file" ]; then
     printf '%s\n' "$import" > "$file"
     echo "created $(basename "$file") importing AGENTS.md"
-  elif [ "$file" -ef "$agents" ] || grep -qE "$IMPORT_RE" "$file"; then
+  elif imports_agents "$file"; then
     return 0
   else
     printf '\n%s\n' "$import" >> "$file"
     echo "added $import to $(basename "$file")"
   fi
+}
+
+# Print the headings in FILE outside the toolkit block (not in code fences),
+# indented, or a note if it has other text but no headings. Prints nothing if
+# the block is all there is. Control characters are dropped: the repo may be
+# hostile.
+outside_headings() {
+  awk -v start="$START" -v end="$END" '
+    { k = $0; sub(/\r$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", k) }
+    k == start { inblock = 1; next }
+    k == end { inblock = 0; next }
+    inblock || k == "" { next }
+    k ~ /^(```|~~~)/ { fence = !fence; other = 1; next }
+    !fence && k ~ /^#+([ \t]|$)/ { print "  " k; n++; next }
+    { other = 1 }
+    END { if (!n && other) print "  (text with no headings)" }
+  ' "$1" | LC_ALL=C tr -d '\000-\011\013-\037\177'
 }
 
 # Refuse anything init would write that is not an ordinary file (or absent)
@@ -159,7 +179,7 @@ check_targets() {
 }
 
 init_repo() {
-  local dir="${1:-.}" work
+  local dir="${1:-.}" work new_to_claude=""
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
   dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
@@ -172,9 +192,14 @@ init_repo() {
   check_targets "$dir"
   plan_agents_md "$dir/AGENTS.md" "$work/AGENTS.md"
   plan_settings "$dir/.claude/settings.json" "$work/settings.json"
+  imports_agents "$dir/CLAUDE.md" || new_to_claude="$(outside_headings "$work/AGENTS.md")"
 
   apply "$work/AGENTS.md" "$dir/AGENTS.md" "wrote the toolkit rules to AGENTS.md"
   init_import "$dir/CLAUDE.md" "@AGENTS.md"
+  if [ -n "$new_to_claude" ]; then
+    echo "warning: CLAUDE.md now imports all of AGENTS.md, not just the toolkit block. Claude Code will read these parts for the first time; review them before committing:" >&2
+    printf '%s\n' "$new_to_claude" >&2
+  fi
   init_import "$dir/GEMINI.md" "@./AGENTS.md"
   apply "$work/settings.json" "$dir/.claude/settings.json" "updated .claude/settings.json"
   # The repo may have set these itself, and may be hostile: print them as JSON

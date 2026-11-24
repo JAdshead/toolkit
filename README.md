@@ -62,6 +62,10 @@ It is safe to re-run, and re-running it after `toolkit update` refreshes the rul
 
 Codex reads `AGENTS.md` itself. Needs `jq`. init follows no symlinks (a `CLAUDE.md` or `GEMINI.md` linking to `AGENTS.md` is left as it is) and refuses broken markers or a `.claude/settings.json` that isn't a single JSON object (or whose `enabledPlugins` or `extraKnownMarketplaces` isn't one); if any check fails it changes nothing. It ends by printing the toolkit's settings as they stand, with a warning if the `toolkit` marketplace points anywhere but `JAdshead/toolkit`. Review the changes, then commit them. Edit the rules in this repo's `rules/AGENTS.md`, never inside the markers; the next `toolkit init` overwrites the block.
 
+The `CLAUDE.md` import makes Claude Code read all of `AGENTS.md`, not just the block. When `CLAUDE.md` didn't already import it and `AGENTS.md` has content of its own, init prints the headings Claude Code will read for the first time. Review those sections before committing: written for Codex or Gemini, they may contradict the shared rules, and a project's own instructions win.
+
+If `~/.claude/CLAUDE.md` is the rules file from step 1, Claude Code loads the rules twice in a repo with a block: once from each. That is harmless.
+
 Without `toolkit init`, add the plugin to `.claude/settings.json` by hand:
 
 ```json
