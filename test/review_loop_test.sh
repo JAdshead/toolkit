@@ -40,6 +40,15 @@ check "address-review stops on a patch that still fails" "yes" \
 check "address-review never rewrites history for an untrue commit message" "yes" \
   "$(has "$address" "A finding about a commit message goes to the user")"
 
+check "ship-pr keeps the local branch of a dirty worktree it leaves" "yes" \
+  "$(has "$ship" "leave it and its local branch")"
+check "ship-pr detects a PR from a fork" "yes" "$(has "$ship" "isCrossRepository")"
+check "ship-pr checks a fork PR allows maintainer edits" "yes" "$(has "$ship" "maintainerCanModify")"
+check "ship-pr treats a repo with no checks as green" "yes" "$(has "$ship" "no checks reported")"
+check "ship-pr says what keep going does to the review cap" "yes" "$(has "$ship" "three more reviews")"
+check "ship-pr maps squash to its repo setting" "yes" "$(has "$ship" "allow_squash_merge\` → \`--squash")"
+check "ship-pr no longer says it updates main" "" "$(grep -niE "main updated|local main" "$ship" "$root/README.md" || true)"
+
 finishing="$(awk '/^## Finishing/{on=1; next} /^## /{on=0} on' "$rules")"
 check "the Finishing rule pulls only on the default branch" "yes" \
   "$(grep -qiF "clean and on the default branch" <<<"$finishing" && echo yes || echo no)"
