@@ -133,6 +133,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
 | `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
 | `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; offers to close finished parents |
+| `refine-issues` | Goes through open issues a few at a time: a subagent proposes keep, close, retitle, rewrite or split, a validator confirms or refutes it, and only what you approve is applied |
 | `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
