@@ -23,6 +23,10 @@ Generic defaults for every project. A project's own instructions win where they 
 - **After opening or updating a pull request, and before merging it, review it with the `review-pr` skill.** Don't report a PR as ready until it passes. It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
 - **A behaviour change with no test that fails without it is not ready to merge.**
 
+## UI
+
+- **Never call UI work done without seeing it.** When building or restyling a page, screen or component, use the `ui-design` skill: follow the project's `DESIGN.md`, check the result in a browser at desktop and mobile widths, and get a fresh-context critique of the screenshots.
+
 ## Finishing
 
 - **When a session's last pull request merges, clean up before reporting done:** delete its branch (local and remote) and its worktree, fast-forward `main` in the main checkout if it is clean, then offer to archive the session.
