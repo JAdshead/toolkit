@@ -62,11 +62,29 @@ Show any new body or split in full before it is applied. The user can approve, s
 
 Apply only what the user approved:
 
-- close as done or won't-do: `gh issue close <n> --reason completed|"not planned" --comment "<reason>"`
-- retitle: `gh issue edit <n> --title "<new title>"`; rewrite: `gh issue edit <n> --body "<new body>"`
-- split: create each new issue with a body that stands on its own and says `Split from #<n>`, then close the original as not planned with a comment linking them
+```bash
+# close as done or won't-do: comment first, then close
+gh issue comment <n> --body-file - <<'GH_TEXT'
+<reason>
+GH_TEXT
+gh issue close <n> --reason completed|"not planned"
+# retitle (read the title into a variable first)
+IFS= read -r title <<'GH_TEXT'
+<new title>
+GH_TEXT
+gh issue edit <n> --title "$title"
+# rewrite
+gh issue edit <n> --body-file - <<'GH_TEXT'
+<new body>
+GH_TEXT
+# split: create each new issue (title read as above; its body stands on its own
+# and says "Split from #<n>"), then comment linking them and close the original as not planned
+gh issue create --title "$title" --body-file - <<'GH_TEXT'
+<body>
+GH_TEXT
+```
 
-Pass every body and comment through a quoted heredoc (`--body-file - <<'EOF'`, or `--comment "$(cat <<'EOF' ... EOF)"`), never inline in double quotes, so backticks and `$` stay literal.
+Write every title, body and comment this way, never inline in double quotes, so backticks and `$` stay literal.
 
 If the repo is public, keep private details (other projects, people, internal URLs) out of anything written. If a command fails, carry on and list the failure.
 
