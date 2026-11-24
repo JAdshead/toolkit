@@ -69,6 +69,14 @@ check "review-pr's owner blocks behaviour with no proof" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "behaviour change with no proof that fails without it")"
 check "review-pr's owner blocks an exception a good test could have covered" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "a good test could reach")"
+# An owner still malformed after its replacement leaves no finding to fix.
+malformed_owner="$(grep -F '**NOT YET with the owner output malformed:**' "$root/skills/review-pr/SKILL.md")"
+check "review-pr: a twice-malformed owner gives NOT YET with the owner output malformed" "yes" \
+  "$(has "$root/skills/review-pr/SKILL.md" "the result is NOT YET with the owner output malformed")"
+check "review-pr: a twice-malformed owner's output is shown to the user and the review stops" "yes" \
+  "$(grep -qF 'show it, and stop' <<<"$malformed_owner" && echo yes || echo no)"
+check "review-pr: a twice-malformed owner is not handed to address-review" "yes" \
+  "$(grep -qF 'do not hand off to `address-review`' <<<"$malformed_owner" && echo yes || echo no)"
 
 implement="$root/skills/implement/SKILL.md"
 check "implement's Test quality reviewer accepts a named exception with a before-and-after check" "yes" \
