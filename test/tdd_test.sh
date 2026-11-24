@@ -35,15 +35,18 @@ check "an init'd repo's rules make bug fixes start with a reproducing test" "yes
   "$(has "$agents" "Every bug fix starts with a test that reproduces it")"
 check "an init'd repo's rules no longer say TDD is only a default" "no" "$(has "$agents" "TDD by default")"
 check "an init'd repo's rules block merging untested behaviour" "yes" \
-  "$(has "$agents" "not ready to merge")"
+  "$(has "$agents" "A behaviour change with no test that fails without it is not ready to merge.")"
 
-softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where it applies" "$root/skills" "$root/shared" "$root/rules" || true)"
+softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where (it|one) applies" "$root/skills" "$root/shared" "$root/rules" || true)"
 check "no skill or rule softens test-first" "" "$softened"
 
+# Every place that lets a no-behaviour change skip the test names the same list.
 exceptions="docs, comments, formatting, plain config"
-for f in rules/AGENTS.md skills/implement/SKILL.md skills/tackle-issues/references/subagent-templates.md; do
-  check "$f names the same no-behaviour exceptions" "yes" "$(has "$root/$f" "$exceptions")"
-done
+check "the rules name the no-behaviour exceptions" "yes" "$(has "$root/rules/AGENTS.md" "$exceptions")"
+other_list="$(grep -rniE "no(-| )behaviour" "$root/skills" "$root/shared" "$root/rules" | grep -vF "$exceptions" || true)"
+check "every no-behaviour exception names the same list" "" "$other_list"
+check "address-review names the no-behaviour exceptions" "yes" \
+  "$(has "$root/skills/address-review/SKILL.md" "$exceptions")"
 
 check "review-pr's Tests lens blocks behaviour with no failing-first test" "yes" \
   "$(has "$root/skills/review-pr/references/lenses.md" "behaviour change with no test that fails without it is P2")"
