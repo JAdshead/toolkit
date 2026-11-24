@@ -127,13 +127,15 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 
 | Skill | What it does |
 |-------|--------------|
+| `agent-coach` | Weekly, schedulable audit of your Claude Code and Codex sessions; recommends features, new skills and AGENTS.md additions, grounded in your usage |
+| `board-setup` | Creates and links a GitHub Project board, offers the Agent field, Backlog/Ready, In review and Area, and records it in the repo's agent instructions |
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
-| `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; sets up a board |
+| `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
 | `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, CI loop |
+| `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; offers to close finished parents |
 | `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
-| `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
 
 In Claude Code they appear as `toolkit:<name>`.
@@ -145,11 +147,15 @@ GitHub issues are the way in. Every skill that files work (`collect-feedback`, `
 - **Simple:** the issue is where it finishes. Labels, assignees and a `wip` label track it. Good for small projects with a flat list of tasks.
 - **Project:** one extra step, the `place-issues` skill, puts new issues on the repo's GitHub Project board: Status, Priority/Size fields, and a parent issue with native sub-issues for larger features. The board then tracks state (Todo, In progress, In review, Done). Needs `gh auth refresh -s project`.
 
-A repo declares its mode in an `Issue tracking` section of its `AGENTS.md`/`CLAUDE.md`; otherwise one board linked to the repo means project mode and none means simple. `place-issues setup` moves a repo from simple to project. The skills that pick up work (`implement`, `tackle-issues`) claim, move and release issues per mode using [`shared/issue-tracking.md`](shared/issue-tracking.md).
+A repo declares its mode in an `Issue tracking` section of its `AGENTS.md`/`CLAUDE.md`, with the board, its claim style and its exact Status names; otherwise one board linked to the repo means project mode and none means simple. The `board-setup` skill moves a repo from simple to project: it creates and links a board, offers the options below, and writes that section.
+
+On a board, a text field named **Agent** is the standard way to claim work. Every agent signs in as the same GitHub user, so an assignee can't say which run holds an issue; the Agent field records one id per run (`<branch>@<host>`) through `scripts/board`. A board without it falls back to assignee claims. If the board has Backlog and Ready columns, agents only pick up issues in Ready, and only the user moves issues there (`scripts/board approve`, on their say-so); on a Todo/In progress/Done board, placed issues can be picked up straight away. In review, Verifying and Ready to merge are used if the board has them. The skills that pick up work (`implement`, `tackle-issues`) claim, move and release issues per mode using [`shared/issue-tracking-mode.md`](shared/issue-tracking-mode.md) to settle the mode and [`shared/issue-tracking.md`](shared/issue-tracking.md) for the operations.
+
+Where a skill says "run the `<name>` skill", an agent that can't invoke skills by name (Codex, Gemini CLI) reads `../<name>/SKILL.md` beside that skill's folder.
 
 ## Shared references
 
-Each skill is linked as its own folder, so a skill can't reach files outside it. Text and scripts several skills need live once in `shared/` and are copied into `skills/<name>/references/` or `skills/<name>/scripts/` for every skill whose `SKILL.md` mentions `references/<file>` or `scripts/<file>`. Tests for shared scripts stay in `shared/test/`. Edit the copy in `shared/`, then run `bin/sync-shared` from the checkout you are editing (`toolkit sync` acts on the installed checkout); `toolkit validate` and CI fail if a copy drifts.
+Each skill is linked as its own folder, so a skill can't reach files outside it. Text and scripts several skills need live once in `shared/` and are copied into `skills/<name>/references/` or `skills/<name>/scripts/` for every skill whose `SKILL.md` mentions `references/<file>` or `scripts/<file>`. Tests for shared scripts stay in `shared/test/`. Edit the copy in `shared/`, then run `bin/sync-shared` from the checkout you are editing (`toolkit sync` acts on the installed checkout); `toolkit validate` and CI fail if a copy drifts. `bin/sync-shared` also removes a copy once its `SKILL.md` stops mentioning it, but it can't see copies of a file that is gone from `shared/`: when you delete a shared file, delete its copies too.
 
 Prefer more, smaller skills: when a workflow gains a distinct step, give it its own skill rather than growing an existing one.
 

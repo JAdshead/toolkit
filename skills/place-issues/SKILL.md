@@ -1,6 +1,6 @@
 ---
 name: place-issues
-description: Place GitHub issues on the repo's GitHub Project board. Adds unplaced issues to the board, sets their Status and Priority/Size fields, and groups related issues under parent issues as sub-issues, after the user confirms the plan. Also sets up a board when a repo moves from plain issues to project tracking. Use after issues are filed in a repo that tracks work on a project board, or when the user asks to triage, place, organize or board issues, or to start using a project board.
+description: Place GitHub issues on the repo's GitHub Project board. Adds unplaced issues to the board, sets their Status and Priority/Size fields, and groups related issues under parent issues as sub-issues, after the user confirms the plan. Also offers to close parents whose sub-issues are all closed. Use after issues are filed in a repo that tracks work on a project board, or when the user asks to triage, place, organize or board issues.
 license: MIT
 metadata:
   tags: github issues projects triage sub-issues
@@ -16,22 +16,11 @@ In a repo without a board (simple mode) there is nothing to do: the issue is whe
 
 - `place-issues #52 #53 #55`: place these issues (typically the ones a filing skill just created).
 - `place-issues`: place every open issue in the repo that is not on the board yet.
-- `place-issues setup`: move the repo to project tracking (see Setup).
 
 ## 1. Find the board
 
-1. Look in the project's agent instructions (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) for an `Issue tracking` section:
-   ```markdown
-   ## Issue tracking
-   - Mode: project            # simple | project
-   - Project: my-org/4        # owner/number of the GitHub Project
-   - Status: Todo, In progress, In review, Done   # this board's option names, in order
-   - Intake: Todo             # the Status new issues are placed in
-   ```
-2. Otherwise `gh repo view --json nameWithOwner,projectsV2`: one open linked board is the board; several, ask which; none means simple mode.
-3. In simple mode, say so in one line and stop. Offer Setup only if the user asked for a board or the repo is straining (many open issues, features split into several issues).
-
-If a project command fails for lack of the `project` scope, stop and ask the user to run `gh auth refresh -s project`; you cannot do it for them.
+1. Settle the mode and the board with `references/issue-tracking-mode.md`. It also covers a missing `project` scope.
+2. In simple mode, say so in one line and stop. If the user wants a board, run the `board-setup` skill instead (an agent that can't invoke skills by name reads `../board-setup/SKILL.md`).
 
 ## 2. Learn the board
 
@@ -47,16 +36,18 @@ Note the board's title, its Status options, and any Priority or Size fields with
 Get the issues: `gh issue view <n> --json number,title,labels,body,url,assignees,parent,projectItems` for each number given, or for all open ones:
 
 ```bash
-gh issue list --state open --limit 500 --json number,title,labels,body,url,assignees,parent,projectItems
+gh issue list --state open --limit 500 --json number,title,labels,body,url,assignees,parent,projectItems,subIssuesSummary
 ```
 
 If the list hits the limit, say so and work in batches.
 
 An issue is unplaced when no entry in its `projectItems` has this board's title. Skip issues already on the board. For each unplaced issue:
 
-- **Status:** the intake status. An issue that is already assigned and labelled `wip` goes to In progress instead.
+- **Status:** the intake status. An issue that is already assigned and labelled `wip` goes to In progress instead, except with Agent claims: there it goes to intake like the rest, and the plan names it, since an In progress issue with no Agent is invisible to the board script's `busy` list.
 - **Fields:** the board's Priority from the priority label or the body's `Priority:` or `Severity:` line; Size from a `Size:` line. Map by rank when the scales differ (HIGH/MEDIUM/LOW onto P1/P2/P3). Leave a field empty rather than guess.
 - **Parent:** an existing open parent when the issue says `Part of #<n>`, is listed in another issue's checklist (`- [ ] #<n>`), or plainly belongs to it. Propose a **new** parent only for two or more issues that form one feature (for example several bodies saying `Part of: <feature>`). One task on its own is just an issue; never invent a parent to group unrelated work.
+
+When placing every open issue (no numbers given), also list open parents that have sub-issues, all of them closed (`subIssuesSummary`). The plan offers to close them.
 
 ## 4. Confirm
 
@@ -68,9 +59,10 @@ Placing 6 issues on <board title>:
 - Existing #31 "Onboarding revamp" ← #57
 - Standalone: #54, #56
 Status: Backlog (all). Priority: 2 × P1, 4 × P2 from labels.
+Close finished parents: #40 "Search revamp" (3/3 sub-issues closed)
 ```
 
-The user can move issues between parents, rename or drop a proposed parent, change fields, or skip issues.
+The user can move issues between parents, rename or drop a proposed parent, change fields, skip issues, or keep a finished parent open.
 
 ## 5. Apply
 
@@ -83,7 +75,7 @@ gh project item-edit <number> --owner <owner> --url <issue-url> --field Priority
 gh issue edit <child> --parent <parent>
 ```
 
-Attaching to an existing parent only sets `--parent` on the child; leave the parent's own Status and fields alone. Don't edit issue bodies or labels while placing. If `gh issue edit` doesn't know `--parent`, the installed `gh` is too old: ask the user to upgrade it. If a command fails, carry on with the rest and list the failures at the end.
+Attaching to an existing parent only sets `--parent` on the child; leave the parent's own Status and fields alone. Don't edit issue bodies or labels while placing. If `gh issue edit` doesn't know `--parent`, the installed `gh` is too old: ask the user to upgrade it. Close each finished parent the user agreed to with `gh issue close <n>`. If a command fails, carry on with the rest and list the failures at the end.
 
 ## 6. Report
 
@@ -95,13 +87,6 @@ Placed 6 issues on <board title> (<board url>):
   - #57
 - #54, #56
 Skipped: #58 (already on the board)
+Closed: #40 Search revamp (all sub-issues closed)
 ```
 
-## Setup
-
-Moving a repo from plain issues to a board. Do each step only on a yes:
-
-1. Create and link a board: `gh project create --owner <owner> --title "<name>" --format json` (read `.number`), then `gh project link <number> --owner <owner> --repo <repo>`. New boards come with Status options Todo, In Progress and Done.
-2. Add the `Issue tracking` section to the project's agent instructions.
-3. Run steps 2 to 6 on every open issue. Big issues that checklist their task issues become those tasks' parents.
-4. Offer to remove the `wip` labels; the board's Status replaces them.

@@ -68,6 +68,10 @@ A person or organization that pays for at least one Subscription.
 _Avoid_: client, buyer, account
 _Not_: a **Login**, which is who signs in; one Customer can have many.
 
+**Login**:
+The identity a person uses to sign in.
+_Avoid_: user
+
 **Subscription**:
 A Customer's agreement to pay for one Plan on a recurring schedule.
 _Avoid_: plan, membership

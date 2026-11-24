@@ -24,7 +24,7 @@ A project's own instructions (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING) win
 - **An issue:** `#42` or `42`. Read it with `gh issue view 42 --json title,body,labels,comments` (or the project's tracker).
 - **A spec/proposal change:** if the project has a spec or proposal workflow (a `changes/`, `proposals/` or `rfcs/` folder, or a CLI for it), use that workflow's ID and follow its rules for reading, ticking off tasks and archiving.
 
-For an issue, settle the repo's issue-tracking mode, simple or project, from `references/issue-tracking.md`, and use that mode's Read context, Claim, In review and Release operations below. If the issue is a parent with open sub-issues, list them and ask which one to implement.
+For an issue, settle the repo's issue-tracking mode, simple or project, from `references/issue-tracking-mode.md`, and use that mode's Read context, Claim, In review and Release operations from `references/issue-tracking.md` in the phases below. If the issue is a parent with open sub-issues, list them and ask which one to implement.
 
 With no argument, list open issues (and pending changes, if such a workflow exists) and ask the user to pick.
 
@@ -44,7 +44,7 @@ With no argument, list open issues (and pending changes, if such a workflow exis
    ```
    Use the project's worktree location if it has one; otherwise a sibling directory outside the repo. Then run the install and setup steps found above. If the project shares a resource between checkouts (a test database, a port), isolate it for this worktree.
 4. If the branch or worktree already exists, stop and suggest `--resume` or the cleanup commands.
-5. Claim the issue (the mode's Claim operation) before writing any code. On a board with an Agent field that is `scripts/board <owner>/<number> claim "implement/<id>@$(hostname -s)" <id>`. If another agent holds it, stop and tell the user who. If it isn't in the ready status, ask whether to approve it (`approve`), then claim. With `--resume`, re-run the same claim.
+5. Claim the issue with the mode's Claim operation before writing any code. Asking for `implement <id>` is consent to claim it: don't ask, just say it in one line ("Claiming #42 as implement/42@studio"). With Agent claims, which go through `scripts/board`, the agent id is `implement/<id>@$(hostname -s)`. If someone else holds it, stop and tell the user who. With `--resume`, re-run the claim.
 
 ## Phase 2: Implement test-first
 

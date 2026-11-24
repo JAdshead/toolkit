@@ -40,3 +40,9 @@ jobs:
           test/init_test.sh
           test/tdd_test.sh
           test/session_start_test.sh
+
+      - name: Test bin/sync-shared
+        run: test/sync_shared_test.sh
+
+      - name: Test agent-coach usage digest
+        run: python3 test/usage_digest_test.py
