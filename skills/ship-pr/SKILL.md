@@ -1,6 +1,6 @@
 ---
 name: ship-pr
-description: Take one or more open pull requests from opened to merged and cleaned up. Loops review-pr and address-review until the owner review returns MERGE, with a three-round limit before asking the user, then merges only the reviewed commit, deletes the branch and worktree, and updates the local main checkout. Several PRs run in parallel, one fresh subagent each. Use when the user says ship this PR, review and merge, merge when ready, or for each PR review then merge.
+description: Take one or more open pull requests from opened to merged and cleaned up. Loops review-pr and address-review until the owner review returns MERGE, with a three-review limit before asking the user, then merges only the reviewed commit, deletes the branch and worktree, and updates the local main checkout. Several PRs run in parallel, one fresh subagent each. Use when the user says ship this PR, review and merge, merge when ready, or for each PR review then merge.
 license: MIT
 metadata:
   tags: pull-request merge review-loop cleanup orchestration
@@ -16,14 +16,14 @@ You orchestrate. You do not review or fix: `review-pr` reviews and `address-revi
 
 ## One PR
 
-1. **Review.** Run the `review-pr` skill on the PR. Note the `sha` its result covers.
-2. **Fix and re-review.** On NOT YET, run the `address-review` skill with the confirmed findings, in a worktree on the PR branch (`git worktree add <path> <branch>` if you have none), push its commit, and go back to step 1. After 3 reviews without MERGE, stop and ask the user, as `review-pr`'s own exit does: keep going, merge with the open findings listed on the PR, or stop.
+1. **Review.** Run the `review-pr` skill on the PR. Note the `sha` its result covers. Every review counts, whatever its verdict: after 3 reviews without a merge, stop and ask the user, as `review-pr`'s own exit does: keep going, merge with the open findings listed on the PR, or stop.
+2. **Fix and re-review.** On NOT YET, run the `address-review` skill with the confirmed findings, in a worktree on the PR branch (`git worktree add <path> <branch>` if you have none), push its commit, and go back to step 1.
 3. **Merge the reviewed commit.** On MERGE, confirm CI is green (`gh pr checks <n> --watch`; if a check failed, stop and report) and the head is still `sha` (`gh pr view <n> --json headRefOid -q .headRefOid`). If the head moved, the new commits are unreviewed: go back to step 1. Otherwise merge: `gh pr merge <n> --<method> --match-head-commit <sha>`, where `<method>` is `squash`, `merge` or `rebase`: what the project uses, else the first the repo allows (`gh api 'repos/{owner}/{repo}' --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge}'`). If GitHub refuses (for example, a required approval), report why and stop.
 4. **Clean up.** Once the PR is `MERGED`: remove its worktree (`git worktree remove <path>`; if it has uncommitted changes, leave it and say so), then delete its branch locally (`git branch -D <branch>`) and on the remote (`git push origin --delete <branch>`; already gone is fine; skip this for a PR from a fork). If this session is running inside that worktree, leave the worktree and its local branch, and say so. In the main checkout, if `git status --porcelain` is empty and it is on the default branch, run `git pull --ff-only`; otherwise leave it and say so.
 5. **Report** one line per PR, then offer to archive the session if your agent can:
    ```
    #<n> merged at <sha>; branch and worktree removed; main updated
-   #<n> stopped after 3 rounds: <open findings>
+   #<n> stopped after 3 reviews: <open findings>
    ```
 
 ## Several PRs
