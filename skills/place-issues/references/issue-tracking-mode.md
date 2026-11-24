@@ -12,9 +12,9 @@ GitHub issues are the way in, in both modes: work is filed as plain issues. What
    ## Issue tracking
    - Mode: project            # simple | project
    - Project: my-org/4        # owner/number of the GitHub Project
-   - Claims: agent            # agent (the board has an Agent text field) | assignee
    - Status: ready=Ready, in progress=In Progress, in review=In review, done=Done   # role=exact option name; leave out roles the board lacks
    - Intake: Backlog          # the Status new issues are placed in
+   - Claims: assignee         # optional: only to opt out of Agent claims
    ```
 2. **Detected.** Otherwise `gh repo view --json nameWithOwner,projectsV2`: exactly one open linked board means project mode with that board; several, ask which (or simple); none means simple mode. Read the claim style and Status names from the board (below).
 3. **Say it** in one line ("Project mode: board my-org/4, Agent claims"). The user can override it for the run.
@@ -27,7 +27,7 @@ The `board-setup` skill creates a board, links it and writes this section.
 
 Read the board's fields once: `gh project field-list <number> --owner <owner> --format json`.
 
-**Claim style.** `Claims: agent` when the board has a text field named **Agent**, else `assignee`. The section's value wins; without one, the field decides. If the section says `Claims: agent` but the board has no Agent field (`scripts/board` exits 2), use assignee claims and tell the user the section is out of date.
+**Claim style.** Agent claims when the board has a text field named **Agent**, else assignee claims. `Claims: assignee` in the section opts out of Agent claims; any other `Claims:` value is ignored.
 
 **Status names.** The operations use four roles. Take each one's exact option name from the section's `Status` line (`role=name`), or, without one, from the board's Status options:
 
