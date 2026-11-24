@@ -89,7 +89,7 @@ After it returns, the orchestrator checks `git status`, `git log origin/<default
 
 ## Fix subagent
 
-Used after a review round, a `review-pr` NOT YET verdict or a real CI failure.
+Used after a review round or a real CI failure. A `review-pr` NOT YET goes to `address-review` instead.
 
 ```
 Fix the following findings in the worktree at <WT>.
