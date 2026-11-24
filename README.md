@@ -137,6 +137,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `review-pr` | Fresh-context PR review: lens reviewers on larger PRs, one or two independent owners who each decide MERGE or NOT YET, and a validator that confirms every blocking finding |
 | `address-review` | Turns a `review-pr` NOT YET into a fix: a fresh subagent patches the findings or re-solves the problem from the base, and a re-solve is kept only if it passes and is smaller or simpler |
 | `ship-pr` | Takes PRs from opened to merged: loops review-pr and address-review until MERGE (three reviews, then asks), merges only the reviewed commit, removes the branch and worktree, fast-forwards the default branch |
+| `show-me` | Explains the current topic visually with the smallest view that makes the point: pseudocode, call or component trees, file trees, Mermaid, diffs, or one focused HTML page. Invoked by you only (`/show-me`). From [humanlayer/skills](https://github.com/humanlayer/skills) (MIT) |
 | `tackle-issues` | Works through a batch of issues: groups them into PRs, one worktree per group, parallel specialist reviews with a finite exit |
 | `tech-debt` | Read-only audit for dead code, duplication, architecture smells and weak tests; files ranked issues after you confirm |
 | `ui-design` | Builds or restyles UI by looking at it: follows `DESIGN.md`, proposes distinct directions, bans AI-default styles, screenshots every state on desktop and mobile, and has a fresh subagent critique them |
