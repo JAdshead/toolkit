@@ -132,10 +132,10 @@ class UsageDigestTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def digest(self, *args, codex=None, check=True, env=None):
+    def digest(self, *args, codex=None, check=True, env=None, timeout=None):
         return subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
                                "--codex-dir", codex or self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
-                               *args], capture_output=True, text=True, check=check, env=env)
+                               *args], capture_output=True, text=True, check=check, env=env, timeout=timeout)
 
     def write_transcript(self, rel_path, *lines):
         path = os.path.join(self.claude, "projects", rel_path)
@@ -291,6 +291,12 @@ class UsageDigestTest(unittest.TestCase):
                               user("2026-11-10T10:00:00Z", "resumed in the window", isSidechain=True))
         self.assertEqual(self.sessions()["s1"]["subagents"], 2)
 
+    def test_unreadable_subagent_runs_are_skipped(self):
+        subagents = os.path.join(self.claude, "projects", "-work-app", "s1", "subagents")
+        os.symlink(os.path.join(self.tmp.name, "gone.jsonl"), os.path.join(subagents, "agent-dangling.jsonl"))
+        os.makedirs(os.path.join(subagents, "agent-dir.jsonl"))
+        self.assertEqual(self.sessions()["s1"]["subagents"], 1)
+
     def test_prompts_keep_pasted_markup_and_drop_harness_tags(self):
         self.write_transcript("-work-tags/tags.jsonl", *[
             user(f"2026-11-11T09:{i:02}:00Z", text, session="tags") for i, text in enumerate([
@@ -320,6 +326,20 @@ class UsageDigestTest(unittest.TestCase):
             "<pasted_content>a pasted log</pasted_content>",
             "<html><body>pasted page</body></html> is this valid?",
         ])
+
+    def test_harness_element_needs_the_whole_name_to_match(self):
+        self.write_transcript("-work-tags/names.jsonl",
+                              user("2026-11-11T09:00:00Z", "<a-bc>x</a-b> keep", session="names"))
+        self.assertEqual(self.sessions()["names"]["prompts"], ["<a-bc>x</a-b> keep"])
+
+    def test_large_paste_of_unclosed_dashed_tags_is_quick(self):
+        # Each shape takes the filter over 20 seconds if it rescans the rest of the text per unclosed tag, or
+        # backtracks through a long tag name. The bound is generous for a slow runner.
+        paste = "<a-b-c-d> " * 20000 + "<a-" + "b" * 100000
+        self.write_transcript("-work-tags/paste.jsonl", user("2026-11-11T09:00:00Z", paste, session="paste"))
+        data = json.loads(self.digest("--format", "json", timeout=10).stdout)
+        paste_session = {s["id"]: s for s in data["claude_code"]["sessions"]}["paste"]
+        self.assertEqual(paste_session["prompts"], [paste[:299] + "…"])
 
     def test_each_denial_wording_counts_once(self):
         wordings = {
@@ -420,6 +440,21 @@ class UsageDigestTest(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
         with open(victim) as f:
             self.assertEqual(f.read(), "keep me")
+
+    def test_out_does_not_write_through_a_hard_link(self):
+        report_dir = os.path.join(self.tmp.name, "reports")
+        os.makedirs(report_dir)
+        victim = os.path.join(self.tmp.name, "victim.txt")
+        with open(victim, "w") as f:
+            f.write("keep me")
+        out = os.path.join(report_dir, "digest.md")
+        os.link(victim, out)
+        self.run_digest("--out", out)
+        with open(victim) as f:
+            self.assertEqual(f.read(), "keep me")
+        with open(out) as f:
+            self.assertEqual(f.read(), self.run_digest())
+        self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
 
     def test_out_that_cant_be_opened_reports_why_without_blaming_a_symlink(self):
         out = os.path.join(self.tmp.name, "reports", "digest.md")
