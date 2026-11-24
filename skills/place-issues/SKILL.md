@@ -1,9 +1,9 @@
 ---
 name: place-issues
-description: Place GitHub issues on the repo's GitHub Project board. Adds unplaced issues to the board, sets their Status and Priority/Size fields, and groups related issues under parent issues as sub-issues, after the user confirms the plan. Also offers to close parents whose sub-issues are all closed. Use after issues are filed in a repo that tracks work on a project board, or when the user asks to triage, place, organize or board issues.
+description: Place GitHub issues on the repo's GitHub Project board. Adds unplaced issues to the board, sets their Status and Priority/Size fields, and groups related issues under parent issues as sub-issues, after the user confirms the plan. Also offers to close parents whose sub-issues are all closed. Use after issues are filed in a repo that tracks work on a project board, or when the user asks to place, organize or board issues.
 license: MIT
 metadata:
-  tags: github issues projects triage sub-issues
+  tags: github issues projects sub-issues
 ---
 
 # Place Issues
