@@ -14,15 +14,17 @@ This skill edits and closes issues. It never writes code (that is `implement` or
 
 ## Input
 
-- `refine-issues`: every open issue, oldest first (sort by `createdAt`).
-- `refine-issues <focus>`: a label (`gh issue list --label`) or keyword (`gh issue list --search`), unioned and deduplicated.
+- `refine-issues`: every open issue, oldest first.
+- `refine-issues <focus>`: a label (`--label <label>`) or keyword (`--search "<keyword> sort:created-asc"`), unioned and deduplicated.
 - `one at a time`: batches of one instead of the default 3 to 5. The user can switch at any point.
 
 ```bash
-gh issue list --state open --limit 500 --json number,title,labels,body,url,createdAt,subIssuesSummary
+gh issue list --state open --limit 500 --search "sort:created-asc" --json number,title,labels,body,url,createdAt,subIssuesSummary
 ```
 
-Skip parents with open sub-issues; their sub-issues are the work. Say how many issues are selected before starting.
+GitHub sorts before the limit, so a backlog over 500 still starts at its oldest issue. Keep the sort in every `--search`.
+
+Skip parents with open sub-issues (`subIssuesSummary` has `total > completed`); their sub-issues are the work. Say how many issues are selected before starting.
 
 ## 1. Propose
 
@@ -85,6 +87,7 @@ GH_TEXT
 ```
 
 Write every title, body and comment this way, never inline in double quotes, so backticks and `$` stay literal.
+If the text has a line that is exactly `GH_TEXT`, use another delimiter for that command.
 
 If the repo is public, keep private details (other projects, people, internal URLs) out of anything written. If a command fails, carry on and list the failure.
 
