@@ -88,7 +88,7 @@ You are reviewing the tests: do they exist where they should, and would they cat
 
 Coverage:
 - New behaviour has tests, including failure and error paths, not only the happy path.
-- Each bug fix has a test that fails without the fix.
+- Each bug fix has a test, or a named exception's check, that fails without the fix.
 - In place of a test, accept an exception named with a repeatable check and its output before and after;
   an exception that a good test could reach is P2.
 - Authorization checks have a "forbidden / not found" test.

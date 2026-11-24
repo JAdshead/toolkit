@@ -96,5 +96,28 @@ check "the tackle-issues PR body names exceptions" "yes" "$(has "$tackle/subagen
 check "the tackle-issues PR body reports the real-thing check" "yes" \
   "$(has "$tackle/subagent-templates.md" "## Real-thing check")"
 
+# Named exceptions read the same everywhere (#44).
+check "tackle-issues' Tests reviewer accepts a named exception's check for a bug fix" "yes" \
+  "$(has "$tackle/review-prompts.md" "Each bug fix has a test, or a named exception's check, that fails without the fix.")"
+check "tackle-issues' Tests reviewer no longer demands a test for every bug fix" "no" \
+  "$(has "$tackle/review-prompts.md" "Each bug fix has a test that fails without the fix.")"
+any_fail="$(grep -F -- "- **Any FAIL:**" "$implement")"
+check "implement adds a review fix's named exception to EXCEPTIONS" "yes" \
+  "$(printf '%s' "$any_fail" | grep -qiF "add it to EXCEPTIONS" && echo yes || echo no)"
+check "review-pr's owner blocks a bad test" "yes" \
+  "$(grep -F -- "- **P2:**" "$root/skills/review-pr/references/owner-review.md" | grep -qiF "a bad test" && echo yes || echo no)"
+check "implement names a behaviour exception in the PR, as the rules do" "yes" \
+  "$(has "$implement" "name the exception and why in EXCEPTIONS, for the PR")"
+check "implement no longer names a behaviour exception only in the commit" "no" \
+  "$(has "$implement" "name the exception and why in the commit")"
+check "implement's subagent opens test-first with the named exception allowed" "yes" \
+  "$(grep -F "Repeat until every requirement" "$implement" | grep -qiF "a failing test, or a named exception's failing check" && echo yes || echo no)"
+check "tackle-issues' subagent opens test-first with the named exception allowed" "yes" \
+  "$(has "$tackle/subagent-templates.md" "a failing test, or a named exception's failing check")"
+check "implement no longer opens with a bare failing-test rule" "no" \
+  "$(has "$implement" "Never write production code without a failing test first;")"
+check "tackle-issues no longer opens with a bare failing-test rule" "no" \
+  "$(has "$tackle/subagent-templates.md" "No production code without a failing test that needs it;")"
+
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]
