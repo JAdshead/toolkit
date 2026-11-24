@@ -13,26 +13,29 @@ Usage: usage-digest [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--format md|json]
 
 The digest quotes prompts from owner-only transcripts, so --out writes FILE as
 0600 in a folder of your own made 0700 (created if needed), and refuses any other
-folder or a symlink at FILE. Without --out it prints.
+folder or a symlink at FILE. It writes a new file and renames it over FILE, so a
+hard link to FILE keeps its old content. Without --out it prints.
 
 The window is [since, until) in local time. Default: the 7 days before today.
 """
 import argparse
+import bisect
 import collections
 import datetime as dt
-import errno
 import glob
 import json
 import os
 import re
 import sqlite3
 import sys
+import tempfile
 
 MAX_PROMPTS = 8
 MAX_PROMPT_CHARS = 300
 COMPACTION_PREFIX = "This session is being continued from a previous conversation"
-# Sessions started in a Claude scratchpad are headless probes run by other sessions, not the user's work.
-SCRATCHPAD = re.compile(r"^(/private)?/tmp/claude-\d+/")
+# Sessions started in Claude's per-user temp folder (/tmp/claude-<uid>/, which holds every session's scratchpad)
+# are headless probes run by other sessions, not the user's work.
+CLAUDE_TEMP = re.compile(r"^(/private)?/tmp/claude-\d+/")
 SLASH_COMMAND = re.compile(r"/[\w:.-]+")
 DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied",
                   "denied by the claude code auto mode classifier", "denied by a built-in claude code safety check")
@@ -40,7 +43,10 @@ DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied 
 # their name and standard HTML element names never do, so a complete element named that way is treated as
 # the harness and dropped. Pasted custom elements (<my-widget>) and snake_case XML are dropped too.
 # <pasted_content> is the exception: it holds what the user pasted.
-HARNESS_ELEMENT = re.compile(r"<(?!pasted_content[\s>])([A-Za-z][\w.-]*[-_][\w.-]*)(?=[\s>])[^>]*>.*?</\1>", re.S)
+# The name splits at its first - or _, must end at a space or >, and the tag can't span a <, so a match
+# never backtracks through a long name or past the next tag.
+HARNESS_OPEN = re.compile(r"<(?!pasted_content[\s>])([A-Za-z][A-Za-z0-9.]*[-_][\w.-]*)(?=[\s>])[^<>]*>")
+CLOSE_TAG = re.compile(r"</([\w.-]+)>")
 
 
 def parse_args():
@@ -81,6 +87,14 @@ def entries(path, since, until):
                 yield e, ts
 
 
+def has_entry(path, since, until):
+    """Whether the transcript has an entry in [since, until); a file that can't be read has none."""
+    try:
+        return next(entries(path, since, until), None) is not None
+    except OSError:
+        return False
+
+
 def text_blocks(content):
     """The text of message content, which is a string or a list of blocks."""
     if not isinstance(content, list):
@@ -92,9 +106,27 @@ def text_of(content):
     return "\n".join(text_blocks(content))
 
 
+def drop_harness(text):
+    """text without harness elements: each opening tag up to the first closing tag of the same name.
+
+    Closing tags are indexed once, so a paste full of unclosed tags doesn't rescan the text for each one."""
+    closes = collections.defaultdict(list)
+    for m in CLOSE_TAG.finditer(text):
+        closes[m.group(1)].append(m.span())
+    kept, pos, m = [], 0, HARNESS_OPEN.search(text)
+    while m:
+        spans = closes.get(m.group(1), [])
+        i = bisect.bisect_left(spans, (m.end(),))  # the first closing tag after this opening tag
+        if i < len(spans):
+            kept.append(text[pos:m.start()])
+            pos = spans[i][1]
+        m = HARNESS_OPEN.search(text, max(pos, m.end()))
+    return "".join(kept) + text[pos:]
+
+
 def human_text(content):
     """The typed part of a user message, without harness elements like <system-reminder>...</system-reminder>."""
-    return "\n".join(t for t in (HARNESS_ELEMENT.sub("", b).strip() for b in text_blocks(content)) if t)
+    return "\n".join(t for t in (drop_harness(b).strip() for b in text_blocks(content)) if t)
 
 
 def clip(text):
@@ -154,7 +186,7 @@ def summarize_claude_session(path, since, until):
     stem = os.path.splitext(path)[0]
     s["id"] = s["id"] or os.path.basename(stem)
     runs = glob.glob(os.path.join(stem, "subagents", "*.jsonl"))
-    s["subagents"] = sum(next(entries(p, since, until), None) is not None for p in runs)  # runs with an entry in the window
+    s["subagents"] = sum(has_entry(p, since, until) for p in runs)
     s["tools"] = dict(s["tools"].most_common())
     s["start"], s["end"] = s["start"].isoformat(), s["end"].isoformat()
     return s
@@ -166,7 +198,7 @@ def claude_usage(claude_dir, since, until):
         if os.path.getmtime(path) < since.timestamp():
             continue
         s = summarize_claude_session(path, since, until)
-        if s and not SCRATCHPAD.match(s["cwd"] or ""):
+        if s and not CLAUDE_TEMP.match(s["cwd"] or ""):
             sessions.append(s)
     sessions.sort(key=lambda s: s["start"])
     by_project, tools, skills, slash, mcp = (collections.Counter() for _ in range(5))
@@ -251,15 +283,24 @@ def write_private(path, text):
     if os.stat(folder).st_uid != os.getuid():
         sys.exit(f"error: {folder} is not yours, so the digest can't be kept private; use a folder of your own")
     os.chmod(folder, 0o700)
+    if os.path.islink(path):
+        sys.exit(f"error: {path} is a symlink; the digest is only written to a plain file of yours")
+    # A new 0600 file renamed into place replaces a symlink or hard link at path instead of writing through it.
+    tmp = None
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        fd, tmp = tempfile.mkstemp(dir=folder, prefix=".usage-digest-")
+        with os.fdopen(fd, "w", encoding="utf-8", errors="replace") as f:  # a lone surrogate in a prompt becomes ?
+            f.write(text)
+        os.replace(tmp, path)
+        tmp = None
     except OSError as err:
-        if err.errno == errno.ELOOP:
-            sys.exit(f"error: {path} is a symlink; the digest is only written to a plain file of yours")
         sys.exit(f"error: can't write {path} ({err.strerror})")
-    os.fchmod(fd, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(text)
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def main():

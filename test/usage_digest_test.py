@@ -2,6 +2,8 @@
 """Tests for skills/agent-coach/scripts/usage-digest. Usage: python3 test/usage_digest_test.py"""
 import datetime as dt
 import errno
+import importlib.machinery
+import importlib.util
 import json
 import os
 import sqlite3
@@ -9,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIGEST = os.path.join(HERE, "..", "skills", "agent-coach", "scripts", "usage-digest")
@@ -132,10 +135,10 @@ class UsageDigestTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def digest(self, *args, codex=None, check=True, env=None):
+    def digest(self, *args, codex=None, check=True, env=None, timeout=None):
         return subprocess.run([sys.executable, "-I", DIGEST, "--claude-dir", self.claude,
                                "--codex-dir", codex or self.codex, "--since", "2026-11-09", "--until", "2026-11-16",
-                               *args], capture_output=True, text=True, check=check, env=env)
+                               *args], capture_output=True, text=True, check=check, env=env, timeout=timeout)
 
     def write_transcript(self, rel_path, *lines):
         path = os.path.join(self.claude, "projects", rel_path)
@@ -181,12 +184,16 @@ class UsageDigestTest(unittest.TestCase):
                               user("2026-11-11T09:01:00Z", "<command-name>then explain the diff", session="s4"))
         self.assertEqual(self.sessions()["s4"]["slash_commands"], ["/review"])
 
-    def test_scratchpad_sessions_are_left_out(self):
+    def test_sessions_in_claude_temp_folder_are_left_out(self):
         self.write_transcript("-tmp-probe/p1.jsonl",
                               user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p1",
                                    cwd="/private/tmp/claude-501/-work-app/abc/scratchpad/proj"))
+        self.write_transcript("-tmp-probe/p2.jsonl",
+                              user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p2",
+                                   cwd="/tmp/claude-1001/-work-app/abc"))
         data = self.json_digest()["claude_code"]
         self.assertNotIn("p1", [s["id"] for s in data["sessions"]])
+        self.assertNotIn("p2", [s["id"] for s in data["sessions"]])
         self.assertEqual(data["totals"]["by_project"], {"/work/app": 2, "/work/web": 1})
 
     def test_sessions_are_ordered_by_start_time(self):
@@ -291,6 +298,12 @@ class UsageDigestTest(unittest.TestCase):
                               user("2026-11-10T10:00:00Z", "resumed in the window", isSidechain=True))
         self.assertEqual(self.sessions()["s1"]["subagents"], 2)
 
+    def test_unreadable_subagent_runs_are_skipped(self):
+        subagents = os.path.join(self.claude, "projects", "-work-app", "s1", "subagents")
+        os.symlink(os.path.join(self.tmp.name, "gone.jsonl"), os.path.join(subagents, "agent-dangling.jsonl"))
+        os.makedirs(os.path.join(subagents, "agent-dir.jsonl"))
+        self.assertEqual(self.sessions()["s1"]["subagents"], 1)
+
     def test_prompts_keep_pasted_markup_and_drop_harness_tags(self):
         self.write_transcript("-work-tags/tags.jsonl", *[
             user(f"2026-11-11T09:{i:02}:00Z", text, session="tags") for i, text in enumerate([
@@ -311,15 +324,39 @@ class UsageDigestTest(unittest.TestCase):
                 "<command-message>review</command-message>",
                 "<command-args>--fast</command-args>",
                 "<html><body>pasted page</body></html> is this valid?",
+                "</a-b> see <a-b>x</a-b> end",
+                "</a-b> see <a-b>x",
+                "<system-reminder>a <bash-input>x</bash-input> b</system-reminder>typed",
             ])])
         tags = self.sessions()["tags"]
-        self.assertEqual(tags["prompt_count"], 4)
+        self.assertEqual(tags["prompt_count"], 7)
         self.assertEqual(tags["prompts"], [
             '<div class="card">misaligned</div> why does this wrap?',
             "and also the footer",
             "<pasted_content>a pasted log</pasted_content>",
             "<html><body>pasted page</body></html> is this valid?",
+            "</a-b> see end",
+            "</a-b> see <a-b>x",
+            "typed",
         ])
+
+    def test_harness_element_needs_the_whole_name_to_match(self):
+        self.write_transcript("-work-tags/names.jsonl",
+                              user("2026-11-11T09:00:00Z", '<a-b"c>x</a-b> keep', session="names"),
+                              user("2026-11-11T09:01:00Z", '<x-y a="<b>">x</x-y> keep', session="names"))
+        self.assertEqual(self.sessions()["names"]["prompts"], ['<a-b"c>x</a-b> keep', '<x-y a="<b>">x</x-y> keep'])
+
+    def test_large_paste_of_unclosed_dashed_tags_is_quick(self):
+        # Measured: the old filter, which rescanned the rest of the text per unclosed tag, took 173 seconds on
+        # this paste, and the new one without the name-end lookahead, which backtracks through the long name,
+        # took 23. The bound is generous for a slow runner.
+        # The other two pastes need the name to split at its first - or _, and the tag not to span a <.
+        pastes = ["<a-b-c-d> " * 20000 + "<a-" + "b" * 100000, "<a" + "-b" * 50000 + "!", "<a-b " * 100000]
+        self.write_transcript("-work-tags/paste.jsonl", *[
+            user(f"2026-11-11T09:0{i}:00Z", paste, session="paste") for i, paste in enumerate(pastes)])
+        data = json.loads(self.digest("--format", "json", timeout=10).stdout)
+        paste_session = {s["id"]: s for s in data["claude_code"]["sessions"]}["paste"]
+        self.assertEqual(paste_session["prompts"], [" ".join(paste.split())[:299] + "…" for paste in pastes])
 
     def test_each_denial_wording_counts_once(self):
         wordings = {
@@ -420,6 +457,56 @@ class UsageDigestTest(unittest.TestCase):
         self.assertNotIn("Traceback", result.stderr)
         with open(victim) as f:
             self.assertEqual(f.read(), "keep me")
+
+    def test_out_does_not_write_through_a_hard_link(self):
+        report_dir = os.path.join(self.tmp.name, "reports")
+        os.makedirs(report_dir)
+        victim = os.path.join(self.tmp.name, "victim.txt")
+        with open(victim, "w") as f:
+            f.write("keep me")
+        out = os.path.join(report_dir, "digest.md")
+        os.link(victim, out)
+        self.run_digest("--out", out)
+        with open(victim) as f:
+            self.assertEqual(f.read(), "keep me")
+        with open(out) as f:
+            self.assertEqual(f.read(), self.run_digest())
+        self.assertEqual(os.stat(out).st_mode & 0o777, 0o600)
+
+    def load_digest_module(self):
+        loader = importlib.machinery.SourceFileLoader("usage_digest", DIGEST)
+        module = importlib.util.module_from_spec(importlib.util.spec_from_loader("usage_digest", loader))
+        loader.exec_module(module)
+        return module
+
+    def test_out_in_a_folder_that_cant_take_a_new_file_reports_why(self):
+        module = self.load_digest_module()
+        out = os.path.join(self.tmp.name, "reports", "digest.md")
+        denied = PermissionError(errno.EACCES, os.strerror(errno.EACCES))
+        with mock.patch.object(module.tempfile, "mkstemp", side_effect=denied):
+            with self.assertRaises(SystemExit) as stop:
+                module.write_private(out, "digest")
+        self.assertEqual(str(stop.exception), f"error: can't write {out} ({os.strerror(errno.EACCES)})")
+
+    def test_out_interrupted_before_the_rename_leaves_no_temp_file(self):
+        module = self.load_digest_module()
+        report_dir = os.path.join(self.tmp.name, "reports")
+        with mock.patch.object(module.os, "replace", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                module.write_private(os.path.join(report_dir, "digest.md"), "digest")
+        self.assertEqual(os.listdir(report_dir), [])
+
+    def test_out_with_a_lone_surrogate_in_a_prompt_completes_and_leaves_no_temp_file(self):
+        with open(os.path.join(self.claude, "projects", "-work-app", "odd.jsonl"), "w") as f:
+            f.write('{"type": "user", "timestamp": "2026-11-11T09:00:00Z", "sessionId": "odd", "cwd": "/work/app",'
+                    ' "message": {"content": "broken \\ud800 text"}}\n')
+        report_dir = os.path.join(self.tmp.name, "reports")
+        out = os.path.join(report_dir, "digest.md")
+        result = self.digest("--out", out, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.listdir(report_dir), ["digest.md"])
+        with open(out, encoding="utf-8") as f:
+            self.assertIn("> broken ? text", f.read())
 
     def test_out_that_cant_be_opened_reports_why_without_blaming_a_symlink(self):
         out = os.path.join(self.tmp.name, "reports", "digest.md")
