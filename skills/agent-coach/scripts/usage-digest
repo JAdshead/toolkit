@@ -31,6 +31,9 @@ import sys
 MAX_PROMPTS = 8
 MAX_PROMPT_CHARS = 300
 COMPACTION_PREFIX = "This session is being continued from a previous conversation"
+# Sessions started in a Claude scratchpad are headless probes run by other sessions, not the user's work.
+SCRATCHPAD = re.compile(r"^(/private)?/tmp/claude-\d+/")
+SLASH_COMMAND = re.compile(r"/[\w:.-]+")
 DENIAL_MARKERS = ("doesn't want to proceed", "was rejected", "permission denied by user", "user denied",
                   "denied by the claude code auto mode classifier", "denied by a built-in claude code safety check")
 # Claude Code's own elements (<system-reminder>, <bash-stdout>, <ide_opened_file>...) all have a - or _ in
@@ -134,9 +137,11 @@ def summarize_claude_session(path, since, until):
         text = text_of(content).strip()
         if text.startswith("[Request interrupted"):
             s["interrupts"] += 1
+        elif text.startswith(COMPACTION_PREFIX):
+            continue
         elif "<command-name>" in text:
             cmd = text.split("<command-name>", 1)[1].split("</command-name>", 1)[0].strip()
-            if cmd and cmd not in s["slash_commands"]:
+            if SLASH_COMMAND.fullmatch(cmd) and cmd not in s["slash_commands"]:
                 s["slash_commands"].append(cmd)
         else:
             prompt = human_text(content)
@@ -161,7 +166,7 @@ def claude_usage(claude_dir, since, until):
         if os.path.getmtime(path) < since.timestamp():
             continue
         s = summarize_claude_session(path, since, until)
-        if s:
+        if s and not SCRATCHPAD.match(s["cwd"] or ""):
             sessions.append(s)
     sessions.sort(key=lambda s: s["start"])
     by_project, tools, skills, slash, mcp = (collections.Counter() for _ in range(5))

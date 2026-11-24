@@ -167,6 +167,28 @@ class UsageDigestTest(unittest.TestCase):
         self.assertEqual(s["models"], ["claude-opus-5-5"])
         self.assertEqual(s["entrypoint"], "claude-desktop")
 
+    def test_compaction_summary_quoting_a_command_is_not_a_slash_command(self):
+        self.write_transcript("-work-app/s3.jsonl",
+                              user("2026-11-11T09:00:00Z", "<command-name>/review</command-name>", session="s3"),
+                              user("2026-11-11T09:01:00Z", "This session is being continued from a previous"
+                                   " conversation. It ran <command-name>/clear</command-name> and"
+                                   " <local-command-stdout>.\nMore summary text.", session="s3"))
+        self.assertEqual(self.sessions()["s3"]["slash_commands"], ["/review"])
+
+    def test_text_in_command_tag_that_is_not_a_command_is_not_recorded(self):
+        self.write_transcript("-work-app/s4.jsonl",
+                              user("2026-11-11T09:00:00Z", "<command-name>/review</command-name>", session="s4"),
+                              user("2026-11-11T09:01:00Z", "<command-name>then explain the diff", session="s4"))
+        self.assertEqual(self.sessions()["s4"]["slash_commands"], ["/review"])
+
+    def test_scratchpad_sessions_are_left_out(self):
+        self.write_transcript("-tmp-probe/p1.jsonl",
+                              user("2026-11-11T09:00:00Z", "Reply with just: ok", session="p1",
+                                   cwd="/private/tmp/claude-501/-work-app/abc/scratchpad/proj"))
+        data = self.json_digest()["claude_code"]
+        self.assertNotIn("p1", [s["id"] for s in data["sessions"]])
+        self.assertEqual(data["totals"]["by_project"], {"/work/app": 2, "/work/web": 1})
+
     def test_sessions_are_ordered_by_start_time(self):
         sessions = self.json_digest()["claude_code"]["sessions"]
         self.assertEqual([s["id"] for s in sessions], ["s2", "s1", "edge-in"])
