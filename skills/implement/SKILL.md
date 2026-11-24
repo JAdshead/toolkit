@@ -97,7 +97,7 @@ The body has: a Summary (what and why), a Test plan listing the tests added, any
 gh pr checks <pr> --watch
 ```
 
-- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: lint, formatting, config), push, and watch again. Stop after 3 rounds and report.
+- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: docs, comments, formatting, plain config), push, and watch again. Stop after 3 rounds and report.
 - **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 ## Phase 6: Report

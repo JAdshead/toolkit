@@ -27,7 +27,7 @@ A finding that can only be fixed by going beyond `problem.md` goes to the user, 
 
 Spawn one fresh subagent with the findings verbatim, `problem.md`, the PR's worktree, and the project's test rules (in `AGENTS.md` or `CLAUDE.md`: test first, and a test that would still pass with the fix deleted is broken; when no good test can reach the behaviour, a named exception with a repeatable check seen failing before the fix). Tell it:
 
-> Make the smallest change that fixes these findings and still solves `problem.md`. Delete code rather than add guards where you can. Write a failing test first, or follow the project's test rules for an exception. Commit with a message that says what changed.
+> Make the smallest change that fixes these findings and still solves `problem.md`. Delete code rather than add guards where you can. Write a failing test first; for a bug, it reproduces the bug. When no good test can reach the behaviour, follow the project's test rules for an exception. Only a change with no behaviour (docs, comments, formatting, plain config) skips the test, and the commit says so. Commit with a message that says what changed.
 
 ## 3. Re-solve
 

@@ -38,15 +38,20 @@ check "an init'd repo's rules no longer say TDD is only a default" "no" "$(has "
 check "an init'd repo's rules require checking the real thing" "yes" \
   "$(has "$agents" "Check the real thing before calling it done")"
 check "an init'd repo's rules block merging unproven behaviour" "yes" \
-  "$(has "$agents" "not ready to merge")"
+  "$(has "$agents" "A behaviour change with no proof that fails without it is not ready to merge.")"
 
 softened="$(grep -rliE "where practical|TDD by default|cannot be tested first|test(-| )first where (it|one) applies" "$root/skills" "$root/shared" "$root/rules" || true)"
 check "no skill or rule softens test-first" "" "$softened"
 
+# Every place that lets a no-behaviour change skip the test names the same list.
 exceptions="docs, comments, formatting, plain config"
+check "the rules name the no-behaviour exceptions" "yes" "$(has "$root/rules/AGENTS.md" "$exceptions")"
+other_list="$(grep -rniE "no(-| )behaviour" "$root/skills" "$root/shared" "$root/rules" | grep -vF "$exceptions" || true)"
+check "every no-behaviour exception names the same list" "" "$other_list"
+check "address-review names the no-behaviour exceptions" "yes" \
+  "$(has "$root/skills/address-review/SKILL.md" "$exceptions")"
 fallback="closest repeatable check"
 for f in rules/AGENTS.md skills/implement/SKILL.md skills/tackle-issues/references/subagent-templates.md; do
-  check "$f names the same no-behaviour exceptions" "yes" "$(has "$root/$f" "$exceptions")"
   check "$f allows the same fallback when no good test can reach the behaviour" "yes" "$(has "$root/$f" "$fallback")"
   check "$f checks the real thing before done" "yes" "$(has "$root/$f" "real thing")"
 done
