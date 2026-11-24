@@ -32,6 +32,12 @@ init() {
   out="$("$toolkit" init "$1" 2>&1)" || rc=$?
   check "init run $runs succeeds" "0" "$rc"
 }
+# Run init where it is expected to fail with exit 1. Its output is left in $out.
+fails() {
+  local rc=0
+  out="$("$toolkit" init "$2" 2>&1)" || rc=$?
+  check "$1: init fails" "1" "$rc"
+}
 block_of() { awk '/<!-- toolkit:start -->/{on=1} on{print} /<!-- toolkit:end -->/{on=0}' "$1"; }
 has() { if grep -qF -- "$2" "$1"; then echo yes; else echo no; fi; }
 
@@ -48,6 +54,11 @@ check "empty repo: settings enable the plugin" "true" \
 check "empty repo: settings add the marketplace" "github JAdshead/toolkit" \
   "$(jq -r '.extraKnownMarketplaces.toolkit.source | "\(.source) \(.repo)"' "$repo/.claude/settings.json")"
 check "empty repo: GEMINI.md imports AGENTS.md" "@./AGENTS.md" "$(cat "$repo/GEMINI.md")"
+said() { if grep -qxF -- "$1" <<<"$out"; then echo yes; else echo no; fi; }
+check "empty repo: init says it created CLAUDE.md" "yes" "$(said "created CLAUDE.md importing AGENTS.md")"
+check "empty repo: the managed comment links to the toolkit" "yes" \
+  "$(grep '^<!-- Managed by' "$repo/AGENTS.md" | grep -qF "https://github.com/JAdshead/toolkit" && echo yes || echo no)"
+check "empty repo: no warning about AGENTS.md" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 rc=0
@@ -70,6 +81,55 @@ check "existing AGENTS.md keeps its content first" "# My project" "$(head -n 1 "
 check "existing AGENTS.md keeps its own rules" "yes" "$(has "$repo/AGENTS.md" "Use pnpm.")"
 check "existing AGENTS.md gets the block" "yes" "$(has "$repo/AGENTS.md" "<!-- toolkit:end -->")"
 
+# CLAUDE.md importing AGENTS.md shows Claude Code all of it, so init names the
+# sections outside the block that Claude Code has not read before.
+lists() { if grep -qxF -- "  $1" <<<"$out"; then echo yes; else echo no; fi; }
+repo="$(fresh)"
+fence="\`\`\`"
+printf '# Old rules\n\n## Landing the plane\nYou must push.\n%ssh\n# not a heading\n%s\n<!-- toolkit:start -->\n## Stale block heading\n<!-- toolkit:end -->\n' "$fence" "$fence" > "$repo/AGENTS.md"
+init "$repo"
+check "AGENTS.md with its own content: init warns" "yes" "$(grep -q '^warning: .*AGENTS.md' <<<"$out" && echo yes || echo no)"
+check "the warning lists the top heading" "yes" "$(lists "# Old rules")"
+check "the warning lists a nested heading" "yes" "$(lists "## Landing the plane")"
+check "the warning skips a comment inside a code fence" "no" "$(lists "# not a heading")"
+check "the warning skips headings inside the toolkit block" "no" "$(lists "## Stale block heading")"
+init "$repo"
+check "re-running: no warning once CLAUDE.md imports AGENTS.md" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf '# Old rules\n' > "$repo/AGENTS.md"
+printf '# Notes\n@AGENTS.md\n' > "$repo/CLAUDE.md"
+init "$repo"
+check "CLAUDE.md already imported AGENTS.md: no warning" "no" "$(grep -q '^warning:' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf 'Use pnpm.\n' > "$repo/AGENTS.md"
+printf '# Notes\n' > "$repo/CLAUDE.md"
+init "$repo"
+check "AGENTS.md with text but no headings: init still warns" "yes" "$(grep -q '^warning: .*AGENTS.md' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+printf '# Evil\033[2K\r\n' > "$repo/AGENTS.md"
+init "$repo"
+check "control characters in a listed heading never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
+
+# C1 controls (CSI, OSC ... ST) and format characters (right-to-left override) too.
+repo="$(fresh)"
+printf '# Ev\xc2\x9b2Jil \xc2\x9d0;x\xc2\x9cna\xe2\x80\xaeme caf\xc3\xa9\n' > "$repo/AGENTS.md"
+init "$repo"
+for seq in '\xc2\x9b' '\xc2\x9d' '\xc2\x9c' '\xe2\x80\xae'; do
+  check "a listed heading drops $seq" "no" "$(LC_ALL=C grep -qF "$(printf '%b' "$seq")" <<<"$out" && echo yes || echo no)"
+done
+check "a listed heading keeps its visible text" "yes" "$(lists "$(printf '# Ev2Jil 0;xname caf\xc3\xa9')")"
+
+# A raw C1 byte that is not valid UTF-8 is dropped too, and the warning still lists the heading,
+# also under a UTF-8 locale, where some awks reject invalid bytes.
+repo="$(fresh)"
+printf '# raw\x9bbyte\n' > "$repo/AGENTS.md"
+LC_ALL=en_US.UTF-8 init "$repo"
+check "a heading that is not valid UTF-8: the raw byte is dropped" "no" "$(LC_ALL=C grep -qF "$(printf '\x9b')" <<<"$out" && echo yes || echo no)"
+check "a heading that is not valid UTF-8: the warning still lists it" "yes" "$(LC_ALL=C grep -q '^  # raw.*byte$' <<<"$out" && echo yes || echo no)"
+
 repo="$(fresh)"
 printf 'Before.\n\n<!-- toolkit:start -->\nold rules\n<!-- toolkit:end -->\n\nAfter.\n' > "$repo/AGENTS.md"
 init "$repo"
@@ -83,6 +143,7 @@ printf '# Claude notes\n' > "$repo/CLAUDE.md"
 init "$repo"
 check "existing CLAUDE.md keeps its content" "# Claude notes" "$(head -n 1 "$repo/CLAUDE.md")"
 check "existing CLAUDE.md gains the import" "yes" "$(has "$repo/CLAUDE.md" "@AGENTS.md")"
+check "existing CLAUDE.md: init says it added the import" "yes" "$(said "added @AGENTS.md to CLAUDE.md")"
 
 repo="$(fresh)"
 printf '# Shared\n' > "$repo/AGENTS.md"
@@ -107,7 +168,7 @@ check "settings keep a plugin the repo turned off" "false" \
 repo="$(fresh)"
 printf 'Intro.\n<!-- toolkit:start -->\nold rules\nkeep me\n' > "$repo/AGENTS.md"
 before="$(cat "$repo/AGENTS.md")"
-check "a start marker without an end marker: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails "a start marker without an end marker" "$repo"
 check "a start marker without an end marker: AGENTS.md is untouched" "$before" "$(cat "$repo/AGENTS.md")"
 check "a failed init writes no other file" "no" "$([ -e "$repo/CLAUDE.md" ] || [ -e "$repo/.claude" ] && echo yes || echo no)"
 
@@ -117,7 +178,7 @@ malformed() {
   repo="$(fresh)"
   printf '%b' "$content" > "$repo/AGENTS.md"
   before="$(cat "$repo/AGENTS.md")"
-  check "$name: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  fails "$name" "$repo"
   check "$name: AGENTS.md is untouched" "$before" "$(cat "$repo/AGENTS.md")"
 }
 malformed "end marker before start marker" 'a\n<!-- toolkit:end -->\nb\n<!-- toolkit:start -->\nc\n'
@@ -152,7 +213,7 @@ check "GEMINI.md that imports @AGENTS.md gets no second import" "1" "$(grep -c '
 
 repo="$(fresh)"
 ln -s missing.md "$repo/CLAUDE.md"
-check "a dangling CLAUDE.md link: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails "a dangling CLAUDE.md link" "$repo"
 check "a dangling CLAUDE.md link: nothing is created through it" "no" "$([ -e "$repo/missing.md" ] && echo yes || echo no)"
 
 # Before init AGENTS.md is missing, so these links dangle; init creates
@@ -169,8 +230,22 @@ check "AGENTS.md gets no import line through the links" "no" "$(has "$repo/AGENT
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
 printf '[1]\n' > "$repo/.claude/settings.json"
-check "settings that are not a JSON object: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails "settings that are not a JSON object" "$repo"
 check "settings that are not a JSON object: nothing else is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
+
+# Settings init cannot merge into: it fails with its own message and writes nothing.
+while IFS='|' read -r name json; do
+  repo="$(fresh)"
+  mkdir -p "$repo/.claude"
+  printf '%s\n' "$json" > "$repo/.claude/settings.json"
+  fails "$name" "$repo"
+  check "$name: init says what is wrong" "yes" "$(grep -q '^toolkit init: .*settings.json' <<<"$out" && echo yes || echo no)"
+  check "$name: nothing else is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
+done <<'CASES'
+enabledPlugins is a list|{"enabledPlugins":[]}
+extraKnownMarketplaces is a string|{"extraKnownMarketplaces":"x"}
+two JSON values|{} {}
+CASES
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
@@ -185,6 +260,12 @@ printf '{"extraKnownMarketplaces":{"toolkit":{"source":{"source":"github","repo"
 init "$repo"
 check "settings keep a toolkit marketplace the repo points elsewhere" "someone/fork" \
   "$(jq -r '.extraKnownMarketplaces.toolkit.source.repo' "$repo/.claude/settings.json")"
+check "a toolkit marketplace pointed elsewhere: init warns" "yes" \
+  "$(grep -q '^warning: .*marketplace' <<<"$out" && echo yes || echo no)"
+
+repo="$(fresh)"
+init "$repo"
+check "the toolkit's own marketplace: no warning" "no" "$(grep -q '^warning: .*marketplace' <<<"$out" && echo yes || echo no)"
 
 # init follows no links: any link is refused, wherever it points, except
 # CLAUDE.md or GEMINI.md linking to AGENTS.md (tested above). A refused run
@@ -193,7 +274,7 @@ check "settings keep a toolkit marketplace the repo points elsewhere" "someone/f
 outside="$work/outside"
 keep='{"keep":1}'
 refused() {
-  check "$1: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  fails "$1" "$repo"
   check "$1: the link's target is untouched" "$keep" "$(cat "$2" 2>/dev/null)"
   check "$1: nothing is written in the repo" "no" "$([ -e "$repo/GEMINI.md" ] && echo yes || echo no)"
 }
@@ -218,25 +299,25 @@ refused ".claude -> ../outside/.claude" "$outside/.claude/settings.json"
 
 repo="$(fresh)"
 ln -s .. "$repo/.claude"
-check ".claude -> ..: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails ".claude -> .." "$repo"
 check ".claude -> ..: no settings.json above the repo" "no" "$([ -e "$repo/../settings.json" ] && echo yes || echo no)"
 
 repo="$(fresh)"
 git init -q "$repo"
 before="$(cat "$repo/.git/config")"
 ln -s .git/config "$repo/AGENTS.md"
-check "AGENTS.md -> .git/config: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails "AGENTS.md -> .git/config" "$repo"
 check "AGENTS.md -> .git/config: git config is untouched" "$before" "$(cat "$repo/.git/config")"
 
 repo="$(fresh)"
 printf 'not a directory\n' > "$repo/.claude"
-check ".claude is a file: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+fails ".claude is a file" "$repo"
 check ".claude is a file: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] || [ -e "$repo/CLAUDE.md" ] && echo yes || echo no)"
 
 for name in CLAUDE.md GEMINI.md; do
   repo="$(fresh)"
   mkdir "$repo/$name"
-  check "$name is a directory: init fails" "1" "$("$toolkit" init "$repo" >/dev/null 2>&1; echo $?)"
+  fails "$name is a directory" "$repo"
   check "$name is a directory: nothing is written" "no" "$([ -e "$repo/AGENTS.md" ] && echo yes || echo no)"
 done
 
@@ -265,6 +346,8 @@ printf '{"extraKnownMarketplaces":{"toolkit":"x"}}\n' > "$repo/.claude/settings.
 init "$repo"
 check "a toolkit marketplace that is not an object is shown as it is" \
   'toolkit plugin in .claude/settings.json: {"enabled":true,"marketplace":"x"}' "$(status)"
+check "a toolkit marketplace that is not an object: init warns, with no jq error" "yes no" \
+  "$(grep -q '^warning: .*marketplace' <<<"$out" && echo yes || echo no) $(grep -q 'jq' <<<"$out" && echo yes || echo no)"
 
 repo="$(fresh)"
 mkdir -p "$repo/.claude"
@@ -273,7 +356,7 @@ init "$repo"
 check "control characters from the repo's settings never reach the terminal" "no" "$(LC_ALL=C grep -q "$(printf '\033')" <<<"$out" && echo yes || echo no)"
 check "control characters are shown escaped" "yes" "$(grep -qF 'evil/x\u001b' <<<"$out" && echo yes || echo no)"
 
-check "init fails for a missing directory" "1" "$("$toolkit" init "$work/nope" >/dev/null 2>&1; echo $?)"
+fails "a missing directory" "$work/nope"
 
 printf '%d passed, %d failed\n' "$passes" "$failures"
 [ "$failures" -eq 0 ]

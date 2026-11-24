@@ -27,7 +27,7 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Pull request review
 
-- **After opening or updating a pull request, and before merging it, review it with the `review-pr` skill.** Don't report a PR as ready until it passes. It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
+- **After opening or updating a pull request, and before merging it, review it with the `review-pr` skill (https://github.com/JAdshead/toolkit), or, without it, a fresh-context reviewer held to the owner's bar.** Don't report a PR as ready until it passes. It passes only if a fresh-context reviewer, acting as the repo's owner, would merge it as it stands.
 - **A behaviour change with no proof that fails without it is not ready to merge.** The proof is a test, or a named exception with a repeatable check seen failing before the change (see Tests).
 
 ## Finishing

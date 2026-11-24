@@ -53,7 +53,7 @@ die() { echo "toolkit init: $*" >&2; exit 1; }
 # The shared rules, one heading level down, between markers.
 rules_block() {
   printf '%s\n' "$START"
-  printf '%s\n' "<!-- Managed by \`toolkit init\`: edit rules/AGENTS.md in the toolkit, then re-run it. -->"
+  printf '%s\n' "<!-- Managed by \`toolkit init\`: edit rules/AGENTS.md in the toolkit (https://github.com/$MARKETPLACE_REPO), then re-run it. -->"
   sed 's/^#/##/' "$TOOLKIT_DIR/rules/AGENTS.md"
   printf '%s\n' "$END"
 }
@@ -69,7 +69,7 @@ plan_agents_md() {
     printf '%s\n' "$block" > "$out"
     return
   fi
-  BLOCK="$block" awk -v start="$START" -v end="$END" '
+  BLOCK="$block" LC_ALL=C awk -v start="$START" -v end="$END" '
     function trim(s) { sub(/\r$/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
     { line[NR] = $0; k = trim($0)
       if (k == start) { if (!ns++) sl = NR }
@@ -94,7 +94,10 @@ plan_agents_md() {
 plan_settings() {
   local file="$1" out="$2"
   if [ -s "$file" ]; then cp "$file" "$out"; else printf '{}\n' > "$out"; fi
-  jq -e 'type == "object"' "$out" >/dev/null 2>&1 || die "$file is not a JSON object; fix it and re-run"
+  jq -se 'length == 1 and (.[0] | type == "object")' "$out" >/dev/null 2>&1 ||
+    die "$file is not a single JSON object; fix it and re-run"
+  jq -e 'all(.enabledPlugins, .extraKnownMarketplaces; . == null or type == "object")' "$out" >/dev/null ||
+    die "$file has enabledPlugins or extraKnownMarketplaces that is not a JSON object; fix it and re-run"
   jq --arg repo "$MARKETPLACE_REPO" '
     .extraKnownMarketplaces = ((.extraKnownMarketplaces // {})
       | if has("toolkit") then . else .toolkit = {source: {source: "github", repo: $repo}} end)
@@ -117,19 +120,42 @@ apply() {
   echo "$what"
 }
 
+# Whether an agent's instruction file already reads AGENTS.md: it links to it
+# or has an import line.
+imports_agents() { [ "$1" -ef "$(dirname "$1")/AGENTS.md" ] || grep -qE "$IMPORT_RE" "$1" 2>/dev/null; }
+
 # Make an agent's own instruction file import AGENTS.md, creating it if missing.
 init_import() {
-  local file="$1" import="$2" agents
-  agents="$(dirname "$file")/AGENTS.md"
+  local file="$1" import="$2"
   if [ ! -e "$file" ]; then
     printf '%s\n' "$import" > "$file"
     echo "created $(basename "$file") importing AGENTS.md"
-  elif [ "$file" -ef "$agents" ] || grep -qE "$IMPORT_RE" "$file"; then
+  elif imports_agents "$file"; then
     return 0
   else
     printf '\n%s\n' "$import" >> "$file"
     echo "added $import to $(basename "$file")"
   fi
+}
+
+# Print the headings in FILE outside the toolkit block (not in code fences),
+# indented, or a note if it has other text but no headings. Prints nothing if
+# the block is all there is. The repo may be hostile, so awk reads bytes (some
+# awks fail on invalid UTF-8 otherwise) and jq then reads the text as UTF-8
+# (invalid bytes become U+FFFD) and drops every Unicode control (Cc: C0, DEL,
+# C1) and format (Cf, e.g. bidi overrides) character; other non-ASCII text is
+# kept.
+outside_headings() {
+  LC_ALL=C awk -v start="$START" -v end="$END" '
+    { k = $0; sub(/\r$/, "", k); gsub(/^[ \t]+|[ \t]+$/, "", k) }
+    k == start { inblock = 1; next }
+    k == end { inblock = 0; next }
+    inblock || k == "" { next }
+    k ~ /^(```|~~~)/ { fence = !fence; other = 1; next }
+    !fence && k ~ /^#+([ \t]|$)/ { print "  " k; n++; next }
+    { other = 1 }
+    END { if (!n && other) print "  (text with no headings)" }
+  ' "$1" | jq -Rr 'gsub("[\\p{Cc}\\p{Cf}]"; "")'
 }
 
 # Refuse anything init would write that is not an ordinary file (or absent)
@@ -156,7 +182,7 @@ check_targets() {
 }
 
 init_repo() {
-  local dir="${1:-.}" work
+  local dir="${1:-.}" work new_to_claude=""
   [ -d "$dir" ] || die "no such directory: $dir"
   command -v jq >/dev/null || die "needs jq"
   dir="$(CDPATH='' cd -P -- "$dir" && pwd -P)"
@@ -169,9 +195,14 @@ init_repo() {
   check_targets "$dir"
   plan_agents_md "$dir/AGENTS.md" "$work/AGENTS.md"
   plan_settings "$dir/.claude/settings.json" "$work/settings.json"
+  imports_agents "$dir/CLAUDE.md" || new_to_claude="$(outside_headings "$work/AGENTS.md")"
 
   apply "$work/AGENTS.md" "$dir/AGENTS.md" "wrote the toolkit rules to AGENTS.md"
   init_import "$dir/CLAUDE.md" "@AGENTS.md"
+  if [ -n "$new_to_claude" ]; then
+    echo "warning: CLAUDE.md now imports all of AGENTS.md, not just the toolkit block. Claude Code will read these parts for the first time; review them before committing:" >&2
+    printf '%s\n' "$new_to_claude" >&2
+  fi
   init_import "$dir/GEMINI.md" "@./AGENTS.md"
   apply "$work/settings.json" "$dir/.claude/settings.json" "updated .claude/settings.json"
   # The repo may have set these itself, and may be hostile: print them as JSON
@@ -180,6 +211,12 @@ init_repo() {
     enabled: .enabledPlugins["toolkit@toolkit"],
     marketplace: (.extraKnownMarketplaces.toolkit | if type == "object" then .source else . end)
   }' "$dir/.claude/settings.json")"
+  # A toolkit marketplace the repo pointed elsewhere was kept, and the plugin
+  # init enables comes from it.
+  jq -e --arg repo "$MARKETPLACE_REPO" \
+    '(.extraKnownMarketplaces.toolkit | objects | .source | objects | .source == "github" and .repo == $repo) // false' \
+    "$dir/.claude/settings.json" >/dev/null ||
+    echo "warning: the toolkit marketplace in .claude/settings.json is not github $MARKETPLACE_REPO (shown above); check you trust it" >&2
   echo "Review and commit the changes in $dir."
 }
 

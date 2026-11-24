@@ -11,13 +11,20 @@ project="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 [ -f "$rules" ] || exit 0
 
-# A toolkit init block: the start marker on a line of its own.
-for file in "$project/AGENTS.md" "$project/CLAUDE.md"; do
-  [ -f "$file" ] && grep -qE '^[[:space:]]*<!-- toolkit:start -->[[:space:]]*$' "$file" && exit 0
-done
+# A toolkit init block: the start marker on a line of its own. One in AGENTS.md
+# counts only if CLAUDE.md imports AGENTS.md or links to it, since that is how
+# it reaches Claude Code.
+has_block() { [ -f "$1" ] && grep -qE '^[[:space:]]*<!-- toolkit:start -->[[:space:]]*$' "$1"; }
+claude="$project/CLAUDE.md"
+has_block "$claude" && exit 0
+if has_block "$project/AGENTS.md" && [ -f "$claude" ] &&
+  { [ "$claude" -ef "$project/AGENTS.md" ] || grep -qE '^[[:space:]]*@(\./)?AGENTS\.md[[:space:]]*$' "$claude"; }; then
+  exit 0
+fi
 
 # install.sh links ~/.claude/CLAUDE.md to some checkout's rules/AGENTS.md,
-# which may be a different version from this plugin's copy.
+# which may be a different version from this plugin's copy. A plain copy of
+# this plugin's rules counts too.
 global="$HOME/.claude/CLAUDE.md"
 cmp -s "$global" "$rules" && exit 0
 case "$(readlink "$global" 2>/dev/null)" in */rules/AGENTS.md) exit 0 ;; esac
