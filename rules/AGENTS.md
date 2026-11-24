@@ -25,7 +25,7 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Finishing
 
-- **When a session's last pull request merges, clean up before reporting done:** delete the session's merged branches (local and remote) and their worktrees, leaving any worktree you are in first; fast-forward the default branch in the main checkout if it is clean; then offer to archive the session if your tool supports it.
+- **When a session's last pull request merges, clean up before reporting done:** delete the session's merged branches (local and remote) and their worktrees, except the worktree you are running in and its local branch, which you keep and say so; fast-forward the default branch in the main checkout if it is clean; then offer to archive the session if your tool supports it.
 
 ## Terminology
 
