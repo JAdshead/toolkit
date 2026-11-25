@@ -110,6 +110,24 @@ FAKE_GH_FAIL="pr view" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot read the body" "2" "$?"
 check "and pushes and edits nothing" "yes" "$(unchanged)"
 
+printf '#!/bin/sh\nexit 1\n' > "$work/origin.git/hooks/pre-receive"
+chmod +x "$work/origin.git/hooks/pre-receive"
+attach "$work/desktop.png" >/dev/null 2>&1
+check "attach exits 2 when origin refuses the push" "2" "$?"
+check "and edits nothing" "yes" "$(unchanged)"
+rm "$work/origin.git/hooks/pre-receive"
+
+for bad in "start with no end" "two sections"; do
+  case "$bad" in
+    "start with no end") printf 'Fixes it.\n<!-- pr-media:start -->\nold\n\nCloses #4\n' ;;
+    "two sections") printf '<!-- pr-media:start -->\na\n<!-- pr-media:end -->\n<!-- pr-media:start -->\nb\n<!-- pr-media:end -->\nCloses #4\n' ;;
+  esac > "$work/gh/body.txt"
+  cp "$work/gh/body.txt" "$work/body.saved"
+  attach "$work/desktop.png" >/dev/null 2>&1
+  check "attach exits 2 on a body with $bad" "2" "$?"
+  check "and pushes and edits nothing" "yes" "$(unchanged)"
+done
+
 FAKE_GH_FAIL="pr edit" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot write the body" "2" "$?"
 

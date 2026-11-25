@@ -27,7 +27,7 @@ Each prompt is thin: the PR number, the scratch worktree, the inputs directory, 
 ## Part 0: Prepare
 
 1. Resolve the input (a number, URL or branch; none means the current branch's PR) to a number: `gh pr view <input> --json number,additions,deletions,files`.
-   Then run `scripts/pr-media ui <pr>`: exit 0 makes it a UI PR (its files changed views, components, styles or copy). If it exits 2, report that and stop; an error is never "not UI".
+   Then run `scripts/pr-media ui <pr>`, with `scripts/pr-media` in this skill's folder: exit 0 makes it a UI PR (its files changed views, components, styles or copy). If it exits 2, report that and stop; an error is never "not UI".
 2. Decide whether the PR's code may run on this machine: `gh pr view <pr> --json isCrossRepository` and `gh api "repos/{owner}/{repo}/pulls/<pr>" --jq .author_association` (`gh` fills in `{owner}/{repo}`). Running it is fine when the PR is not from a fork and its author is `OWNER`, `MEMBER` or `COLLABORATOR`. Otherwise ask the user before anything runs it. On a no, this round is **no-run**:
    - Add `Do not run the PR's code; rely on CI.` to every reviewer prompt.
    - Give every reviewer read-only file access and no shell, if your agent can: a subagent type without a shell tool, or a headless CLI with shell tools off. Step 5 gives them everything they need without one.

@@ -5,7 +5,7 @@
 #
 #   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
 #   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots section
-#   pr-media signoff <pr> <sha>      0: a writer added visual-ok after <sha> was pushed, 1: not signed off
+#   pr-media signoff <pr> <sha>      0: a writer added visual-ok after <sha>'s commit date and any force-push, 1: not signed off
 #
 # Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
 # never reads an error as "not a UI PR" or "not signed off".
@@ -118,7 +118,7 @@ cmd_signoff() {
     permission="$(gh api "repos/$repo/collaborators/$login/permission" --jq .permission)" || die "could not read $login's permission"
     case "$permission" in admin|maintain|write) echo "signed off by $login"; return 0 ;; esac
   done <<<"$writers"
-  echo "no writer added visual-ok after $sha was pushed" >&2
+  echo "no writer added visual-ok after $sha's commit date and any force-push" >&2
   return 1
 }
 
