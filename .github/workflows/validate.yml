@@ -47,7 +47,7 @@ jobs:
           test/refine_issues_test.sh
           test/session_start_test.sh
           test/review_loop_test.sh
-          test/visual_signoff_test.sh
+          test/pr_media_wiring_test.sh
 
       - name: Test bin/sync-shared
         run: test/sync_shared_test.sh

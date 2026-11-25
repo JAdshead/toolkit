@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests for scripts/pr-media, run against a local bare repo as origin and
-# test/fake-gh-pr-media. Usage: pr_media_test.sh
+# Tests for pr-media, run against pr-media-fake-gh and a local bare repo as
+# origin. Usage: pr_media_test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -9,9 +9,9 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work/bin" "$work/gh"
-ln -s "$here/fake-gh-pr-media" "$work/bin/gh"
+ln -s "$here/pr-media-fake-gh" "$work/bin/gh"
 export PATH="$work/bin:$PATH" FAKE_GH_DIR="$work/gh"
-export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
+export GIT_AUTHOR_NAME=Tester GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=Tester GIT_COMMITTER_EMAIL=t@example.com
 
 failures=0
 passes=0
@@ -25,183 +25,142 @@ check() {
     printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$name" "$expected" "$actual"
   fi
 }
-status_of() { "$@" >/dev/null 2>&1; echo $?; }
-contains() { if printf '%s' "$1" | grep -qF -- "$2"; then echo yes; else echo no; fi; }
 
-# A repo whose origin is a local bare repo, with one commit on main.
+# --- ui ---
+
+printf 'lib/money.rb\napp/views/stays/show.html.erb\n' > "$work/gh/files.txt"
+out="$("$media" ui 5 2>/dev/null)"
+check "a PR touching a view is a UI PR and names the file" "0 app/views/stays/show.html.erb" "$? $out"
+
+printf 'lib/money.rb\nspec/money_spec.rb\n' > "$work/gh/files.txt"
+"$media" ui 5 >/dev/null 2>&1
+check "a PR touching no view, component, style or copy is not a UI PR" "1" "$?"
+
+for f in app/components/card.tsx web/src/Button.vue assets/site.scss config/locales/en.yml; do
+  echo "$f" > "$work/gh/files.txt"
+  "$media" ui 5 >/dev/null 2>&1
+  check "$f makes a UI PR" "0" "$?"
+done
+
+FAKE_GH_FAIL=pulls/5/files "$media" ui 5 >/dev/null 2>&1
+check "ui exits 2, not 1, when gh cannot list the files" "2" "$?"
+
+# --- attach ---
+
 git init -q --bare "$work/origin.git"
-git init -q -b main "$work/repo"
-cd "$work/repo" || exit 1
-git remote add origin "$work/origin.git"
-echo app > app.txt && git add app.txt && git commit -qm init && git push -q origin main
+git clone -q "$work/origin.git" "$work/clone" 2>/dev/null
+git -C "$work/clone" commit -q --allow-empty -m base
+git -C "$work/clone" push -q origin HEAD 2>/dev/null
+printf 'png-one' > "$work/desktop.png"
+printf 'gif-two' > "$work/flow.gif"
+printf 'webm-three' > "$work/flow.webm"
+printf 'png-four' > "$work/mobile.png"
+printf 'Fixes the card.\r\n\r\nCloses #4\r\n' > "$work/gh/body.txt"
+remote_ref() { git -C "$work/clone" ls-remote origin refs/pr-media/5 | cut -f1; }
+attach() { (cd "$work/clone" && "$media" attach 5 "$@"); }
 
-# --- ui: which PRs change the UI ---
+head_before="$(git -C "$work/clone" rev-parse HEAD)"
+attach "$work/desktop.png" "$work/flow.gif" "$work/flow.webm" >/dev/null 2>&1
+check "attach succeeds" "0" "$?"
+first="$(remote_ref)"
+check "attach pushes a commit to refs/pr-media/5" "yes" "$([ -n "$first" ] && echo yes || echo no)"
+check "attach pushes no branch" "" "$(git -C "$work/clone" ls-remote --heads origin | grep -v "$head_before")"
+git -C "$work/clone" fetch -q origin refs/pr-media/5
+check "the first publish is an orphan commit" "1" "$(git -C "$work/clone" rev-list --count "$first")"
+check "the commit holds the files" "png-one|webm-three" \
+  "$(git -C "$work/clone" show "$first:desktop.png")|$(git -C "$work/clone" show "$first:flow.webm")"
+check "attach leaves the checkout alone" "$head_before|" \
+  "$(git -C "$work/clone" rev-parse HEAD)|$(git -C "$work/clone" status --porcelain)"
+body="$(cat "$work/gh/body.txt")"
+check "the body keeps its own text" "yes" "$(grep -qF "Closes #4" <<<"$body" && echo yes || echo no)"
+check "a screenshot renders inline from the commit" "yes" \
+  "$(grep -qF "![desktop.png](https://github.com/acme/app/raw/$first/desktop.png)" <<<"$body" && echo yes || echo no)"
+check "a GIF renders inline" "yes" \
+  "$(grep -qF "![flow.gif](https://github.com/acme/app/raw/$first/flow.gif)" <<<"$body" && echo yes || echo no)"
+check "a video is a link beside it, not an image" "yes|no" \
+  "$(grep -qF "[flow.webm](https://github.com/acme/app/raw/$first/flow.webm)" <<<"$body" && echo yes || echo no)|$(grep -qF "![flow.webm]" <<<"$body" && echo yes || echo no)"
 
-ui_files() { printf '%s\n' "$@" > "$FAKE_GH_DIR/files"; echo "Summary" > "$FAKE_GH_DIR/body"; }
+# GitHub returns bodies with CRLF line ends; the section must still be found.
+sed 's/$/\r/' "$work/gh/body.txt" > "$work/crlf" && mv "$work/crlf" "$work/gh/body.txt"
+attach "$work/mobile.png" >/dev/null 2>&1
+check "a second attach succeeds" "0" "$?"
+second="$(remote_ref)"
+git -C "$work/clone" fetch -q origin refs/pr-media/5
+check "a second publish is chained on the first, so its links keep working" "$first" \
+  "$(git -C "$work/clone" rev-parse "$second^")"
+body="$(cat "$work/gh/body.txt")"
+check "a second attach replaces the section in a CRLF body instead of adding one" "1" \
+  "$(grep -c "^## Screenshots" <<<"$body")"
+check "the section now shows the new file" "yes|no" \
+  "$(grep -qF "raw/$second/mobile.png" <<<"$body" && echo yes || echo no)|$(grep -qF "desktop.png" <<<"$body" && echo yes || echo no)"
+check "the text after the section survives" "yes" "$(grep -qF "Closes #4" <<<"$body" && echo yes || echo no)"
 
-ui_files app/views/bookings/show.html.erb app/models/booking.rb
-check "a view template makes a UI PR" 0 "$(status_of "$media" ui 7)"
-check "ui lists only the UI files" "app/views/bookings/show.html.erb" "$("$media" ui 7 2>/dev/null)"
+cp "$work/gh/body.txt" "$work/body.saved"
+unchanged() { [ "$(remote_ref)" = "$second" ] && cmp -s "$work/body.saved" "$work/gh/body.txt" && echo yes || echo no; }
 
-for f in src/components/Button.tsx web/App.vue app/assets/stylesheets/site.scss styles/main.css \
-  config/locales/en.yml public/logo.svg app/components/card_component.rb src/Widget.svelte; do
-  ui_files "$f"
-  check "$f is a UI file" 0 "$(status_of "$media" ui 7)"
-done
+GIT_AUTHOR_NAME="" attach "$work/desktop.png" >/dev/null 2>&1
+check "a failed commit exits 2" "2" "$?"
+check "a failed commit leaves the remote ref and the body alone" "yes" "$(unchanged)"
 
-for f in app/models/booking.rb spec/views/show_spec.rb src/components/Button.test.tsx README.md \
-  docs/guide.md lib/tasks/x.rake test/system/home_test.rb src/Widget.stories.tsx; do
-  ui_files "$f"
-  check "$f alone is not a UI PR" 1 "$(status_of "$media" ui 7)"
-done
+FAKE_GH_FAIL="repo view" attach "$work/desktop.png" >/dev/null 2>&1
+check "attach exits 2 when gh cannot name the repo" "2" "$?"
+check "and pushes and edits nothing" "yes" "$(unchanged)"
 
-ui_files app/models/booking.rb
-printf 'Summary\n\n<!-- pr-media:start -->\n## Screenshots\n<!-- pr-media:end -->\n' > "$FAKE_GH_DIR/body"
-check "a PR that carries a Screenshots section is a UI PR" 0 "$(status_of "$media" ui 7)"
+FAKE_GH_FAIL="pr view" attach "$work/desktop.png" >/dev/null 2>&1
+check "attach exits 2 when gh cannot read the body" "2" "$?"
+check "and pushes and edits nothing" "yes" "$(unchanged)"
 
-ui_files app/models/booking.rb
-for call in "pr diff" "pr view"; do
-  echo "$call" > "$FAKE_GH_DIR/fail"
-  check "ui exits 2, not 1 (no UI), when gh $call fails" 2 "$(status_of "$media" ui 7)"
-done
-rm -f "$FAKE_GH_DIR/fail"
-check "ui exits 2 on a PR that isn't a number" 2 "$(status_of "$media" ui x)"
+FAKE_GH_FAIL="pr edit" attach "$work/desktop.png" >/dev/null 2>&1
+check "attach exits 2 when gh cannot write the body" "2" "$?"
 
-# --- publish: media on a hidden ref, never on a branch ---
+attach "$work/missing.png" >/dev/null 2>&1
+check "attach exits 2 on a missing file" "2" "$?"
+printf 'x' > "$work/has space.png"
+attach "$work/has space.png" >/dev/null 2>&1
+check "attach exits 2 on a file name that would need escaping in a URL" "2" "$?"
 
-shots="$work/shots"
-mkdir -p "$shots"
-for v in before after; do for d in desktop mobile; do echo "$v-$d" > "$shots/booking-form.$v.$d.png"; done; done
-echo new > "$shots/guest-list.after.desktop.png"
-echo v2 > "$shots/guest-list.v2.after.mobile.png"
-echo gif > "$shots/date-picker.gif"
-echo webm > "$shots/date-picker.webm"
+# --- signoff ---
 
-section="$("$media" publish 7 "$shots" 2>/dev/null)"
-check "publish succeeds" 0 "$?"
-sha="$(git ls-remote origin refs/pr-media/7 | cut -f1)"
-check "publish pushes refs/pr-media/<pr>" "yes" "$([ -n "$sha" ] && echo yes || echo no)"
-check "publish creates no branch" "refs/heads/main" "$(git ls-remote --heads origin | cut -f2)"
-check "the media commit has no parent on the first publish" "" "$(git --git-dir="$work/origin.git" rev-list --parents -n1 "$sha" | cut -s -d' ' -f2)"
-check "the media commit holds the files" "booking-form.after.desktop.png" \
-  "$(git --git-dir="$work/origin.git" ls-tree --name-only "$sha" | grep -m1 after.desktop)"
-check "publish leaves the working tree alone" "" "$(git status --porcelain)"
-check "publish leaves HEAD alone" "main" "$(git branch --show-current)"
-check "a fresh clone does not fetch the media" "" \
-  "$(git clone -q "$work/origin.git" "$work/clone" && git -C "$work/clone" for-each-ref | grep pr-media)"
-
-url="https://github.com/acme/app/raw/$sha"
-check "the section opens with its start marker" "<!-- pr-media:start -->" "$(printf '%s\n' "$section" | head -1)"
-check "the section ends with its end marker" "<!-- pr-media:end -->" "$(printf '%s\n' "$section" | tail -1)"
-check "the section has a Screenshots heading" "yes" "$(contains "$section" "## Screenshots")"
-check "images are pinned to the media commit" "yes" "$(contains "$section" "($url/booking-form.after.desktop.png)")"
-check "before and after sit side by side for desktop" "yes" \
-  "$(contains "$section" "| Desktop | ![booking form before, desktop]($url/booking-form.before.desktop.png) | ![booking form after, desktop]($url/booking-form.after.desktop.png) |")"
-check "before and after sit side by side for mobile" "yes" \
-  "$(contains "$section" "| Mobile | ![booking form before, mobile]($url/booking-form.before.mobile.png) | ![booking form after, mobile]($url/booking-form.after.mobile.png) |")"
-check "a screen with no before says it is new" "yes" \
-  "$(contains "$section" "| Desktop | new | ![guest list after, desktop]($url/guest-list.after.desktop.png) |")"
-check "a screen with no mobile shot has no mobile row" "no" "$(contains "$section" "![guest list after, mobile]")"
-check "a screen whose name starts with another's gets its own table" "yes" \
-  "$(contains "$section" "| Mobile | new | ![guest list.v2 after, mobile]($url/guest-list.v2.after.mobile.png) |")"
-check "and adds no row to the other screen's table" "no" "$(contains "$section" "removed")"
-check "an interaction GIF shows inline" "yes" "$(contains "$section" "![date picker]($url/date-picker.gif)")"
-check "the full video is linked beside its GIF" "yes" "$(contains "$section" "[Full video]($url/date-picker.webm)")"
-
-rm "$shots/guest-list.after.desktop.png"
-"$media" publish 7 "$shots" >/dev/null 2>&1
-sha2="$(git ls-remote origin refs/pr-media/7 | cut -f1)"
-check "a second publish moves the ref" "yes" "$([ "$sha2" != "$sha" ] && echo yes || echo no)"
-check "a second publish keeps the first as its parent, so old links still work" "$sha" \
-  "$(git --git-dir="$work/origin.git" rev-list --parents -n1 "$sha2" | cut -d' ' -f2)"
-check "a second publish holds only the new files" "no" \
-  "$(git --git-dir="$work/origin.git" ls-tree --name-only "$sha2" | grep -qx guest-list.after.desktop.png && echo yes || echo no)"
-
-mkdir -p "$work/bad1" "$work/bad2/sub" "$work/empty"
-echo x > "$work/bad1/has space.png"
-echo x > "$work/bad2/sub/a.png"
-check "publish refuses a file name it can't put in a URL as is" 2 "$(status_of "$media" publish 7 "$work/bad1")"
-check "publish refuses a folder inside the media folder" 2 "$(status_of "$media" publish 7 "$work/bad2")"
-check "publish refuses an empty folder" 2 "$(status_of "$media" publish 7 "$work/empty")"
-check "publish refuses a PR that isn't a number" 2 "$(status_of "$media" publish x "$shots")"
-
-# --- attach: the section goes in the PR body, once ---
-
-printf 'Summary\n\nCloses #3\n' > "$FAKE_GH_DIR/body"
-"$media" attach 7 "$shots" >/dev/null 2>&1
-check "attach succeeds" 0 "$?"
-body="$(cat "$FAKE_GH_DIR/body")"
-check "attach keeps the body" "yes" "$(contains "$body" "Closes #3")"
-check "attach adds the section" "yes" "$(contains "$body" "## Screenshots")"
-"$media" attach 7 "$shots" >/dev/null 2>&1
-body="$(cat "$FAKE_GH_DIR/body")"
-check "attaching again replaces the section rather than adding one" 1 "$(printf '%s\n' "$body" | grep -c "pr-media:start")"
-check "attaching again points at the newest media commit" "yes" \
-  "$(contains "$body" "raw/$(git ls-remote origin refs/pr-media/7 | cut -f1)/")"
-check "attaching again keeps the text after the section" "yes" \
-  "$(printf 'Intro\n\n<!-- pr-media:start -->\nold\n<!-- pr-media:end -->\n\nTail\n' > "$FAKE_GH_DIR/body"
-     "$media" attach 7 "$shots" >/dev/null 2>&1; contains "$(cat "$FAKE_GH_DIR/body")" "Tail")"
-check "the old section is gone" "no" "$(contains "$(cat "$FAKE_GH_DIR/body")" "old")"
-printf 'Intro\n\n<!-- pr-media:start -->\nhalf\n\nTail\n' > "$FAKE_GH_DIR/body"
-check "attach refuses a body whose section has no end marker" 2 "$(status_of "$media" attach 7 "$shots")"
-before_refused="$(git ls-remote origin refs/pr-media/7 | cut -f1)"
-"$media" attach 7 "$shots" >/dev/null 2>&1
-check "and pushes nothing" "$before_refused" "$(git ls-remote origin refs/pr-media/7 | cut -f1)"
-check "and leaves that body alone" "yes" "$(contains "$(cat "$FAKE_GH_DIR/body")" "Tail")"
-
-# --- signoff: the owner's label, applied after the latest push ---
-
-pr_json() { # labels-json timeline-json [is-cross-repository]
-  cat > "$FAKE_GH_DIR/pr.json" <<JSON
-{"data":{"repository":{"pullRequest":{"headRefOid":"abc","isCrossRepository":${3:-false},
- "labels":{"nodes":$1},
- "commits":{"nodes":[{"commit":{"oid":"abc","committedDate":"2026-11-20T10:00:00Z"}}]},
- "timelineItems":{"nodes":$2}}}}}
-JSON
+# pr_state CROSS LABELS EVENTS: head abc123, committed 2026-11-20T10:00:00Z.
+pr_state() {
+  jq -n --argjson cross "$1" --argjson labels "$2" --argjson events "$3" '{data: {repository: {pullRequest: {
+    isCrossRepository: $cross, headRefOid: "abc123",
+    labels: {nodes: ($labels | map({name: .}))},
+    commits: {nodes: [{commit: {committedDate: "2026-11-20T10:00:00Z"}}]},
+    timelineItems: {nodes: $events}}}}}' > "$work/gh/graphql.json"
 }
-labeled() { echo "{\"__typename\":\"LabeledEvent\",\"createdAt\":\"$1\",\"actor\":{\"login\":\"$2\"},\"label\":{\"name\":\"${3:-visual-ok}\"}}"; }
-echo admin > "$FAKE_GH_DIR/perm-owner"
-echo write > "$FAKE_GH_DIR/perm-dev"
+labeled() { printf '{"__typename":"LabeledEvent","createdAt":"%s","label":{"name":"visual-ok"},"actor":{"login":"%s"}}' "$1" "$2"; }
+pushed() { printf '{"__typename":"HeadRefForcePushedEvent","createdAt":"%s"}' "$1"; }
+echo write > "$work/gh/perm-owner"
+echo triage > "$work/gh/perm-helper"
+signoff() { "$media" signoff 5 "${1:-abc123}" >/dev/null 2>&1; echo $?; }
 
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner)]"
-check "the owner's label after the head commit signs off" 0 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z dev)]"
-check "a writer's label signs off" 0 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T09:00:00Z owner)]"
-check "a label from before the head commit does not" 1 "$(status_of "$media" signoff 7)"
-check "it says why" "yes" "$(contains "$("$media" signoff 7 2>&1)" "before the latest commit")"
-pr_json '[{"name":"visual-ok"}]' \
-  "[$(labeled 2026-11-20T11:00:00Z owner),{\"__typename\":\"HeadRefForcePushedEvent\",\"createdAt\":\"2026-11-20T12:00:00Z\"}]"
-check "a force-push after the label voids it" 1 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z guest)]"
-check "a label from someone without write access does not" 1 "$(status_of "$media" signoff 7)"
-pr_json '[]' "[$(labeled 2026-11-20T11:00:00Z owner)]"
-check "a label since removed does not" 1 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T08:00:00Z owner),$(labeled 2026-11-20T11:00:00Z owner)]"
-check "the latest labeling counts" 0 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner),$(labeled 2026-11-20T08:00:00Z owner)]"
-check "the latest labeling counts whatever the event order" 0 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"looks-good"}]' "[$(labeled 2026-11-20T11:00:00Z owner looks-good)]"
-check "another label does not" 1 "$(status_of "$media" signoff 7)"
-check "PR_MEDIA_SIGNOFF_LABEL names the label" 0 "$(PR_MEDIA_SIGNOFF_LABEL=looks-good status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner)]"
-sed -i.bak 's/"headRefOid":"abc"/"headRefOid":"def"/' "$FAKE_GH_DIR/pr.json"
-check "a head that isn't the last listed commit does not" 1 "$(status_of "$media" signoff 7)"
-pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner)]" true
-check "a label on a fork's PR does not, since the fork sets its commit dates" 1 "$(status_of "$media" signoff 7)"
-check "it says to sign off in the session" "yes" "$(contains "$("$media" signoff 7 2>&1)" "in the session")"
-pr_json '[]' '[]'
-check "no label does not" 1 "$(status_of "$media" signoff 7)"
+pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
+check "visual-ok added by a writer after the head commit signs off" "0" "$(signoff)"
+check "sign-off is for one head: another sha is not signed off" "1" "$(signoff def456)"
 
-# --- gif: a recording becomes an inline GIF ---
+pr_state false '["visual-ok"]' "[$(labeled 2026-11-19T09:00:00Z owner)]"
+check "visual-ok added before the head commit does not sign off" "1" "$(signoff)"
 
-if command -v ffmpeg >/dev/null 2>&1; then
-  ffmpeg -loglevel error -f lavfi -i testsrc=size=320x200:rate=25:duration=1 "$work/clip.webm"
-  "$media" gif "$work/clip.webm" "$work/clip.gif" >/dev/null 2>&1
-  check "gif writes a GIF" "GIF89a" "$(head -c 6 "$work/clip.gif" 2>/dev/null)"
-else
-  echo "skip gif: ffmpeg not installed"
-fi
+pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner),$(pushed 2026-11-22T09:00:00Z)]"
+check "a force-push after the label voids it" "1" "$(signoff)"
+
+pr_state true '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
+check "the label never signs off a PR from a fork" "1" "$(signoff)"
+
+pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z helper)]"
+check "visual-ok added by someone without write access does not sign off" "1" "$(signoff)"
+
+pr_state false '[]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
+check "a removed visual-ok does not sign off" "1" "$(signoff)"
+
+pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
+check "signoff exits 2 when gh cannot name the repo" "2" "$(FAKE_GH_FAIL="repo view" signoff)"
+check "signoff exits 2 when the GraphQL query fails" "2" "$(FAKE_GH_FAIL=graphql signoff)"
+check "signoff exits 2 when the permission check fails" "2" "$(FAKE_GH_FAIL=/permission signoff)"
+
+"$media" bogus >/dev/null 2>&1
+check "an unknown command exits 2" "2" "$?"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

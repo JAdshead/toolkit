@@ -89,9 +89,7 @@ git -C <worktree> push -u origin implement/<id>
 gh pr create --title "<concise title>" --body "<body>"
 ```
 
-The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. Then apply the mode's In review operation.
-
-If `scripts/pr-media ui <pr>` exits 0, the PR changes the UI: run the `pr-media` skill to capture each changed screen before and after, on desktop and mobile, and each changed interaction, and attach them to the PR. The go-ahead to push covers pushing its media ref. Run it again after any later push that changes what the UI looks like.
+The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. If the change touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
 
 ## Phase 5: CI loop
 
@@ -100,7 +98,7 @@ gh pr checks <pr> --watch
 ```
 
 - **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: docs, comments, formatting, plain config), push, and watch again. Stop after 3 rounds and report.
-- **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise. A UI PR also waits for its owner's visual sign-off.
+- **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 ## Phase 6: Report
 
@@ -110,7 +108,6 @@ Source:   <issue or change id>
 PR:       <url> (CI: green | red | not opened)
 Reviews:  security PASS / quality PASS / tests PASS (rounds: n)
 Owner:    MERGE | NOT YET at <short sha> (review-pr rounds: n)
-Visual:   not a UI PR | screenshots attached, waiting for your sign-off (add the visual-ok label)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
 Follow-ups: <remaining minor findings, or none>

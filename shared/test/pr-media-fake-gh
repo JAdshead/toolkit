@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Stand-in for `gh` in pr_media_test.sh, for PR 5 of acme/app. Reads and
+# writes files in $FAKE_GH_DIR:
+#   files.txt         the PR's changed files, one per line
+#   body.txt          the PR body, returned as is (the test stores it with CRLF, as GitHub does)
+#   graphql.json      the answer to `gh api graphql`
+#   perm-<login>      that user's permission on the repo
+# Any call whose arguments contain $FAKE_GH_FAIL fails, as a network error would.
+set -euo pipefail
+
+dir="${FAKE_GH_DIR:?}"
+if [ -n "${FAKE_GH_FAIL:-}" ] && [[ "$*" == *"$FAKE_GH_FAIL"* ]]; then
+  echo "fake-gh: HTTP 502 for: $*" >&2
+  exit 1
+fi
+
+case "$*" in
+  "repo view --json nameWithOwner --jq .nameWithOwner") echo "acme/app" ;;
+  "api --paginate repos/{owner}/{repo}/pulls/5/files --jq .[].filename") cat "$dir/files.txt" ;;
+  "pr view 5 --json body --jq .body") cat "$dir/body.txt"; echo ;;
+  "pr edit 5 --body-file "*) cp "$5" "$dir/body.txt" ;;
+  "api graphql "*) cat "$dir/graphql.json" ;;
+  "api repos/acme/app/collaborators/"*"/permission --jq .permission")
+    login="${2#repos/acme/app/collaborators/}"
+    cat "$dir/perm-${login%/permission}" ;;
+  *) echo "fake-gh: unexpected call: $*" >&2; exit 64 ;;
+esac

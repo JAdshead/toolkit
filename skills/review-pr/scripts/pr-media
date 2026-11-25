@@ -1,253 +1,130 @@
 #!/usr/bin/env bash
-# Screenshots and interaction videos for a pull request, kept on a hidden
-# ref (refs/pr-media/<pr>) rather than a branch, so they render inline in the
-# PR, stay as private as the repo, and never reach the code history or a
-# clone. See the pr-media skill.
+# Screenshots and video for a pull request, kept on the hidden ref
+# refs/pr-media/<pr> of origin (not a branch or tag, so clones and fetches
+# skip it). Run from a checkout of the PR's repo. See ../SKILL.md.
 #
-#   pr-media ui <pr>              exit 0 if the PR changes the UI, listing why; 1 if not; 2 if it can't tell
-#   pr-media publish <pr> <dir>   push <dir>'s files to refs/pr-media/<pr>, print the Screenshots section
-#   pr-media attach <pr> <dir>    publish, then put the section in the PR body (replacing an earlier one)
-#   pr-media signoff <pr>         exit 0 if the owner signed off: the label is on the PR, was added by
-#                                 someone with write access, after the head commit and any force-push;
-#                                 never on a PR from a fork, whose author sets its commit dates
-#   pr-media gif <video> <gif>    turn a recording into a GIF that plays inline (needs ffmpeg)
+#   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
+#   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots section
+#   pr-media signoff <pr> <sha>      0: a writer added visual-ok after <sha> was pushed, 1: not signed off
 #
-# File names in <dir> (letters, digits, . _ - only; no folders):
-#   <screen>.<before|after>.<desktop|mobile>.<png|jpg|jpeg|webp|gif>   a row of the screen's table
-#   <interaction>.gif, with <interaction>.<webm|mp4|mov> beside it    an inline GIF and a link to the video
-#   anything else                                                      shown as an image, or linked
-# PR_MEDIA_REMOTE (default origin) is the remote to push to.
-# PR_MEDIA_SIGNOFF_LABEL (default visual-ok) is the sign-off label.
-# Any error exits 2.
+# Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
+# never reads an error as "not a UI PR" or "not signed off".
 set -euo pipefail
 
 die() { echo "pr-media: $*" >&2; exit 2; }
-usage() { sed -n '/^[^#]/q;2,$p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
-start_marker="<!-- pr-media:start -->"
-end_marker="<!-- pr-media:end -->"
-remote="${PR_MEDIA_REMOTE:-origin}"
-label="${PR_MEDIA_SIGNOFF_LABEL:-visual-ok}"
-
-pr_number() { [[ "${1:-}" =~ ^[0-9]+$ ]] || die "not a pull request number: ${1:-}"; echo "$1"; }
-repo_name() { gh repo view --json nameWithOwner --jq .nameWithOwner; }
-
-is_ui_path() {
-  case "$1" in
-    test/*|*/test/*|tests/*|*/tests/*|spec/*|*/spec/*|*/__tests__/*|e2e/*|*/e2e/*|cypress/*|*/cypress/*) return 1 ;;
-    docs/*|*/docs/*|*.md|*.test.*|*.spec.*|*_test.*|*_spec.*|*.stories.*|*.snap) return 1 ;;
-    *.erb|*.haml|*.slim|*.html|*.htm|*.liquid|*.hbs|*.mustache|*.njk|*.twig|*.jinja|*.j2) return 0 ;;
-    *.jsx|*.tsx|*.vue|*.svelte|*.astro|*.css|*.scss|*.sass|*.less|*.styl) return 0 ;;
-    *.svg|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.woff|*.woff2|*.ttf|*.otf|*.po) return 0 ;;
-    views/*|*/views/*|components/*|*/components/*|templates/*|*/templates/*|layouts/*|*/layouts/*) return 0 ;;
-    locales/*|*/locales/*|i18n/*|*/i18n/*|tailwind.config.*|*/tailwind.config.*) return 0 ;;
-  esac
-  return 1
-}
+ui_files='(^|/)(views|components|templates|layouts|pages|styles|locales|i18n)/|\.(css|scss|sass|less|html|erb|haml|slim|jsx|tsx|vue|svelte|astro|hbs|liquid|twig|njk|svg)$'
+start_marker='<!-- pr-media:start -->'
+end_marker='<!-- pr-media:end -->'
 
 cmd_ui() {
-  local pr found=1 path files body
-  pr="$(pr_number "${1:-}")"
-  files="$(gh pr diff "$pr" --name-only)" || die "could not list the files of #$pr"
-  body="$(gh pr view "$pr" --json body --jq .body)" || die "could not read the body of #$pr"
-  while IFS= read -r path; do
-    [ -n "$path" ] && is_ui_path "$path" && { echo "$path"; found=0; }
-  done <<<"$files"
-  if [ "$found" -ne 0 ] && grep -qF "$start_marker" <<<"$body"; then
-    echo "(the PR body has a Screenshots section)"; found=0
-  fi
-  return "$found"
-}
-
-alt() { printf '%s' "$1" | tr '_-' '  '; }
-
-# The file in $1 showing screen $2, $3 (before or after), on $4 (desktop or mobile).
-shot() {
-  local ext
-  for ext in png jpg jpeg webp gif; do
-    [ -f "$1/$2.$3.$4.$ext" ] && { echo "$2.$3.$4.$ext"; return; }
-  done
-  return 0
-}
-
-# The Screenshots section for the files in $1, served from commit $3 of repo $2.
-render() {
-  local dir="$1" base="https://github.com/$2/raw/$3" f name screens="" gifs="" others="" screen device cell v
-  for f in "$dir"/*; do
-    name="${f##*/}"
-    if [[ "$name" =~ ^(.+)\.(before|after)\.(desktop|mobile)\.(png|jpg|jpeg|webp|gif)$ ]]; then
-      screens+="${BASH_REMATCH[1]}"$'\n'
-    elif [[ "$name" == *.gif ]]; then
-      gifs+="${name%.gif}"$'\n'
-    else
-      others+="$name"$'\n'
-    fi
-  done
-
-  echo "$start_marker"
-  echo "## Screenshots"
-  while IFS= read -r screen; do
-    [ -n "$screen" ] || continue
-    printf '\n### %s\n\n| | Before | After |\n|---|---|---|\n' "$(alt "$screen")"
-    for device in desktop mobile; do
-      [ -n "$(shot "$dir" "$screen" before "$device")$(shot "$dir" "$screen" after "$device")" ] || continue
-      printf '| %s |' "$(tr '[:lower:]' '[:upper:]' <<<"${device:0:1}")${device:1}"
-      for v in before after; do
-        cell="$(shot "$dir" "$screen" "$v" "$device")"
-        if [ -n "$cell" ]; then
-          printf ' ![%s %s, %s](%s/%s) |' "$(alt "$screen")" "$v" "$device" "$base" "$cell"
-        elif [ "$v" = before ]; then printf ' new |'
-        else printf ' removed |'
-        fi
-      done
-      echo
-    done
-  done < <(printf '%s' "$screens" | sort -u)
-
-  if [ -n "$gifs" ]; then
-    printf '\n### Interactions\n'
-    while IFS= read -r name; do
-      [ -n "$name" ] || continue
-      printf '\n**%s**\n\n![%s](%s/%s.gif)\n' "$(alt "$name")" "$(alt "$name")" "$base" "$name"
-      for v in webm mp4 mov; do
-        if [ -f "$dir/$name.$v" ]; then
-          printf '\n[Full video](%s/%s.%s)\n' "$base" "$name" "$v"
-          others="$(printf '%s' "$others" | grep -vxF "$name.$v" || true)"$'\n'
-        fi
-      done
-    done < <(printf '%s' "$gifs" | sort)
-  fi
-
-  if [ -n "$(printf '%s' "$others" | tr -d '\n')" ]; then
-    printf '\n### Other\n\n'
-    while IFS= read -r name; do
-      [ -n "$name" ] || continue
-      case "$name" in
-        *.png|*.jpg|*.jpeg|*.webp) printf '![%s](%s/%s)\n\n' "$(alt "${name%.*}")" "$base" "$name" ;;
-        *) printf -- '- [%s](%s/%s)\n' "$name" "$base" "$name" ;;
-      esac
-    done < <(printf '%s' "$others" | sort)
-  fi
-  echo
-  echo "$end_marker"
-}
-
-cmd_publish() {
-  local pr dir f name size entries="" blob tree old parent=() commit repo
-  pr="$(pr_number "${1:-}")"
-  dir="${2:-}"
-  [ -d "$dir" ] || die "no such folder: $dir"
-  [ -n "$(ls -A "$dir")" ] || die "$dir is empty"
-  git rev-parse --git-dir >/dev/null 2>&1 || die "run this inside the repository"
-
-  for f in "$dir"/*; do
-    name="${f##*/}"
-    [ -f "$f" ] || die "$name: only files, no folders"
-    [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "$name: use only letters, digits, . _ and -"
-    size="$(wc -c < "$f" | tr -d ' ')"
-    [ "$size" -lt 100000000 ] || die "$name is over 100 MB, which GitHub refuses"
-    [ "$size" -lt 10000000 ] || echo "pr-media: $name is over 10 MB; make it smaller so the PR loads fast" >&2
-    blob="$(git hash-object -w -- "$f")"
-    entries+="100644 blob $blob"$'\t'"$name"$'\n'
-  done
-  tree="$(printf '%s' "$entries" | git mktree)"
-
-  old="$(git ls-remote "$remote" "refs/pr-media/$pr" | cut -f1)"
-  if [ -n "$old" ]; then
-    git fetch -q "$remote" "refs/pr-media/$pr"
-    [ "$(git rev-parse FETCH_HEAD)" = "$old" ] || die "refs/pr-media/$pr moved while fetching; run again"
-    parent=(-p "$old")
-  fi
-  commit="$(git commit-tree "$tree" ${parent[@]+"${parent[@]}"} -m "Media for pull request #$pr")"
-  git push -q --no-verify "$remote" "$commit:refs/pr-media/$pr" || die "could not push refs/pr-media/$pr"
-
-  repo="$(gh repo view "$(git remote get-url "$remote")" --json nameWithOwner --jq .nameWithOwner)"
-  render "$dir" "$repo" "$commit"
+  local files matched
+  files="$(gh api --paginate "repos/{owner}/{repo}/pulls/$1/files" --jq '.[].filename')" || die "could not list the files of PR $1"
+  matched="$(grep -E "$ui_files" <<<"$files" || true)"
+  [ -n "$matched" ] || return 1
+  echo "$matched"
 }
 
 cmd_attach() {
-  local pr body starts ends section new
-  pr="$(pr_number "${1:-}")"
-  body="$(gh pr view "$pr" --json body --jq .body)"
-  starts="$(printf '%s\n' "$body" | grep -cxF "$start_marker" || true)"
-  ends="$(printf '%s\n' "$body" | grep -cxF "$end_marker" || true)"
-  [ "$starts" -le 1 ] && [ "$starts" = "$ends" ] ||
-    die "the body of #$pr has $starts start and $ends end markers; fix it by hand, then attach again"
-  section="$(cmd_publish "$pr" "${2:-}")"
-  new="$(mktemp)"
-  if [ "$starts" = 1 ]; then
-    printf '%s\n' "$body" | PR_MEDIA_SECTION="$section" awk -v s="$start_marker" -v e="$end_marker" '
-      $0 == s { print ENVIRON["PR_MEDIA_SECTION"]; skip = 1; next }
-      skip && $0 == e { skip = 0; next }
-      !skip' > "$new"
-  else
-    printf '%s\n\n%s\n' "$body" "$section" > "$new"
+  local pr="$1" repo body parent="" commit index name blob tree f section
+  shift
+  [ $# -gt 0 ] || usage
+  for f in "$@"; do
+    [ -f "$f" ] || die "no such file: $f"
+    [[ "$(basename "$f")" =~ ^[A-Za-z0-9._-]+$ ]] || die "rename $f to letters, digits, '.', '_' and '-' only"
+  done
+  [ -z "$(for f in "$@"; do basename "$f"; done | sort | uniq -d)" ] || die "two files share a name"
+
+  repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || die "could not name the repo"
+  [ -n "$repo" ] || die "could not name the repo"
+  body="$(gh pr view "$pr" --json body --jq .body)" || die "could not read the body of PR $pr"
+  body="$(tr -d '\r' <<<"$body")"
+  [ "$(grep -cxF "$start_marker" <<<"$body")" = "$(grep -cxF "$end_marker" <<<"$body")" ] &&
+    [ "$(grep -cxF "$start_marker" <<<"$body")" -le 1 ] || die "PR $pr's body has unmatched pr-media markers; fix them by hand"
+
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  index="$tmp/index"
+  parent="$(git ls-remote origin "refs/pr-media/$pr")" || die "could not reach origin"
+  parent="${parent%%[[:space:]]*}"
+  if [ -n "$parent" ]; then
+    git fetch -q origin "refs/pr-media/$pr" || die "could not fetch refs/pr-media/$pr"
   fi
-  gh pr edit "$pr" --body-file "$new" >/dev/null
-  rm -f "$new"
-  echo "pr-media: the Screenshots section of #$pr now shows refs/pr-media/$pr"
+  for f in "$@"; do
+    name="$(basename "$f")"
+    blob="$(git hash-object -w "$f")" || die "could not store $f"
+    GIT_INDEX_FILE="$index" git update-index --add --cacheinfo "100644,$blob,$name" || die "could not stage $f"
+  done
+  tree="$(GIT_INDEX_FILE="$index" git write-tree)" || die "could not write the tree"
+  if [ -n "$parent" ]; then
+    commit="$(git commit-tree "$tree" -p "$parent" -m "Media for PR $pr")" || die "could not commit the media"
+  else
+    commit="$(git commit-tree "$tree" -m "Media for PR $pr")" || die "could not commit the media"
+  fi
+  [ -n "$commit" ] || die "could not commit the media"
+  git push -q origin "$commit:refs/pr-media/$pr" || die "could not push refs/pr-media/$pr"
+
+  section="$start_marker"$'\n'"## Screenshots"$'\n'
+  for f in "$@"; do
+    name="$(basename "$f")"
+    case "$name" in
+      *.mp4|*.webm|*.mov) section+=$'\n'"[$name](https://github.com/$repo/raw/$commit/$name)"$'\n' ;;
+      *) section+=$'\n'"![$name](https://github.com/$repo/raw/$commit/$name)"$'\n' ;;
+    esac
+  done
+  section+="$end_marker"
+  if grep -qxF "$start_marker" <<<"$body"; then
+    {
+      sed "/^$start_marker\$/,\$d" <<<"$body"
+      echo "$section"
+      sed "1,/^$end_marker\$/d" <<<"$body"
+    } > "$tmp/body"
+  else
+    printf '%s\n\n%s\n' "$body" "$section" > "$tmp/body"
+  fi
+  gh pr edit "$pr" --body-file "$tmp/body" >/dev/null || die "could not update the body of PR $pr"
+  echo "attached to PR $pr at $commit"
 }
 
 cmd_signoff() {
-  local pr repo json verdict actor permission
-  pr="$(pr_number "${1:-}")"
-  repo="$(repo_name)"
+  local pr="$1" sha="$2" repo state writers login permission
+  repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || die "could not name the repo"
+  [ -n "$repo" ] || die "could not name the repo"
   # shellcheck disable=SC2016
-  json="$(gh api graphql -F owner="${repo%%/*}" -F name="${repo#*/}" -F number="$pr" -f query='
-    query($owner: String!, $name: String!, $number: Int!) {
-      repository(owner: $owner, name: $name) { pullRequest(number: $number) {
-        headRefOid isCrossRepository
-        labels(first: 100) { nodes { name } }
-        commits(last: 1) { nodes { commit { oid committedDate } } }
-        timelineItems(last: 100, itemTypes: [LABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) { nodes {
-          __typename
-          ... on LabeledEvent { createdAt actor { login } label { name } }
-          ... on HeadRefForcePushedEvent { createdAt }
-        } }
-      } }
-    }')"
-  verdict="$(jq -r --arg l "$label" '
-    .data.repository.pullRequest as $p
-    | ([$p.timelineItems.nodes[] | select(.__typename == "LabeledEvent" and .label.name == $l)]
-        | max_by(.createdAt)) as $signed
-    | ([$p.timelineItems.nodes[] | select(.__typename == "HeadRefForcePushedEvent") | .createdAt] | max) as $forced
-    | $p.commits.nodes[-1].commit.committedDate as $committed
-    | if $p.isCrossRepository then "no: this PR is from a fork, whose author sets its commit dates, so a label cannot date the sign-off; the owner signs off in the session"
-      elif $p.commits.nodes[-1].commit.oid != $p.headRefOid then "no: could not find the head commit; try again"
-      elif ([$p.labels.nodes[].name] | index($l)) == null then "no: the PR has no \($l) label"
-      elif $signed == null then "no: no record of who added \($l)"
-      elif $signed.createdAt <= $committed then "no: \($l) was added before the latest commit; the owner must look again and re-add it"
-      elif $forced != null and $signed.createdAt <= $forced then "no: \($l) was added before the latest force-push; the owner must look again and re-add it"
-      else "actor \($signed.actor.login // "")" end' <<<"$json")" || die "could not read #$pr"
-  case "$verdict" in
-    no:*) echo "pr-media: ${verdict#no: }" >&2; return 1 ;;
-  esac
-  actor="${verdict#actor }"
-  [ -n "$actor" ] || { echo "pr-media: the account that added $label is gone" >&2; return 1; }
-  permission="$(gh api "repos/$repo/collaborators/$actor/permission" --jq .permission 2>/dev/null || echo none)"
-  case "$permission" in
-    admin|maintain|write) echo "pr-media: $actor signed off with $label" ;;
-    *) echo "pr-media: $actor added $label but has $permission access, not write" >&2; return 1 ;;
-  esac
-}
+  state="$(gh api graphql -F owner="${repo%/*}" -F name="${repo#*/}" -F pr="$pr" -f query='
+    query($owner: String!, $name: String!, $pr: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $pr) {
+      isCrossRepository headRefOid
+      labels(first: 100) { nodes { name } }
+      commits(last: 1) { nodes { commit { committedDate } } }
+      timelineItems(last: 100, itemTypes: [LABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) { nodes {
+        __typename
+        ... on LabeledEvent { createdAt label { name } actor { login } }
+        ... on HeadRefForcePushedEvent { createdAt } } } } } }')" || die "could not read PR $pr"
+  state="$(jq -e '.data.repository.pullRequest' <<<"$state")" || die "could not read PR $pr"
 
-cmd_gif() {
-  local in="${1:-}" out="${2:-}" size
-  [ -f "$in" ] && [ -n "$out" ] || usage
-  command -v ffmpeg >/dev/null 2>&1 || die "gif needs ffmpeg"
-  ffmpeg -loglevel error -y -i "$in" \
-    -vf "fps=${PR_MEDIA_GIF_FPS:-10},scale='min(${PR_MEDIA_GIF_WIDTH:-800},iw)':-2:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" \
-    -loop 0 "$out"
-  size="$(wc -c < "$out" | tr -d ' ')"
-  [ "$size" -lt 10000000 ] || echo "pr-media: $out is over 10 MB; record less, or lower PR_MEDIA_GIF_FPS or PR_MEDIA_GIF_WIDTH" >&2
-  echo "$out"
+  [ "$(jq -r .headRefOid <<<"$state")" = "$sha" ] || { echo "PR $pr's head is not $sha" >&2; return 1; }
+  [ "$(jq -r .isCrossRepository <<<"$state")" = false ] ||
+    { echo "PR $pr is from a fork, whose author sets the commit dates: the label can't sign it off" >&2; return 1; }
+  jq -e '.labels.nodes | any(.name == "visual-ok")' <<<"$state" >/dev/null ||
+    { echo "PR $pr has no visual-ok label" >&2; return 1; }
+
+  writers="$(jq -r '
+    ([.commits.nodes[0].commit.committedDate] + [.timelineItems.nodes[] | select(.__typename == "HeadRefForcePushedEvent") | .createdAt] | max) as $after
+    | .timelineItems.nodes[] | select(.__typename == "LabeledEvent" and .label.name == "visual-ok" and .createdAt > $after) | .actor.login' <<<"$state")" ||
+    die "could not read PR $pr's labels"
+  while read -r login; do
+    [ -n "$login" ] || continue
+    permission="$(gh api "repos/$repo/collaborators/$login/permission" --jq .permission)" || die "could not read $login's permission"
+    case "$permission" in admin|maintain|write) echo "signed off by $login"; return 0 ;; esac
+  done <<<"$writers"
+  echo "no writer added visual-ok after $sha was pushed" >&2
+  return 1
 }
 
 case "${1:-}" in
-  ui) shift; cmd_ui "$@" ;;
-  publish) shift; cmd_publish "$@" ;;
-  attach) shift; cmd_attach "$@" ;;
-  signoff) shift; cmd_signoff "$@" ;;
-  gif) shift; cmd_gif "$@" ;;
+  ui) [ $# -eq 2 ] || usage; cmd_ui "$2" ;;
+  attach) [ $# -ge 3 ] || usage; shift; cmd_attach "$@" ;;
+  signoff) [ $# -eq 3 ] || usage; cmd_signoff "$2" "$3" ;;
   *) usage ;;
 esac
