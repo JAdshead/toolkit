@@ -5,14 +5,13 @@
 #
 #   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
 #   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots section
-#   pr-media signoff <pr> <sha>      0: a writer added visual-ok after <sha>'s commit date and any force-push, 1: not signed off
 #
 # Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
-# never reads an error as "not a UI PR" or "not signed off".
+# never reads an error as "not a UI PR".
 set -euo pipefail
 
 die() { echo "pr-media: $*" >&2; exit 2; }
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 ui_files='(^|/)(views|components|templates|layouts|pages|styles|locales|i18n)/|\.(css|scss|sass|less|html|erb|haml|slim|jsx|tsx|vue|svelte|astro|hbs|liquid|twig|njk|svg)$'
 start_marker='<!-- pr-media:start -->'
@@ -87,44 +86,8 @@ cmd_attach() {
   echo "attached to PR $pr at $commit"
 }
 
-cmd_signoff() {
-  local pr="$1" sha="$2" repo state writers login permission
-  repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || die "could not name the repo"
-  [ -n "$repo" ] || die "could not name the repo"
-  # shellcheck disable=SC2016
-  state="$(gh api graphql -F owner="${repo%/*}" -F name="${repo#*/}" -F pr="$pr" -f query='
-    query($owner: String!, $name: String!, $pr: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $pr) {
-      isCrossRepository headRefOid
-      labels(first: 100) { nodes { name } }
-      commits(last: 1) { nodes { commit { committedDate } } }
-      timelineItems(last: 100, itemTypes: [LABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) { nodes {
-        __typename
-        ... on LabeledEvent { createdAt label { name } actor { login } }
-        ... on HeadRefForcePushedEvent { createdAt } } } } } }')" || die "could not read PR $pr"
-  state="$(jq -e '.data.repository.pullRequest' <<<"$state")" || die "could not read PR $pr"
-
-  [ "$(jq -r .headRefOid <<<"$state")" = "$sha" ] || { echo "PR $pr's head is not $sha" >&2; return 1; }
-  [ "$(jq -r .isCrossRepository <<<"$state")" = false ] ||
-    { echo "PR $pr is from a fork, whose author sets the commit dates: the label can't sign it off" >&2; return 1; }
-  jq -e '.labels.nodes | any(.name == "visual-ok")' <<<"$state" >/dev/null ||
-    { echo "PR $pr has no visual-ok label" >&2; return 1; }
-
-  writers="$(jq -r '
-    ([.commits.nodes[0].commit.committedDate] + [.timelineItems.nodes[] | select(.__typename == "HeadRefForcePushedEvent") | .createdAt] | max) as $after
-    | .timelineItems.nodes[] | select(.__typename == "LabeledEvent" and .label.name == "visual-ok" and .createdAt > $after) | .actor.login' <<<"$state")" ||
-    die "could not read PR $pr's labels"
-  while read -r login; do
-    [ -n "$login" ] || continue
-    permission="$(gh api "repos/$repo/collaborators/$login/permission" --jq .permission)" || die "could not read $login's permission"
-    case "$permission" in admin|maintain|write) echo "signed off by $login"; return 0 ;; esac
-  done <<<"$writers"
-  echo "no writer added visual-ok after $sha's commit date and any force-push" >&2
-  return 1
-}
-
 case "${1:-}" in
   ui) [ $# -eq 2 ] || usage; cmd_ui "$2" ;;
   attach) [ $# -ge 3 ] || usage; shift; cmd_attach "$@" ;;
-  signoff) [ $# -eq 3 ] || usage; cmd_signoff "$2" "$3" ;;
   *) usage ;;
 esac

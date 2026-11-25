@@ -128,54 +128,18 @@ for bad in "start with no end" "two sections"; do
   check "and pushes and edits nothing" "yes" "$(unchanged)"
 done
 
+printf 'Fixes it.\n\nCloses #4\n' > "$work/gh/body.txt"
+cp "$work/gh/body.txt" "$work/body.saved"
 FAKE_GH_FAIL="pr edit" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot write the body" "2" "$?"
+check "after the push: the ref moved and the body is unchanged" "yes|yes" \
+  "$([ "$(remote_ref)" != "$second" ] && echo yes || echo no)|$(cmp -s "$work/body.saved" "$work/gh/body.txt" && echo yes || echo no)"
 
 attach "$work/missing.png" >/dev/null 2>&1
 check "attach exits 2 on a missing file" "2" "$?"
 printf 'x' > "$work/has space.png"
 attach "$work/has space.png" >/dev/null 2>&1
 check "attach exits 2 on a file name that would need escaping in a URL" "2" "$?"
-
-# --- signoff ---
-
-# pr_state CROSS LABELS EVENTS: head abc123, committed 2026-11-20T10:00:00Z.
-pr_state() {
-  jq -n --argjson cross "$1" --argjson labels "$2" --argjson events "$3" '{data: {repository: {pullRequest: {
-    isCrossRepository: $cross, headRefOid: "abc123",
-    labels: {nodes: ($labels | map({name: .}))},
-    commits: {nodes: [{commit: {committedDate: "2026-11-20T10:00:00Z"}}]},
-    timelineItems: {nodes: $events}}}}}' > "$work/gh/graphql.json"
-}
-labeled() { printf '{"__typename":"LabeledEvent","createdAt":"%s","label":{"name":"visual-ok"},"actor":{"login":"%s"}}' "$1" "$2"; }
-pushed() { printf '{"__typename":"HeadRefForcePushedEvent","createdAt":"%s"}' "$1"; }
-echo write > "$work/gh/perm-owner"
-echo triage > "$work/gh/perm-helper"
-signoff() { "$media" signoff 5 "${1:-abc123}" >/dev/null 2>&1; echo $?; }
-
-pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
-check "visual-ok added by a writer after the head commit signs off" "0" "$(signoff)"
-check "sign-off is for one head: another sha is not signed off" "1" "$(signoff def456)"
-
-pr_state false '["visual-ok"]' "[$(labeled 2026-11-19T09:00:00Z owner)]"
-check "visual-ok added before the head commit does not sign off" "1" "$(signoff)"
-
-pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner),$(pushed 2026-11-22T09:00:00Z)]"
-check "a force-push after the label voids it" "1" "$(signoff)"
-
-pr_state true '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
-check "the label never signs off a PR from a fork" "1" "$(signoff)"
-
-pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z helper)]"
-check "visual-ok added by someone without write access does not sign off" "1" "$(signoff)"
-
-pr_state false '[]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
-check "a removed visual-ok does not sign off" "1" "$(signoff)"
-
-pr_state false '["visual-ok"]' "[$(labeled 2026-11-21T09:00:00Z owner)]"
-check "signoff exits 2 when gh cannot name the repo" "2" "$(FAKE_GH_FAIL="repo view" signoff)"
-check "signoff exits 2 when the GraphQL query fails" "2" "$(FAKE_GH_FAIL=graphql signoff)"
-check "signoff exits 2 when the permission check fails" "2" "$(FAKE_GH_FAIL=/permission signoff)"
 
 "$media" bogus >/dev/null 2>&1
 check "an unknown command exits 2" "2" "$?"
