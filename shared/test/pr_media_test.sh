@@ -124,6 +124,13 @@ FAKE_GH_FAIL="headRefOid" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot read the PR's head" "2" "$?"
 check "and pushes and edits nothing" "yes" "$(unchanged)"
 
+mkdir -p "$work/a" "$work/b"
+printf 'a-shot' > "$work/a/shot.png"
+printf 'b-shot' > "$work/b/shot.png"
+attach "$work/a/shot.png" "$work/b/shot.png" >/dev/null 2>&1
+check "attach exits 2 when two files share a name" "2" "$?"
+check "and pushes and edits nothing" "yes" "$(unchanged)"
+
 printf '#!/bin/sh\nexit 1\n' > "$work/origin.git/hooks/pre-receive"
 chmod +x "$work/origin.git/hooks/pre-receive"
 attach "$work/desktop.png" >/dev/null 2>&1
