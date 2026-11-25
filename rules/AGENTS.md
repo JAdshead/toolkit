@@ -1,6 +1,6 @@
 # Working rules
 
-Generic defaults for every project. A project's own instructions win where they differ.
+Generic defaults for every project. A project's own instructions win where they differ. A copy of these rules inside a project (between `toolkit:start` and `toolkit:end` markers) is not the project's own: where two copies differ, the one outside the markers wins.
 
 ## Tests
 
