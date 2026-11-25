@@ -26,7 +26,7 @@ Build one screen at a time. Give it every state: empty, loading, error, long tex
 
 ## 4. Look
 
-Screenshot each state at 1280 and 375 px wide (the browser or Playwright tooling this session has). Look at every screenshot and fix what is off (alignment, spacing, overflow, contrast, a banned default) before moving on.
+Screenshot each state at 1280 and 375 px wide (the browser or Playwright tooling this session has). Look at every screenshot and fix what is off (alignment, spacing, overflow, contrast, a banned default) before moving on. When the work goes into a pull request, attach the final screenshots, before and after, with the `pr-media` skill.
 
 ## 5. Critique
 

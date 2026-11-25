@@ -163,7 +163,7 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 
 1. Run the full verify command in the worktree. If it fails, report and ask.
 2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
-3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, and apply the mode's In review operation.
+3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue. If the group touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
 
 ## Phase 7: CI
 

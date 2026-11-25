@@ -89,7 +89,7 @@ git -C <worktree> push -u origin implement/<id>
 gh pr create --title "<concise title>" --body "<body>"
 ```
 
-The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. Then apply the mode's In review operation.
+The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. If the change touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
 
 ## Phase 5: CI loop
 

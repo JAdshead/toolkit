@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Screenshots and video for a pull request, kept on the hidden ref
+# refs/pr-media/<pr> of origin (not a branch or tag, so clones and fetches
+# skip it). Run from a checkout of the PR's repo. See ../SKILL.md.
+#
+#   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
+#   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots
+#                                    section, with a "Head: <sha>" line naming the PR's head
+#
+# Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
+# never reads an error as "not a UI PR".
+set -euo pipefail
+
+die() { echo "pr-media: $*" >&2; exit 2; }
+usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+
+ui_files='(^|/)(views|components|templates|layouts|pages|styles|locales|i18n)/|\.(css|scss|sass|less|html|erb|haml|slim|jsx|tsx|vue|svelte|astro|hbs|liquid|twig|njk|svg)$'
+start_marker='<!-- pr-media:start -->'
+end_marker='<!-- pr-media:end -->'
+
+cmd_ui() {
+  local files matched
+  files="$(gh api --paginate "repos/{owner}/{repo}/pulls/$1/files" --jq '.[].filename')" || die "could not list the files of PR $1"
+  matched="$(grep -E "$ui_files" <<<"$files" || true)"
+  [ -n "$matched" ] || return 1
+  echo "$matched"
+}
+
+cmd_attach() {
+  local pr="$1" repo head body parent="" commit index name blob tree f section
+  shift
+  [ $# -gt 0 ] || usage
+  for f in "$@"; do
+    [ -f "$f" ] || die "no such file: $f"
+    [[ "$(basename "$f")" =~ ^[A-Za-z0-9._-]+$ ]] || die "rename $f to letters, digits, '.', '_' and '-' only"
+  done
+  [ -z "$(for f in "$@"; do basename "$f"; done | sort | uniq -d)" ] || die "two files share a name"
+
+  repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || die "could not name the repo"
+  [ -n "$repo" ] || die "could not name the repo"
+  head="$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" || die "could not read the head of PR $pr"
+  body="$(gh pr view "$pr" --json body --jq .body)" || die "could not read the body of PR $pr"
+  body="$(tr -d '\r' <<<"$body")"
+  [ "$(grep -cxF "$start_marker" <<<"$body")" = "$(grep -cxF "$end_marker" <<<"$body")" ] &&
+    [ "$(grep -cxF "$start_marker" <<<"$body")" -le 1 ] || die "PR $pr's body has unmatched pr-media markers; fix them by hand"
+
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  index="$tmp/index"
+  parent="$(git ls-remote origin "refs/pr-media/$pr")" || die "could not reach origin"
+  parent="${parent%%[[:space:]]*}"
+  if [ -n "$parent" ]; then
+    git fetch -q origin "refs/pr-media/$pr" || die "could not fetch refs/pr-media/$pr"
+  fi
+  for f in "$@"; do
+    name="$(basename "$f")"
+    blob="$(git hash-object -w "$f")" || die "could not store $f"
+    GIT_INDEX_FILE="$index" git update-index --add --cacheinfo "100644,$blob,$name" || die "could not stage $f"
+  done
+  tree="$(GIT_INDEX_FILE="$index" git write-tree)" || die "could not write the tree"
+  if [ -n "$parent" ]; then
+    commit="$(git commit-tree "$tree" -p "$parent" -m "Media for PR $pr")" || die "could not commit the media"
+  else
+    commit="$(git commit-tree "$tree" -m "Media for PR $pr")" || die "could not commit the media"
+  fi
+  [ -n "$commit" ] || die "could not commit the media"
+  git push -q origin "$commit:refs/pr-media/$pr" || die "could not push refs/pr-media/$pr"
+
+  section="$start_marker"$'\n'"## Screenshots"$'\n\n'"Head: $head"$'\n'
+  for f in "$@"; do
+    name="$(basename "$f")"
+    case "$name" in
+      *.mp4|*.webm|*.mov) section+=$'\n'"[$name](https://github.com/$repo/raw/$commit/$name)"$'\n' ;;
+      *) section+=$'\n'"![$name](https://github.com/$repo/raw/$commit/$name)"$'\n' ;;
+    esac
+  done
+  section+="$end_marker"
+  if grep -qxF "$start_marker" <<<"$body"; then
+    {
+      sed "/^$start_marker\$/,\$d" <<<"$body"
+      echo "$section"
+      sed "1,/^$end_marker\$/d" <<<"$body"
+    } > "$tmp/body"
+  else
+    printf '%s\n\n%s\n' "$body" "$section" > "$tmp/body"
+  fi
+  gh pr edit "$pr" --body-file "$tmp/body" >/dev/null || die "could not update the body of PR $pr"
+  echo "attached to PR $pr at $commit"
+}
+
+case "${1:-}" in
+  ui) [ $# -eq 2 ] || usage; cmd_ui "$2" ;;
+  attach) [ $# -ge 3 ] || usage; shift; cmd_attach "$@" ;;
+  *) usage ;;
+esac
