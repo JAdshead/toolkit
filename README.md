@@ -147,6 +147,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `ui-design` | Builds or restyles UI by looking at it: follows `DESIGN.md`, proposes distinct directions, bans AI-default styles, screenshots every state on desktop and mobile, and has a fresh subagent critique them |
 | `ux-crawl` | Exploratory crawl of a running web app with browser automation; reports UX, bugs, accessibility and console errors |
 | `ux-goal` | Judges a running app against one user goal: a fresh subagent with no source code attempts it in a browser, then the run is scored against an observable success state and the shortest path, with friction ranked by cost to the goal |
+| `visual-plan` | Shows plans and decisions as visuals and clickable choices instead of walls of text: shape first, progress map, before and after, one decision at a time, and a quick quiz before approving a plan. Built for readers who can't reliably take in long text, such as people with dyslexia |
 
 In Claude Code they appear as `toolkit:<name>`.
 

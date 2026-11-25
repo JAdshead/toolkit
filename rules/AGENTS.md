@@ -41,3 +41,7 @@ Generic defaults for every project. A project's own instructions win where they 
 ## Terminology
 
 - **When a domain term in a prompt is vague, overloaded, or used differently from the project's glossary, and its meaning would change what you do, use the `glossary` skill** to settle it with the user rather than guessing what they meant.
+
+## Communication
+
+- **Show plans and decisions, don't write them.** Whenever you present a plan, compare options, or need the user to decide or approve, use the `visual-plan` skill: shape first, one decision at a time, clickable choices, and a quick quiz before approving a plan.
