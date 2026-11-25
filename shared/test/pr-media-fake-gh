@@ -2,6 +2,7 @@
 # Stand-in for `gh` in pr_media_test.sh, for PR 5 of acme/app. Reads and
 # writes files in $FAKE_GH_DIR:
 #   files.txt         the PR's changed files, one per line
+#   head.txt          the PR's head commit
 #   body.txt          the PR body, returned as is (the test stores it with CRLF, as GitHub does)
 # Any call whose arguments contain $FAKE_GH_FAIL fails, as a network error would.
 set -euo pipefail
@@ -16,6 +17,7 @@ case "$*" in
   "repo view --json nameWithOwner --jq .nameWithOwner") echo "acme/app" ;;
   "api --paginate repos/{owner}/{repo}/pulls/5/files --jq .[].filename") cat "$dir/files.txt" ;;
   "pr view 5 --json body --jq .body") cat "$dir/body.txt"; echo ;;
+  "pr view 5 --json headRefOid --jq .headRefOid") cat "$dir/head.txt" ;;
   "pr edit 5 --body-file "*) cp "$5" "$dir/body.txt" ;;
   *) echo "fake-gh: unexpected call: $*" >&2; exit 64 ;;
 esac

@@ -56,6 +56,7 @@ printf 'gif-two' > "$work/flow.gif"
 printf 'webm-three' > "$work/flow.webm"
 printf 'png-four' > "$work/mobile.png"
 printf 'Fixes the card.\r\n\r\nCloses #4\r\n' > "$work/gh/body.txt"
+echo 1111111111111111111111111111111111111111 > "$work/gh/head.txt"
 remote_ref() { git -C "$work/clone" ls-remote origin refs/pr-media/5 | cut -f1; }
 attach() { (cd "$work/clone" && "$media" attach 5 "$@"); }
 
@@ -79,16 +80,25 @@ check "a GIF renders inline" "yes" \
   "$(grep -qF "![flow.gif](https://github.com/acme/app/raw/$first/flow.gif)" <<<"$body" && echo yes || echo no)"
 check "a video is a link beside it, not an image" "yes|no" \
   "$(grep -qF "[flow.webm](https://github.com/acme/app/raw/$first/flow.webm)" <<<"$body" && echo yes || echo no)|$(grep -qF "![flow.webm]" <<<"$body" && echo yes || echo no)"
+check "the section names the PR head it was attached at" "yes" \
+  "$(grep -qxF "Head: 1111111111111111111111111111111111111111" <<<"$body" && echo yes || echo no)"
 
 # GitHub returns bodies with CRLF line ends; the section must still be found.
+# From a checkout that never fetched the ref, so the previous publish must be
+# fetched before chaining on it. --no-local copies objects instead of
+# hardlinking them, so the first publish is not already there.
 sed 's/$/\r/' "$work/gh/body.txt" > "$work/crlf" && mv "$work/crlf" "$work/gh/body.txt"
-attach "$work/mobile.png" >/dev/null 2>&1
-check "a second attach succeeds" "0" "$?"
+echo 2222222222222222222222222222222222222222 > "$work/gh/head.txt"
+git clone -q --no-local "$work/origin.git" "$work/other" 2>/dev/null
+(cd "$work/other" && "$media" attach 5 "$work/mobile.png") >/dev/null 2>&1
+check "a second attach from another clone succeeds" "0" "$?"
 second="$(remote_ref)"
 git -C "$work/clone" fetch -q origin refs/pr-media/5
 check "a second publish is chained on the first, so its links keep working" "$first" \
   "$(git -C "$work/clone" rev-parse "$second^")"
 body="$(cat "$work/gh/body.txt")"
+check "the section names the new head, not the old" "1|0" \
+  "$(grep -cxF "Head: 2222222222222222222222222222222222222222" <<<"$body")|$(grep -c "1111111111111111111111111111111111111111" <<<"$body")"
 check "a second attach replaces the section in a CRLF body instead of adding one" "1" \
   "$(grep -c "^## Screenshots" <<<"$body")"
 check "the section now shows the new file" "yes|no" \
@@ -106,8 +116,12 @@ FAKE_GH_FAIL="repo view" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot name the repo" "2" "$?"
 check "and pushes and edits nothing" "yes" "$(unchanged)"
 
-FAKE_GH_FAIL="pr view" attach "$work/desktop.png" >/dev/null 2>&1
+FAKE_GH_FAIL="json body" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot read the body" "2" "$?"
+check "and pushes and edits nothing" "yes" "$(unchanged)"
+
+FAKE_GH_FAIL="headRefOid" attach "$work/desktop.png" >/dev/null 2>&1
+check "attach exits 2 when gh cannot read the PR's head" "2" "$?"
 check "and pushes and edits nothing" "yes" "$(unchanged)"
 
 printf '#!/bin/sh\nexit 1\n' > "$work/origin.git/hooks/pre-receive"

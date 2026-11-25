@@ -4,14 +4,15 @@
 # skip it). Run from a checkout of the PR's repo. See ../SKILL.md.
 #
 #   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
-#   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots section
+#   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots
+#                                    section, with a "Head: <sha>" line naming the PR's head
 #
 # Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
 # never reads an error as "not a UI PR".
 set -euo pipefail
 
 die() { echo "pr-media: $*" >&2; exit 2; }
-usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 ui_files='(^|/)(views|components|templates|layouts|pages|styles|locales|i18n)/|\.(css|scss|sass|less|html|erb|haml|slim|jsx|tsx|vue|svelte|astro|hbs|liquid|twig|njk|svg)$'
 start_marker='<!-- pr-media:start -->'
@@ -26,7 +27,7 @@ cmd_ui() {
 }
 
 cmd_attach() {
-  local pr="$1" repo body parent="" commit index name blob tree f section
+  local pr="$1" repo head body parent="" commit index name blob tree f section
   shift
   [ $# -gt 0 ] || usage
   for f in "$@"; do
@@ -37,6 +38,7 @@ cmd_attach() {
 
   repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)" || die "could not name the repo"
   [ -n "$repo" ] || die "could not name the repo"
+  head="$(gh pr view "$pr" --json headRefOid --jq .headRefOid)" || die "could not read the head of PR $pr"
   body="$(gh pr view "$pr" --json body --jq .body)" || die "could not read the body of PR $pr"
   body="$(tr -d '\r' <<<"$body")"
   [ "$(grep -cxF "$start_marker" <<<"$body")" = "$(grep -cxF "$end_marker" <<<"$body")" ] &&
@@ -64,7 +66,7 @@ cmd_attach() {
   [ -n "$commit" ] || die "could not commit the media"
   git push -q origin "$commit:refs/pr-media/$pr" || die "could not push refs/pr-media/$pr"
 
-  section="$start_marker"$'\n'"## Screenshots"$'\n'
+  section="$start_marker"$'\n'"## Screenshots"$'\n\n'"Head: $head"$'\n'
   for f in "$@"; do
     name="$(basename "$f")"
     case "$name" in

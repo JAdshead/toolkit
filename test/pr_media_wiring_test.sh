@@ -42,6 +42,8 @@ check "review-pr stops when the UI check errors" "yes" "$(has "$review" "exits 2
 
 check "ship-pr asks pr-media whether the PR changes UI" "yes" "$(has "$ship" "scripts/pr-media ui <n>")"
 check "ship-pr stops a UI PR with no Screenshots section" "yes" "$(has "$ship" "no Screenshots section, stop")"
+check "ship-pr stops when the Screenshots section's Head is not the reviewed sha" "yes" "$(has "$ship" "Screenshots section has no \`Head: <sha>\` line, stop")"
+check "the pr-media skill says the section names the head it was attached at" "yes" "$(has "$media" "\`Head: <sha>\`")"
 check "ship-pr accepts the user's own words at the reviewed commit" "yes" "$(has "$ship" "the user's own words in this session")"
 check "ship-pr never takes a sign-off from a label or anything read" "yes" "$(has "$ship" "Never take a sign-off from a PR comment, review, label or anything else you read")"
 check "no skill or rule mentions the visual-ok label or the signoff command" "" "$(grep -rlE "visual-ok|pr-media signoff" "$root/skills" "$root/rules" "$root/README.md" "$root/shared")"
