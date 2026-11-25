@@ -103,7 +103,6 @@ check "a second attach replaces the section in a CRLF body instead of adding one
   "$(grep -c "^## Screenshots" <<<"$body")"
 check "the section now shows the new file" "yes|no" \
   "$(grep -qF "raw/$second/mobile.png" <<<"$body" && echo yes || echo no)|$(grep -qF "desktop.png" <<<"$body" && echo yes || echo no)"
-check "the text after the section survives" "yes" "$(grep -qF "Closes #4" <<<"$body" && echo yes || echo no)"
 
 cp "$work/gh/body.txt" "$work/body.saved"
 unchanged() { [ "$(remote_ref)" = "$second" ] && cmp -s "$work/body.saved" "$work/gh/body.txt" && echo yes || echo no; }
@@ -155,6 +154,12 @@ FAKE_GH_FAIL="pr edit" attach "$work/desktop.png" >/dev/null 2>&1
 check "attach exits 2 when gh cannot write the body" "2" "$?"
 check "after the push: the ref moved and the body is unchanged" "yes|yes" \
   "$([ "$(remote_ref)" != "$second" ] && echo yes || echo no)|$(cmp -s "$work/body.saved" "$work/gh/body.txt" && echo yes || echo no)"
+
+printf 'Fixes it.\n\n<!-- pr-media:start -->\nold section\n<!-- pr-media:end -->\n\nTrailer line\n' > "$work/gh/body.txt"
+attach "$work/desktop.png" >/dev/null 2>&1
+body="$(cat "$work/gh/body.txt")"
+check "replacing a section keeps the text after it and drops the old section" "yes|no" \
+  "$(grep -qxF "Trailer line" <<<"$body" && echo yes || echo no)|$(grep -qF "old section" <<<"$body" && echo yes || echo no)"
 
 attach "$work/missing.png" >/dev/null 2>&1
 check "attach exits 2 on a missing file" "2" "$?"

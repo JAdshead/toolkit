@@ -44,7 +44,7 @@ scripts/pr-media attach <pr> <file>...
 
 It publishes the files to `refs/pr-media/<pr>` and writes them, in the order given, into the PR body's Screenshots section, replacing the one an earlier attach wrote. Images and GIFs render inline; a video is a link, so pass each GIF before its video. The section opens with a `Head: <sha>` line naming the PR's head at the time of the attach, and `ship-pr` asks for sign-off only when that is the reviewed `<sha>`, so after any new commit, capture and attach again. Any error exits 2 and leaves the body as it was; report it.
 
-The ref stays after merge, so the merged PR keeps its pictures. To reclaim the space, `git push origin --delete refs/pr-media/<pr>`; its links then break.
+The ref stays after merge, so the merged PR keeps its pictures. Deleting it with `git push origin --delete refs/pr-media/<pr>` frees the ref, but the files may stay reachable by commit SHA until GitHub garbage-collects them (GitHub Support can purge them sooner), so captures must never show real secrets or personal data.
 
 ## 4. Visual sign-off
 
