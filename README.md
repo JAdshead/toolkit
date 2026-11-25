@@ -87,7 +87,7 @@ In Claude Code 2.1.275 or later:
 
 On earlier versions, `/plugin marketplace add JAdshead/toolkit`, then `/plugin install toolkit@toolkit`.
 
-The plugin's SessionStart hook ([`hooks/session-start`](hooks/session-start)) adds the shared rules to each session, so plugin-only users get them too. It stays silent when the rules already reach the session: the repo's `CLAUDE.md` has a `toolkit init` block or imports (or links to) an `AGENTS.md` that has one, or `~/.claude/CLAUDE.md` is the rules file from step 1 (a link or a copy).
+The plugin's SessionStart hook ([`hooks/session-start`](hooks/session-start)) adds the shared rules to each session, so plugin-only users get them too. It stays silent when the current rules already reach the session: the repo's `CLAUDE.md` has a `toolkit init` block that matches `rules/AGENTS.md`, or imports (or links to) an `AGENTS.md` that has one, or `~/.claude/CLAUDE.md` is the rules file from step 1 (a link or a copy). When the project's block differs from `rules/AGENTS.md`, the hook notes that the block is out of date and that re-running `toolkit init` updates it, and adds the rules unless `~/.claude/CLAUDE.md` is the rules file.
 
 ### Check it worked
 

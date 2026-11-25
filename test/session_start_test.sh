@@ -93,7 +93,7 @@ printf 'see <!-- toolkit:start --> in prose\n' > "$work/project/AGENTS.md"
 check "a marker mentioned inside prose does not count: the hook adds the rules" "yes" "$(mentions_rules)"
 
 fresh
-printf '%s\n' "$current_block" | sed 's/^\(<!-- toolkit:\(start\|end\) -->\)$/  \1/; s/$/\r/' > "$work/project/AGENTS.md"
+printf '%s\n' "$current_block" | sed -E 's/^(<!-- toolkit:(start|end) -->)$/  \1/; s/$/\r/' > "$work/project/AGENTS.md"
 printf '@AGENTS.md\r\n' > "$work/project/CLAUDE.md"
 check "an indented CRLF block imported with a CRLF line counts: silent" "" "$(run)"
 
