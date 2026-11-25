@@ -45,6 +45,8 @@ check "ui-design names screenshots so pr-media can attach them" "yes" \
   "$(has "$(skill ui-design)" "<screen>.after.<desktop|mobile>.png")"
 
 check "ship-pr detects a UI PR" "yes" "$(has "$ship" "scripts/pr-media ui <n>")"
+check "ship-pr stops when it can't tell whether a PR changes the UI" "yes" "$(has "$ship" "exits anything but 0 or 1, it couldn't tell, so stop")"
+check "review-pr says when it can't tell whether a PR changes the UI" "yes" "$(has "$review" "exits anything but 0 or 1, say it couldn't tell")"
 check "ship-pr checks the owner's sign-off" "yes" "$(has "$ship" "scripts/pr-media signoff <n>")"
 check "ship-pr waits for sign-off rather than merging" "yes" "$(has "$ship" "waiting for visual sign-off")"
 check "ship-pr never signs off itself" "yes" "$(has "$ship" "Never add the sign-off label yourself")"

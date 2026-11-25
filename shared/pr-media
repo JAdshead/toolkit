@@ -4,11 +4,12 @@
 # PR, stay as private as the repo, and never reach the code history or a
 # clone. See the pr-media skill.
 #
-#   pr-media ui <pr>              exit 0 if the PR changes the UI, listing why; 1 if not
+#   pr-media ui <pr>              exit 0 if the PR changes the UI, listing why; 1 if not; 2 if it can't tell
 #   pr-media publish <pr> <dir>   push <dir>'s files to refs/pr-media/<pr>, print the Screenshots section
 #   pr-media attach <pr> <dir>    publish, then put the section in the PR body (replacing an earlier one)
 #   pr-media signoff <pr>         exit 0 if the owner signed off: the label is on the PR, was added by
-#                                 someone with write access, after the head commit and any force-push
+#                                 someone with write access, after the head commit and any force-push;
+#                                 never on a PR from a fork, whose author sets its commit dates
 #   pr-media gif <video> <gif>    turn a recording into a GIF that plays inline (needs ffmpeg)
 #
 # File names in <dir> (letters, digits, . _ - only; no folders):
@@ -17,10 +18,11 @@
 #   anything else                                                      shown as an image, or linked
 # PR_MEDIA_REMOTE (default origin) is the remote to push to.
 # PR_MEDIA_SIGNOFF_LABEL (default visual-ok) is the sign-off label.
+# Any error exits 2.
 set -euo pipefail
 
-die() { echo "pr-media: $*" >&2; exit 1; }
-usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 1; }
+die() { echo "pr-media: $*" >&2; exit 2; }
+usage() { sed -n '/^[^#]/q;2,$p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 start_marker="<!-- pr-media:start -->"
 end_marker="<!-- pr-media:end -->"
@@ -44,12 +46,14 @@ is_ui_path() {
 }
 
 cmd_ui() {
-  local pr found=1 path
+  local pr found=1 path files body
   pr="$(pr_number "${1:-}")"
+  files="$(gh pr diff "$pr" --name-only)" || die "could not list the files of #$pr"
+  body="$(gh pr view "$pr" --json body --jq .body)" || die "could not read the body of #$pr"
   while IFS= read -r path; do
     [ -n "$path" ] && is_ui_path "$path" && { echo "$path"; found=0; }
-  done < <(gh pr diff "$pr" --name-only)
-  if [ "$found" -ne 0 ] && gh pr view "$pr" --json body --jq .body | grep -qF "$start_marker"; then
+  done <<<"$files"
+  if [ "$found" -ne 0 ] && grep -qF "$start_marker" <<<"$body"; then
     echo "(the PR body has a Screenshots section)"; found=0
   fi
   return "$found"
@@ -192,7 +196,7 @@ cmd_signoff() {
   json="$(gh api graphql -F owner="${repo%%/*}" -F name="${repo#*/}" -F number="$pr" -f query='
     query($owner: String!, $name: String!, $number: Int!) {
       repository(owner: $owner, name: $name) { pullRequest(number: $number) {
-        headRefOid
+        headRefOid isCrossRepository
         labels(first: 100) { nodes { name } }
         commits(last: 1) { nodes { commit { oid committedDate } } }
         timelineItems(last: 100, itemTypes: [LABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) { nodes {
@@ -208,7 +212,8 @@ cmd_signoff() {
         | max_by(.createdAt)) as $signed
     | ([$p.timelineItems.nodes[] | select(.__typename == "HeadRefForcePushedEvent") | .createdAt] | max) as $forced
     | $p.commits.nodes[-1].commit.committedDate as $committed
-    | if $p.commits.nodes[-1].commit.oid != $p.headRefOid then "no: could not find the head commit; try again"
+    | if $p.isCrossRepository then "no: this PR is from a fork, whose author sets its commit dates, so a label cannot date the sign-off; the owner signs off in the session"
+      elif $p.commits.nodes[-1].commit.oid != $p.headRefOid then "no: could not find the head commit; try again"
       elif ([$p.labels.nodes[].name] | index($l)) == null then "no: the PR has no \($l) label"
       elif $signed == null then "no: no record of who added \($l)"
       elif $signed.createdAt <= $committed then "no: \($l) was added before the latest commit; the owner must look again and re-add it"

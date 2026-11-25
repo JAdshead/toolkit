@@ -5,9 +5,14 @@
 #   body           the PR body (pr edit --body-file rewrites it)
 #   pr.json        the GraphQL answer for the sign-off query
 #   perm-<login>   that user's permission on the repo (default: read)
+#   fail           calls to refuse, one "<command> <subcommand>" per line (e.g. "pr diff")
 set -euo pipefail
 
 dir="${FAKE_GH_DIR:?}"
+
+if [ -f "$dir/fail" ] && grep -qxF "$1 $2" "$dir/fail"; then
+  echo "fake-gh: HTTP 406: the diff is too large" >&2; exit 1
+fi
 
 case "$1 $2" in
   "repo view") echo "acme/app" ;;

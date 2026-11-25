@@ -59,6 +59,14 @@ ui_files app/models/booking.rb
 printf 'Summary\n\n<!-- pr-media:start -->\n## Screenshots\n<!-- pr-media:end -->\n' > "$FAKE_GH_DIR/body"
 check "a PR that carries a Screenshots section is a UI PR" 0 "$(status_of "$media" ui 7)"
 
+ui_files app/models/booking.rb
+for call in "pr diff" "pr view"; do
+  echo "$call" > "$FAKE_GH_DIR/fail"
+  check "ui exits 2, not 1 (no UI), when gh $call fails" 2 "$(status_of "$media" ui 7)"
+done
+rm -f "$FAKE_GH_DIR/fail"
+check "ui exits 2 on a PR that isn't a number" 2 "$(status_of "$media" ui x)"
+
 # --- publish: media on a hidden ref, never on a branch ---
 
 shots="$work/shots"
@@ -112,10 +120,10 @@ check "a second publish holds only the new files" "no" \
 mkdir -p "$work/bad1" "$work/bad2/sub" "$work/empty"
 echo x > "$work/bad1/has space.png"
 echo x > "$work/bad2/sub/a.png"
-check "publish refuses a file name it can't put in a URL as is" 1 "$(status_of "$media" publish 7 "$work/bad1")"
-check "publish refuses a folder inside the media folder" 1 "$(status_of "$media" publish 7 "$work/bad2")"
-check "publish refuses an empty folder" 1 "$(status_of "$media" publish 7 "$work/empty")"
-check "publish refuses a PR that isn't a number" 1 "$(status_of "$media" publish x "$shots")"
+check "publish refuses a file name it can't put in a URL as is" 2 "$(status_of "$media" publish 7 "$work/bad1")"
+check "publish refuses a folder inside the media folder" 2 "$(status_of "$media" publish 7 "$work/bad2")"
+check "publish refuses an empty folder" 2 "$(status_of "$media" publish 7 "$work/empty")"
+check "publish refuses a PR that isn't a number" 2 "$(status_of "$media" publish x "$shots")"
 
 # --- attach: the section goes in the PR body, once ---
 
@@ -135,7 +143,7 @@ check "attaching again keeps the text after the section" "yes" \
      "$media" attach 7 "$shots" >/dev/null 2>&1; contains "$(cat "$FAKE_GH_DIR/body")" "Tail")"
 check "the old section is gone" "no" "$(contains "$(cat "$FAKE_GH_DIR/body")" "old")"
 printf 'Intro\n\n<!-- pr-media:start -->\nhalf\n\nTail\n' > "$FAKE_GH_DIR/body"
-check "attach refuses a body whose section has no end marker" 1 "$(status_of "$media" attach 7 "$shots")"
+check "attach refuses a body whose section has no end marker" 2 "$(status_of "$media" attach 7 "$shots")"
 before_refused="$(git ls-remote origin refs/pr-media/7 | cut -f1)"
 "$media" attach 7 "$shots" >/dev/null 2>&1
 check "and pushes nothing" "$before_refused" "$(git ls-remote origin refs/pr-media/7 | cut -f1)"
@@ -143,9 +151,9 @@ check "and leaves that body alone" "yes" "$(contains "$(cat "$FAKE_GH_DIR/body")
 
 # --- signoff: the owner's label, applied after the latest push ---
 
-pr_json() { # labels-json timeline-json
+pr_json() { # labels-json timeline-json [is-cross-repository]
   cat > "$FAKE_GH_DIR/pr.json" <<JSON
-{"data":{"repository":{"pullRequest":{"headRefOid":"abc",
+{"data":{"repository":{"pullRequest":{"headRefOid":"abc","isCrossRepository":${3:-false},
  "labels":{"nodes":$1},
  "commits":{"nodes":[{"commit":{"oid":"abc","committedDate":"2026-11-20T10:00:00Z"}}]},
  "timelineItems":{"nodes":$2}}}}}
@@ -179,6 +187,9 @@ check "PR_MEDIA_SIGNOFF_LABEL names the label" 0 "$(PR_MEDIA_SIGNOFF_LABEL=looks
 pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner)]"
 sed -i.bak 's/"headRefOid":"abc"/"headRefOid":"def"/' "$FAKE_GH_DIR/pr.json"
 check "a head that isn't the last listed commit does not" 1 "$(status_of "$media" signoff 7)"
+pr_json '[{"name":"visual-ok"}]' "[$(labeled 2026-11-20T11:00:00Z owner)]" true
+check "a label on a fork's PR does not, since the fork sets its commit dates" 1 "$(status_of "$media" signoff 7)"
+check "it says to sign off in the session" "yes" "$(contains "$("$media" signoff 7 2>&1)" "in the session")"
 pr_json '[]' '[]'
 check "no label does not" 1 "$(status_of "$media" signoff 7)"
 
