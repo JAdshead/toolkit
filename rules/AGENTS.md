@@ -37,6 +37,7 @@ Generic defaults for every project. A project's own instructions win where they 
 ## UI
 
 - **Never call UI work done without seeing it.** Use the `ui-design` skill to screenshot every UI change, and to critique all but small changes inside an existing look (setting a new look's direction first).
+- **A pull request that changes the UI shows it, and waits for its owner.** Attach screenshots of each changed screen, before and after on desktop and mobile, and a GIF of each changed interaction, with the `pr-media` skill. Merge it only after the owner's visual sign-off; never give that sign-off yourself.
 
 ## Terminology
 

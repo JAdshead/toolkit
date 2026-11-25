@@ -26,7 +26,7 @@ Build one screen at a time. Give it every state: empty, loading, error, long tex
 
 ## 4. Look
 
-Screenshot each state at 1280 and 375 px wide (the browser or Playwright tooling this session has). Look at every screenshot and fix what is off (alignment, spacing, overflow, contrast, a banned default) before moving on.
+Screenshot each state at 1280 and 375 px wide (the browser or Playwright tooling this session has). Look at every screenshot and fix what is off (alignment, spacing, overflow, contrast, a banned default) before moving on. Name the final ones `<screen>.after.<desktop|mobile>.png` in one folder, so the `pr-media` skill can attach them to the PR.
 
 ## 5. Critique
 
