@@ -35,8 +35,6 @@ Use the richest surface the agent has, in this order:
 3. **A page** (an Artifact or one HTML file) only when the plan is too big for inline.
 4. **no widget available**: draw it in text. A Mermaid diagram, an ASCII flow, a markdown table, and numbered options the user can answer with one digit.
 
-For which diagram fits which idea (call trees, file trees, diffs, sequence diagrams), follow the `show-me` skill's formats.
-
 ## Keep improving
 
 This is tuned to one reader and is meant to change. When the user says a visual was hard to follow, ask one clickable question about what went wrong, fix it now, and suggest the change to this skill.

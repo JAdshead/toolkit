@@ -32,7 +32,7 @@ check "a quiz card checks the plan landed before approval" "yes" "$(has "$skill"
 check "a progress map shows where we are" "yes" "$(has "$skill" "you are here")"
 check "text is capped by structure, not a line count" "yes" "$(has "$skill" "one topic")"
 check "it falls back to text visuals where widgets are unavailable" "yes" "$(has "$skill" "no widget")"
-check "it points to show-me for diagram formats" "yes" "$(has "$skill" "\`show-me\`")"
+check "it does not point to show-me, which agents cannot load" "no" "$(has "$skill" "show-me")"
 
 rules="$root/rules/AGENTS.md"
 check "the shared rules send plans and decisions to visual-plan" "yes" "$(has "$rules" "\`visual-plan\` skill")"
