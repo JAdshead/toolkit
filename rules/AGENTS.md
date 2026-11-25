@@ -44,4 +44,4 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Communication
 
-- **Show plans and decisions, don't write them.** Whenever you present a plan, compare options, or need the user to decide or approve, use the `visual-plan` skill: shape first, one decision at a time, clickable choices, and a quick quiz before approval.
+- **Show plans and decisions, don't write them.** Whenever you present a plan, compare options, or need the user to decide or approve, use the `visual-plan` skill: shape first, one decision at a time, clickable choices, and a quick quiz before approving a plan.
