@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Claude Code SessionStart hook: add the toolkit's working rules to the session
 # unless they already reach it, through the project's toolkit block (toolkit
-# init) or a global CLAUDE.md that is the rules file (install.sh). Its output
-# becomes session context.
+# init) or a global CLAUDE.md that is the rules file (install.sh). When the
+# project's block differs from these rules, it also says so and how to update
+# it. Its output becomes session context.
 set -uo pipefail
 
 root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
@@ -16,10 +17,29 @@ project="${CLAUDE_PROJECT_DIR:-$PWD}"
 # it reaches Claude Code.
 has_block() { [ -f "$1" ] && grep -qE '^[[:space:]]*<!-- toolkit:start -->[[:space:]]*$' "$1"; }
 claude="$project/CLAUDE.md"
-has_block "$claude" && exit 0
-if has_block "$project/AGENTS.md" && [ -f "$claude" ] &&
+block_file=""
+if has_block "$claude"; then
+  block_file="$claude"
+elif has_block "$project/AGENTS.md" && [ -f "$claude" ] &&
   { [ "$claude" -ef "$project/AGENTS.md" ] || grep -qE '^[[:space:]]*@(\./)?AGENTS\.md[[:space:]]*$' "$claude"; }; then
-  exit 0
+  block_file="$project/AGENTS.md"
+fi
+
+# The rules inside the block, as toolkit init wrote them: line endings and the
+# markers' indentation normalised, the managed-by note left out.
+block_rules() {
+  LC_ALL=C awk '
+    { k = $0; sub(/\r$/, "", k); t = k; gsub(/^[ \t]+|[ \t]+$/, "", t) }
+    t == "<!-- toolkit:start -->" { on = 1; next }
+    t == "<!-- toolkit:end -->" { exit }
+    on && !seen++ && t ~ /^<!-- Managed by / { next }
+    on { print k }
+  ' "$1"
+}
+
+if [ -n "$block_file" ]; then
+  [ "$(block_rules "$block_file")" = "$(sed 's/^#/##/' "$rules")" ] && exit 0
+  echo "This project's toolkit rules block (between the toolkit:start and toolkit:end markers in $(basename "$block_file")) differs from the toolkit plugin's rules. Tell the user: if their toolkit is up to date, re-running \`toolkit init\` in this project updates the block."
 fi
 
 # install.sh links ~/.claude/CLAUDE.md to some checkout's rules/AGENTS.md,
@@ -29,6 +49,7 @@ global="$HOME/.claude/CLAUDE.md"
 cmp -s "$global" "$rules" && exit 0
 case "$(readlink "$global" 2>/dev/null)" in */rules/AGENTS.md) exit 0 ;; esac
 
+[ -n "$block_file" ] && echo
 echo "The toolkit plugin's working rules apply in this session:"
 echo
 cat "$rules"

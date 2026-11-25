@@ -37,13 +37,20 @@ check "the hook exits cleanly" "0" "$(run >/dev/null; echo $?)"
 
 block='x\n<!-- toolkit:start -->\nrules\n<!-- toolkit:end -->\n'
 
+# A block exactly as `toolkit init` writes it today, and one that has fallen behind.
+mkdir -p "$work/gen"
+"$root/bin/toolkit" init "$work/gen" >/dev/null
+current_block="$(awk '/<!-- toolkit:start -->/{on=1} on{print} /<!-- toolkit:end -->/{on=0}' "$work/gen/AGENTS.md")"
+stale_block="$(printf '%s\n' "$current_block" | sed 's/^- \*\*Test first\.\*\*.*/- **Test first.** An older wording./')"
+says_stale() { local out; out="$(run)"; if grep -qF 'toolkit init' <<<"$out"; then echo yes; else echo no; fi; }
+
 fresh
-printf '%b' "$block" > "$work/project/AGENTS.md"
+printf 'x\n%s\n' "$current_block" > "$work/project/AGENTS.md"
 printf '# Notes\n@AGENTS.md\n' > "$work/project/CLAUDE.md"
 check "project AGENTS.md has the block and CLAUDE.md imports it: silent" "" "$(run)"
 
 fresh
-printf '%b' "$block" > "$work/project/AGENTS.md"
+printf 'x\n%s\n' "$current_block" > "$work/project/AGENTS.md"
 ln -s AGENTS.md "$work/project/CLAUDE.md"
 check "project AGENTS.md has the block and CLAUDE.md links to it: silent" "" "$(run)"
 
@@ -57,7 +64,7 @@ printf '# Notes\n@AGENTS.md.old\n' > "$work/project/CLAUDE.md"
 check "project AGENTS.md has the block but CLAUDE.md does not import it: the hook adds the rules" "yes" "$(mentions_rules)"
 
 fresh
-printf '<!-- toolkit:start -->\nrules\n<!-- toolkit:end -->\n' > "$work/project/CLAUDE.md"
+printf '%s\n' "$current_block" > "$work/project/CLAUDE.md"
 check "project CLAUDE.md has the block: silent" "" "$(run)"
 
 fresh
@@ -86,9 +93,26 @@ printf 'see <!-- toolkit:start --> in prose\n' > "$work/project/AGENTS.md"
 check "a marker mentioned inside prose does not count: the hook adds the rules" "yes" "$(mentions_rules)"
 
 fresh
-printf '  <!-- toolkit:start -->\r\nrules\r\n  <!-- toolkit:end -->\r\n' > "$work/project/AGENTS.md"
+printf '%s\n' "$current_block" | sed 's/^\(<!-- toolkit:\(start\|end\) -->\)$/  \1/; s/$/\r/' > "$work/project/AGENTS.md"
 printf '@AGENTS.md\r\n' > "$work/project/CLAUDE.md"
 check "an indented CRLF block imported with a CRLF line counts: silent" "" "$(run)"
+
+fresh
+printf 'x\n%s\n' "$stale_block" > "$work/project/AGENTS.md"
+printf '@AGENTS.md\n' > "$work/project/CLAUDE.md"
+mkdir -p "$work/home/.claude"
+ln -s "$root/rules/AGENTS.md" "$work/home/.claude/CLAUDE.md"
+check "an imported block that differs from the rules: the hook says to re-run toolkit init" "yes" "$(says_stale)"
+check "a stale block with the rules loaded globally: the hook does not repeat the rules" "no" "$(mentions_rules)"
+
+fresh
+printf '%s\n' "$stale_block" > "$work/project/CLAUDE.md"
+check "a stale block in CLAUDE.md: the hook says to re-run toolkit init" "yes" "$(says_stale)"
+check "a stale block and no global rules: the hook adds the current rules" "yes" "$(mentions_rules)"
+
+fresh
+printf 'x\n%s\n' "$stale_block" > "$work/project/AGENTS.md"
+check "a stale block that does not reach Claude Code: no note about it" "no" "$(says_stale)"
 
 fresh
 mkdir -p "$work/plugin"
