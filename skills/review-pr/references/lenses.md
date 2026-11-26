@@ -44,4 +44,6 @@ FINDINGS:
 SUMMARY: one or two sentences.
 ```
 
+Write your output to the file your prompt names, then reply with only its VERDICT line. If you cannot write files, reply with the whole output instead.
+
 Finding nothing at P1, P2 or UNTRUE is a good outcome. Say so plainly.
