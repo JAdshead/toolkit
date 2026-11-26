@@ -6,13 +6,15 @@
 #   pr-media ui <pr>                 0: the PR changes UI (prints those files), 1: it doesn't
 #   pr-media attach <pr> <file>...   publish the files and show them in the PR body's Screenshots
 #                                    section, with a "Head: <sha>" line naming the PR's head
+#   pr-media capture <spec.json>     screenshot the running app with Playwright and print each
+#                                    file's path; run it where node_modules has playwright
 #
-# Exit codes: 2 on any error (gh or git failed, bad arguments), so a caller
-# never reads an error as "not a UI PR".
+# Exit codes: 2 on any error (gh, git or the capture failed, bad arguments),
+# so a caller never reads an error as "not a UI PR".
 set -euo pipefail
 
 die() { echo "pr-media: $*" >&2; exit 2; }
-usage() { sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 
 ui_files='(^|/)(views|components|templates|layouts|pages|styles|locales|i18n)/|\.(css|scss|sass|less|html|erb|haml|slim|jsx|tsx|vue|svelte|astro|hbs|liquid|twig|njk|svg)$'
 start_marker='<!-- pr-media:start -->'
@@ -88,7 +90,100 @@ cmd_attach() {
   echo "attached to PR $pr at $commit"
 }
 
+cmd_capture() {
+  [ -f "$1" ] || die "no such spec: $1"
+  command -v node >/dev/null || die "capture needs node"
+  node - "$1" <<'JS' || exit 2
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const { createRequire } = require('module');
+
+const STICKY_CSS = '.sticky,.fixed{position:static !important} header{display:none !important}';
+const die = (msg) => { console.error(`pr-media: ${msg}`); process.exit(2); };
+
+function playwright() {
+  const roots = [path.join(process.cwd(), 'noop.js')];
+  try { roots.push(path.join(execSync('npm root -g', { encoding: 'utf8' }).trim(), 'noop.js')); } catch {}
+  for (const root of roots) {
+    for (const name of ['playwright', '@playwright/test', 'playwright-core']) {
+      try { return createRequire(root)(name); } catch {}
+    }
+  }
+  die('capture needs Playwright: run it from a project whose node_modules has playwright');
+}
+
+let spec;
+try { spec = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')); } catch (e) { die(`cannot read ${process.argv[2]}: ${e.message}`); }
+const { baseUrl, out, signIn } = spec;
+const widths = spec.widths || [1280, 375];
+const shots = spec.shots || [];
+if (!baseUrl || !out) die('the spec needs baseUrl and out');
+if (!Array.isArray(shots) || shots.length === 0) die('the spec has no shots');
+for (const shot of shots) {
+  if (!/^[A-Za-z0-9._-]+$/.test(shot.name || '')) die(`name each shot with letters, digits, '.', '_' and '-' only: ${JSON.stringify(shot.name)}`);
+  if (!shot.path) die(`shot ${shot.name} has no path`);
+}
+fs.mkdirSync(out, { recursive: true });
+
+(async () => {
+  const { chromium } = playwright();
+  const browser = await chromium.launch();
+  try {
+    let storageState;
+    if (signIn) {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      page.setDefaultTimeout(15000);
+      await page.goto(new URL(signIn.path, baseUrl).href);
+      for (const selector of signIn.clickFirst || []) await page.click(selector);
+      for (const [selector, value] of Object.entries(signIn.fields || {})) await page.fill(selector, String(value));
+      await page.click(signIn.submit || '[type=submit]');
+      const signInPath = new URL(signIn.path, baseUrl).pathname;
+      try {
+        await page.waitForURL((url) => url.pathname !== signInPath);
+      } catch {
+        die(`sign-in never left ${signIn.path}: check the credentials and the submit selector`);
+      }
+      await page.waitForLoadState('load');
+      storageState = await context.storageState();
+      await context.close();
+    }
+    for (const width of widths) {
+      const context = await browser.newContext({ viewport: { width, height: width < 768 ? 812 : 900 }, storageState });
+      const page = await context.newPage();
+      page.setDefaultTimeout(15000);
+      for (const shot of shots) {
+        await page.goto(new URL(shot.path, baseUrl).href, { waitUntil: 'load' });
+        if (shot.waitFor) await page.locator(shot.waitFor).first().waitFor();
+        if (shot.openDetails !== false) await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
+        if (!shot.keepSticky) await page.addStyleTag({ content: STICKY_CSS });
+        const file = path.join(out, `${shot.name}-${width}.png`);
+        if (shot.crop) {
+          const target = page.locator(`${shot.crop} >> visible=true`).first();
+          try {
+            await target.waitFor({ timeout: 5000 });
+          } catch {
+            die(`shot ${shot.name}: nothing visible matches ${shot.crop} on ${shot.path}`);
+          }
+          await target.screenshot({ path: file });
+        }
+        else await page.screenshot({ path: file, fullPage: shot.fullPage !== false });
+        console.log(file);
+      }
+      await context.close();
+    }
+  } catch (e) {
+    die(`capture failed: ${e.message.split('\n')[0]}`);
+  } finally {
+    await browser.close();
+  }
+})();
+JS
+}
+
 case "${1:-}" in
+  capture) [ $# -eq 2 ] || usage; cmd_capture "$2" ;;
   ui) [ $# -eq 2 ] || usage; cmd_ui "$2" ;;
   attach) [ $# -ge 3 ] || usage; shift; cmd_attach "$@" ;;
   *) usage ;;

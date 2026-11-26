@@ -18,7 +18,8 @@ Take a set of open GitHub issues from "open" to "pull request ready for a human"
 - **Follow the repo's issue-tracking mode.** Simple (plain issues and labels) or project (a GitHub Project board). Find work, Claim, In review, Done and Release are the mode's operations from `references/issue-tracking.md`; settle the mode in Phase 0 from `references/issue-tracking-mode.md`. With Agent claims, those operations go through `scripts/board` under one agent id per PR group.
 - **Trust, but verify.** Every subagent report is checked against `git log` and `git diff` before it counts as done.
 - **Reviews end.** The review loop has a fixed exit rule, not "until nobody has anything to say".
-- **Nothing is pushed, opened, merged or closed without the user's go-ahead.**
+- **Nothing is pushed, opened, merged or closed without the user's go-ahead.** Ask it once per PR group, for everything that group still needs (Phase 6), never one question at a time.
+- **After a compaction, re-read this SKILL.md before the next phase.** A summary drops the rules that keep a run short.
 
 ## Portability
 
@@ -45,7 +46,8 @@ Before touching any issue, read how this project wants work done. Look at, in or
 
 Record:
 - **Issue-tracking mode**: simple or project, settled with `references/issue-tracking-mode.md`, and in project mode the board, its claim style and its Status names.
-- **Verify command**: the lint and test commands the project or CI actually runs. See `references/subagent-templates.md` for detection when nothing is documented.
+- **Verify command** (`VERIFY_CMD`): the lint and test commands the project or CI actually runs, in their parallel form if the project has one. It runs once per group, in Phase 6. See `references/subagent-templates.md` for detection when nothing is documented.
+- **Fast check command** (`FAST_CMD`): the project's lint plus affected-tests command, the one it runs before a push (for example a pre-push hook's `bin/test-fast`). Subagents run this, never the full suite. If the project has none, `FAST_CMD` is the linter plus the test files the change touches.
 - **Conventions**: commit message style, branch naming, test standards, comment rules, design system or UI guide, files never to edit.
 - **Domain reviewers**: any area the project's docs treat as high-risk (payments, auth, data migrations, privacy, legal copy). These become extra reviewers in Phase 5.
 
@@ -122,7 +124,7 @@ If the worktree or branch already exists, ask: resume or recreate. Use the proje
 
 ## Phase 4: Implement (per group)
 
-For each issue in the group, in order, spawn an **implementation subagent** (template in `references/subagent-templates.md`). It works only inside the group's worktree, writes a failing test first (or a named exception's failing check), implements, runs the verify command, checks the real thing, and commits.
+For each issue in the group, in order, spawn an **implementation subagent** (template in `references/subagent-templates.md`). It works only inside the group's worktree, writes a failing test first (or a named exception's failing check), implements, runs the fast check command and its own tests, checks the real thing, and commits.
 
 **After every subagent returns, verify its work yourself:**
 
@@ -149,29 +151,35 @@ Spawn the specialist reviewers in parallel (prompts in `references/review-prompt
 | UX and accessibility | feedback, errors, a11y, design system | only if UI files changed |
 | Domain reviewers | rules from the project's own docs (Phase 0) | when the diff touches that area |
 
+Save each reviewer's output, as returned, to `<scratch>/<group-slug>-lens/<lens>.md` (`correctness`, `security`, `tests`, `simplicity`, `ux`, or `domain-<name>`), with `Reviewed: <sha>` as its first line, where `<sha>` is `git -C "$WT" rev-parse HEAD` when that reviewer started. A rerun overwrites its own file. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice.
+
 Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (a real problem that should be fixed before merge), **P3** (minor, polish, nice to have). Reviewers also flag anything **untrue**: a comment, doc, UI string or PR text that misdescribes the behaviour.
 
 **Exit rule.** The loop ends when a round returns no P1, no P2 and nothing untrue. Then:
-- collect every outstanding P3 from all rounds into **one** follow-up issue (draft it, show the user, create it only on confirmation);
+- collect every outstanding P3 from all rounds into **one** follow-up issue: draft it now, and file it only on the Phase 6 go-ahead;
 - do not keep iterating on P3s.
 
 **Fix rounds.** If any P1/P2 or untrue finding remains: show the findings grouped by reviewer, spawn a **fix subagent** with only those findings, verify its commits as in Phase 4, then re-run only the reviewers that raised them. Before each fix round, check for a shared root cause: if several findings come from one mistake, fix the cause, not each symptom.
 
 **Cap.** After 3 fix rounds with P1/P2 findings still open, stop and ask the user: keep going, push with the known issues listed in the PR, or abandon the group. Escalate immediately on any critical security finding.
 
-## Phase 6: Push and open the PR (with confirmation)
+## Phase 6: Verify once, then one go-ahead
 
-1. Run the full verify command in the worktree. If it fails, report and ask.
-2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
-3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue. If the group touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
+1. **One full run.** Once the review loop has exited, run the full verify command once, through `scripts/run-watched` in this skill's folder, so a hang ends in minutes instead of passing for a slow run:
+   ```bash
+   scripts/run-watched "<scratch>/<group-slug>-verify.log" 20m <max> -- <VERIFY_CMD>
+   ```
+   `20m` kills the run once its log has been silent that long; `<max>` is about three times the project's usual full run, or `3h` if you don't know it. Run it in the background when it is long, and before reporting a background run as still running, check its log's mtime (`find <log> -mmin +20` prints the log only if it has been silent 20 minutes or more): a silent log is a hang, not a slow run, so say so. On exit 124, run-watched killed it (a hang or an overrun, not a test failure): report that with the log's last lines and ask. On any other failure, report the failing tests and ask.
+2. **One combined go-ahead per group.** Ask about each group as soon as it is ready; never hold a finished PR for its sibling. Show the user: branch, commits, diff stat, test result, review summary, the drafted PR title and body (template in `references/subagent-templates.md`) and the drafted P3 follow-up issue. Then ask one combined go-ahead for everything this PR still needs: push the branch, open the PR, file the follow-up issue, run `review-pr`, attach `pr-media` screenshots if it touches UI, and ship it with `ship-pr` on the owner's visual sign-off (a PR with no UI change ships on MERGE and green CI). Offer: all of it; all but shipping (stop at MERGE); or change something first. The answer covers this PR only, and only the steps it names.
+3. **On a yes:** `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, then the mode's In review operation, and file the follow-up issue. If the group touches UI, run the `pr-media` skill as soon as the PR is open, not after review: its capture runs in a subagent that returns file paths, and you attach those. Then Phase 7.
 
-## Phase 7: Review and CI
+## Phase 7: Review, CI and ship
 
-Once the PR is open, hand off to the `review-pr` skill now, for the merge decision; it reads CI when it needs it, as `references/ci-status.md` says. Any further push needs the user's go-ahead again.
+Once the PR is open, hand off to the `review-pr` skill now, for the merge decision, and give it the Phase 5 lens reports in `<scratch>/<group-slug>-lens/`: those whose `Reviewed:` line is the PR's head stand in for its lens reviews. If the go-ahead included shipping, run `ship-pr` on the PR instead, with the same lens reports for its first review; it reviews, fixes, and merges on MERGE, green CI and, for a UI PR, the owner's visual sign-off. `review-pr` and `ship-pr` read CI when they need it, as `references/ci-status.md` says. Any push the go-ahead did not cover needs the user's go-ahead again.
 
 On red CI (unless the host handles CI failures, as that file says), spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
 
-**Never merge** unless the user explicitly asks you to, for that PR.
+**Never merge** unless the user's go-ahead for that PR included shipping it, or they explicitly ask you to.
 
 ## Phase 8: Clean up and report
 
@@ -209,4 +217,5 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 - `references/issue-tracking-mode.md`: which mode the repo is in, simple or project.
 - `references/issue-tracking.md`: each mode's issue operations.
 - `scripts/board`: per-run claims and status moves on a board with an Agent field.
+- `scripts/run-watched`: runs the full verify command and kills it if its log goes silent or it runs too long.
 - `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.

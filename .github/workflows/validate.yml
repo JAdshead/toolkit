@@ -30,12 +30,21 @@ jobs:
           claude plugin validate .
 
       - name: Check shell scripts
-        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared shared/board shared/pr-media shared/test/* hooks/session-start test/*.sh
+        run: shellcheck install.sh bin/toolkit bin/validate-skills bin/sync-shared shared/board shared/pr-media shared/run-watched shared/test/* hooks/session-start test/*.sh
 
       - name: Test shared scripts
         run: |
           shared/test/board_test.sh
           shared/test/pr_media_test.sh
+          shared/test/run_watched_test.sh
+
+      - name: Install Playwright for pr-media capture
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pw" playwright
+          (cd "$RUNNER_TEMP/pw" && npx playwright install --with-deps chromium)
+
+      - name: Test pr-media capture
+        run: PLAYWRIGHT_PROJECT="$RUNNER_TEMP/pw" shared/test/pr_media_capture_test.sh
 
       - name: Test toolkit init, the TDD and UI rules, ux-goal, refine-issues and the SessionStart hook
         run: |
@@ -50,6 +59,7 @@ jobs:
           test/review_cost_test.sh
           test/ci_status_test.sh
           test/pr_media_wiring_test.sh
+          test/batch_flow_test.sh
 
       - name: Test bin/sync-shared
         run: test/sync_shared_test.sh

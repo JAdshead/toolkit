@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Skills read CI only when they need its result, never block reviewers on it,
-# and never poll it when the host watches CI (#65). One shared rule says how.
+# Skills read CI only when they need its result and never block reviewers on
+# it (#65). A step that needs green waits on one background watch, since the
+# host's Auto-fix reports failures but never success. One shared rule says how.
 # Usage: test/ci_status_test.sh
 set -uo pipefail
 
@@ -29,11 +30,18 @@ tackle="$root/skills/tackle-issues/SKILL.md"
 
 # The shared rule.
 check "the CI rule exists" "yes" "$( [ -f "$rule" ] && echo yes || echo no)"
-check "the rule never polls when the host watches CI" "yes" "$(has "$rule" "never use \`--watch\` or poll")"
-check "the rule holds and resumes on the host's report" "yes" "$(has "$rule" "resume when the host reports CI done")"
-check "the rule watches once when nothing else does" "yes" "$(has "$rule" "\`gh pr checks <pr> --watch\` once")"
+# Pending CI holds only the step that needs its result, and Auto-fix never reports success.
+check "pending CI lets a step that says go on go on" "yes" "$(has "$rule" "go on when the step says go on")"
+check "pending CI holds only the step that needs its result" "yes" "$(has "$rule" "hold only the step that needs CI's result")"
+check "the rule says the host reports failures, never success" "yes" "$(has "$rule" "never success")"
+check "a held step runs one background watch" "yes" "$(has "$rule" "\`gh pr checks <pr> --watch --interval 60\`")"
+check "the watch is a single call, not a loop" "yes" "$(has "$rule" "a single call, not a loop")"
+check "the rule no longer waits on the host to report CI done" "no" "$(has "$rule" "resume when the host reports CI done")"
 check "the rule treats no checks as green" "yes" "$(has "$rule" "no checks reported")"
 check "the rule ties CI to the commit it is about" "yes" "$(has "$rule" "headRefOid")"
+for copy in "$root"/skills/*/references/ci-status.md; do
+  check "$(basename "$(dirname "$(dirname "$copy")")") has the shared rule unchanged" "yes" "$(cmp -s "$rule" "$copy" && echo yes || echo no)"
+done
 
 # Every skill that waited on CI now follows the rule instead.
 for f in "$review" "$ship" "$implement" "$tackle"; do
