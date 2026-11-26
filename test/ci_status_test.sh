@@ -49,6 +49,9 @@ check "review-pr no longer restarts a round for a pending check" "no" \
 check "a no-run round still waits for CI, its only evidence" "yes" "$(has "$review" "In a no-run round, CI is the reviewers' evidence")"
 check "review-pr reports red CI as NOT YET" "yes" "$(has "$review" "NOT YET (CI red)")"
 check "review-pr holds MERGE while CI is pending" "yes" "$(has "$review" "hold MERGE until CI is green")"
+# Red CI has no finding to fix: it is reported, never handed to address-review.
+check "review-pr Part 4 acts on NOT YET (CI red) on its own" "yes" "$(has "$review" "**NOT YET (CI red):** there is no finding to fix")"
+check "ship-pr stops on NOT YET (CI red) instead of fixing" "yes" "$(has "$ship" "On NOT YET (CI red), there is no finding to fix")"
 
 # ship-pr still merges only on green CI at the reviewed commit.
 check "ship-pr still treats no checks as green" "yes" "$(has "$ship" "no checks reported")"
