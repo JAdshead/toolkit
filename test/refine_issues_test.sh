@@ -29,6 +29,10 @@ check "a label focus keeps the oldest-first sort" "yes" "$(has "$skill" '--label
 check "the skill no longer sorts by createdAt after fetching" "no" "$(has "$skill" "sort by \`createdAt\`")"
 check "open sub-issues means total greater than completed" "yes" "$(has "$skill" "total > completed")"
 check "a text containing the heredoc delimiter gets another delimiter" "yes" "$(has "$skill" "line that is exactly \`GH_TEXT\`")"
+check "the proposer brief asks for a plain-words summary for a reader who hasn't seen the issue" "yes" "$(has "$skill" "two-sentence plain-words summary")"
+check "Decide shows each issue as its own clickable choice" "yes" "$(has "$skill" "own clickable choice")"
+check "Decide asks one decision per issue" "yes" "$(has "$skill" "one decision per issue")"
+check "Decide no longer shows the batch one line per issue" "no" "$(has "$skill" "one line per issue")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]
