@@ -34,7 +34,7 @@ Reviewers hand their output to each other through files, never through you: you 
    - Add `Do not run the PR's code; rely on CI.` to every reviewer prompt.
    - Give every reviewer read-only file access and no shell, if your agent can: a subagent type without a shell tool, or a headless CLI with shell tools off. Step 5 gives them everything they need without one. A reviewer that cannot write its output file replies with the whole output instead: save that reply to the file unchanged.
    - If your agent can only give reviewers a shell (for example Claude Code's `general-purpose` agent), the no-run line is a prompt instruction, not a restriction. Tell the user that before starting, and let them choose: go ahead on that basis, or stop and rely on CI and their own reading.
-3. Wait for CI: `gh pr checks <pr> --watch`, then read each check's state. If any failed or was cancelled, report that and stop; a red PR is not ready for review. If any is still pending, wait again. Pass, skipping and neutral mean go on. A repo with no checks has nothing to wait for.
+3. Read CI once, as `references/ci-status.md` says. Red: report it and stop; a red PR is not ready for review. Pending: go on, since reviewers do not need CI's result; Part 3 reads it again before the verdict. In a no-run round, CI is the reviewers' evidence: treat pending as that file says before going on.
 4. Check out the head in a scratch worktree outside the repo (your temp or scratch directory), so reviewers read and run the PR's code and nobody's checkout changes. Fetch the base too, so reviewers can read the project's rules from it. `sha` is the commit this round reviews; everything below is tied to it:
    ```bash
    base=$(gh pr view <pr> --json baseRefName -q .baseRefName)
@@ -64,7 +64,7 @@ Reviewers hand their output to each other through files, never through you: you 
    ```
    `$out` is where reviewers write their output. It sits apart from `$in`, so the inputs stay exactly what was fetched, and starts empty, so no reviewer reads an earlier round's output.
    `problem.md` is the problem the PR set out to solve: its linked issues, or its description if it links none. It is written in the first round and reused unchanged in every later round, so the problem stays fixed while the code changes around it. Delete it once the review loop ends.
-   If `checks.txt` shows a failed or cancelled check, report that and stop. If the head moved, or a check is still pending, the PR text and CI results may not match `sha`: remove the worktree and both directories and start again at step 3. After two such restarts, tell the user the PR keeps changing and stop. Remove them when the round ends, after Part 4 (`git worktree remove --force "<scratch>/pr-<pr>"`, `rm -rf "$in" "$out"`).
+   If `checks.txt` shows a failed or cancelled check, report that and stop. If the head moved, the PR text and CI results may not match `sha`: remove the worktree and both directories and start again at step 3. After two such restarts, tell the user the PR keeps changing and stop. Remove them when the round ends, after Part 4 (`git worktree remove --force "<scratch>/pr-<pr>"`, `rm -rf "$in" "$out"`).
 
 6. **Size the round.** In the first round, or when there is no `<scratch>/pr-<pr>-findings.md`, run Parts 1 to 3 as written. In a later round, take `<last-sha>` from the findings file's last `## Round <n> at <sha>` heading (Part 4) and size the round by what changed since then, not by the PR: `git -C "<scratch>/pr-<pr>" diff --stat <last-sha> <sha>`.
    - **No new commit** (`sha` is `<last-sha>`; only the PR's title or description was fixed): skip Parts 1 and 2 and run only the validator, on the last round's findings from the findings file, under their labels. It checks them against the current PR text and code.
@@ -123,7 +123,7 @@ The result:
 - **MERGE:** every owner said MERGE; or every label has a validator verdict, and each one is REFUTED or lowered to P3. Findings lowered to P3 become follow-ups.
 - **NOT YET:** anything else. The blocking list is every label that is CONFIRMED or UNCLEAR at P1, P2, UNTRUE or UNVERIFIED.
 
-A result covers `sha` and nothing pushed after it. Before reporting MERGE, check `gh pr view <pr> --json headRefOid -q .headRefOid` still equals `sha`. If it doesn't, the newer commits are unreviewed: the result is NOT YET (head moved), and the next round starts at Part 0.
+A result covers `sha` and nothing pushed after it. Before reporting MERGE, read CI for `sha` as `references/ci-status.md` says. If the head is no longer `sha`, the newer commits are unreviewed: the result is NOT YET (head moved), and the next round starts at Part 0. Red: the result is NOT YET (CI red). Pending: hold MERGE until CI is green, and tell the user it is held.
 
 ## Part 4: Act on the verdict
 
@@ -133,6 +133,7 @@ Show the user the result as returned, without softening it: the commit it covers
 
 - **MERGE:** say so. On a UI PR, add that it still waits for the owner's visual sign-off (the `pr-media` skill), and whether its body has a Screenshots section. List the follow-ups (P3) and offer to draft one follow-up issue for them.
 - **NOT YET:** list the confirmed blocking findings. If you are the author (you came here from `implement` or `tackle-issues`), append them to `<scratch>/pr-<pr>-findings.md`, beside `problem.md`, so they survive a context compaction, under a `## Round <n> at <sha>` heading for this round, each finding verbatim with its label and the lens its question falls under (Correctness, Security, Tests, Simplicity or UX). Step 6 of the next round sizes it from that heading. Delete the file with `problem.md`. Hand the `address-review` skill the confirmed findings from every round so far, `problem.md` and the round number; it brings you back to Part 0, where **new** fresh reviewers are never told what changed or what the last reviewers said.
+- **NOT YET (CI red):** there is no finding to fix. Tell the user which check failed at `sha`, and stop; do not hand off to `address-review`. If the host handles CI failures, leave it to the host; if you came from `implement` or `tackle-issues`, go back to its red-CI step.
 - **NOT YET with the owner output malformed:** there is no finding to fix. Tell the user the owner's output was malformed twice, show it, and stop; do not hand off to `address-review`.
 - **You think a confirmed finding is wrong:** do not drop it. Show the user the finding and your reason, and let them decide.
 

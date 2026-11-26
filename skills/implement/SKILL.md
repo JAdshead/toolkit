@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue or a spec/proposal change end to end. Works in an isolated git worktree, test-first (red, green, refactor), runs the project's full local checks, then has independent security, code-quality and test-quality reviewers check the diff and loops on their findings. Opens a pull request and watches CI only after the user confirms. Use when the user asks to implement, build or ship a specific issue, ticket or change, or says "implement #N".
+description: Implement a GitHub issue or a spec/proposal change end to end. Works in an isolated git worktree, test-first (red, green, refactor), runs the project's full local checks, then has independent security, code-quality and test-quality reviewers check the diff and loops on their findings. Opens a pull request only after the user confirms, then hands it to review-pr, which reads CI when it needs it. Use when the user asks to implement, build or ship a specific issue, ticket or change, or says "implement #N".
 license: MIT
 metadata:
   tags: implement worktree tdd review pull-request ci
@@ -91,14 +91,11 @@ gh pr create --title "<concise title>" --body "<body>"
 
 The body has: a Summary (what and why), a Test plan listing the tests added, any exceptions with their checks and before-and-after output, and the real-thing check and its result, and a closing reference to the issue (for example `Closes #<n>`) or a pointer to the spec/proposal change. Follow the project's PR template if it has one. If the change touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
 
-## Phase 5: CI loop
+## Phase 5: Review and CI
 
-```bash
-gh pr checks <pr> --watch
-```
+Once the PR is open, hand off to the `review-pr` skill now, for the merge decision; it reads CI when it needs it, as `references/ci-status.md` says. Then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
-- **Red:** read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: docs, comments, formatting, plain config), push, and watch again. Stop after 3 rounds and report.
-- **Green:** hand off to the `review-pr` skill for the merge decision, then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
+- **Red CI** (unless the host handles CI failures, as that file says): read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: docs, comments, formatting, plain config), push, and run `review-pr` again. Stop after 3 rounds and report.
 
 ## Phase 6: Report
 

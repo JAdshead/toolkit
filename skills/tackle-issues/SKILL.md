@@ -165,15 +165,11 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 2. Show the user: branch, commits, diff stat, test result, review summary, and the drafted PR title and body (template in `references/subagent-templates.md`). **Ask before pushing.**
 3. On a yes: `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue. If the group touches UI, run the `pr-media` skill to capture it and attach the screenshots and GIFs to the PR. Then apply the mode's In review operation.
 
-## Phase 7: CI
+## Phase 7: Review and CI
 
-```bash
-gh pr checks <pr> --watch
-```
+Once the PR is open, hand off to the `review-pr` skill now, for the merge decision; it reads CI when it needs it, as `references/ci-status.md` says. Any further push needs the user's go-ahead again.
 
-On failure, spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
-
-Once CI is green, hand off to the `review-pr` skill for the merge decision. Any further push needs the user's go-ahead again.
+On red CI (unless the host handles CI failures, as that file says), spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
 
 **Never merge** unless the user explicitly asks you to, for that PR.
 
