@@ -40,7 +40,8 @@ Propose exactly one decision:
 - retitle: valid, but the title misleads (give the new title)
 - rewrite: valid, but the body is unclear or out of date (give the new body)
 - split: more than one piece of work (give each new issue's title and one-line scope)
-Reply with the decision, a one-line reason, and any new title, body or split. Change nothing.
+Reply with a two-sentence plain-words summary of what the issue asks for and why, for a reader who hasn't seen it.
+Then the decision, a one-line reason, and any new title, body or split. Change nothing.
 ```
 
 ## 2. Validate
@@ -49,16 +50,17 @@ Spawn one fresh validator per batch that did not write the proposals. Give it th
 
 ## 3. Decide
 
-Show the batch, one line per issue, refuted proposals included and marked:
+Never ask the user to decide from an issue's number and title alone. Show each issue as its own clickable choice, one decision per issue, as the `visual-plan` skill describes (a question card per issue; with Claude Code's `AskUserQuestion`, up to four per call). Each one leads with the summary, then the decision and the validator's verdict:
 
 ```
-#12 Export fails on empty list: close as done, fixed in src/export.ts. CONFIRMED
-#15 Dark mode: retitle to "Dark mode for settings page", scope narrowed in comments. CONFIRMED
-#18 Faster search: close as won't-do. REFUTED: search was not reworked; still slow on large lists
-Apply which?
+#12 Export fails on empty list
+Exporting an empty list crashes instead of saving an empty file. Users with no data yet can't export at all.
+Proposal: close as done, fixed in src/export.ts. CONFIRMED
+
+[Apply]  [Skip]  [Change]
 ```
 
-Show any new body or split in full before it is applied. The user can approve, skip, or change any line, and can approve a refuted proposal.
+Put any new title, body or split in the choice's preview, so the user sees exactly what will be written. Mark refuted proposals with the validator's reason; the user can still approve one.
 
 ## 4. Apply
 
