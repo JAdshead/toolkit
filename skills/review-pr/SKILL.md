@@ -68,7 +68,7 @@ Reviewers hand their output to each other through files, never through you: you 
 
 6. **Size the round.** In the first round, or when there is no `<scratch>/pr-<pr>-findings.md`, run Parts 1 to 3 as written. In a later round, take `<last-sha>` from the findings file's last `## Round <n> at <sha>` heading (Part 4) and size the round by what changed since then, not by the PR: `git -C "<scratch>/pr-<pr>" diff --stat <last-sha> <sha>`.
    - **No new commit** (`sha` is `<last-sha>`; only the PR's title or description was fixed): skip Parts 1 and 2 and run only the validator, on the last round's findings from the findings file, under their labels. It checks them against the current PR text and code.
-   - **A small, targeted fix** (about 20 changed lines or fewer, all in files the last round's findings named): the lens each finding falls under, plus one owner.
+   - **A small, targeted fix** (about 20 changed lines or fewer, all in files the last round's findings named or in test files): the lens each finding falls under, plus one owner.
    - **Tests only** (every changed file is a test or spec file): the Tests lens plus one owner.
    - **Anything broader** (a re-solve, many files, or code outside the findings' files): a full round, sized as in Part 1.
 

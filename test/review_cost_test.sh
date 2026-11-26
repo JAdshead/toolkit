@@ -48,6 +48,7 @@ check "review-pr records each round's sha in the findings file" "yes" "$(has "$r
 check "ship-pr records the round's sha the same way" "yes" "$(has "$ship" "## Round <n> at <sha>")"
 check "review-pr diffs from the last reviewed sha" "yes" "$(has "$review" "diff --stat <last-sha> <sha>")"
 check "a targeted fix gets the finding's lens and one owner" "yes" "$(has "$review" "the lens each finding falls under, plus one owner")"
+check "a targeted fix may add tests for the named files" "yes" "$(has "$review" "in files the last round's findings named or in test files")"
 check "a test- or docs-only change gets the Tests lens and one owner" "yes" "$(has "$review" "the Tests lens plus one owner")"
 check "a PR-text-only fix needs only the validator" "yes" "$(has "$review" "only the validator")"
 check "a broad change gets a full round" "yes" "$(has "$review" "a full round")"
