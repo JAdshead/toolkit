@@ -48,6 +48,7 @@ jobs:
           test/session_start_test.sh
           test/review_loop_test.sh
           test/review_cost_test.sh
+          test/ci_status_test.sh
           test/pr_media_wiring_test.sh
 
       - name: Test bin/sync-shared
