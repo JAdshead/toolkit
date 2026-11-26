@@ -33,6 +33,9 @@ check "the proposer brief asks for a plain-words summary for a reader who hasn't
 check "Decide shows each issue as its own clickable choice" "yes" "$(has "$skill" "own clickable choice")"
 check "Decide asks one decision per issue" "yes" "$(has "$skill" "one decision per issue")"
 check "Decide no longer shows the batch one line per issue" "no" "$(has "$skill" "one line per issue")"
+check "a default batch fits one call of four question cards" "yes" "$(has "$skill" "default 3 to 4")"
+check "the default batch is no longer up to five, which needs two rounds of cards" "no" "$(has "$skill" "3 to 5")"
+check "the validator also checks each summary, since the user decides from it" "yes" "$(has "$skill" "summary describes the issue accurately")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

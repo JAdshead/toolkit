@@ -16,7 +16,7 @@ This skill edits and closes issues. It never writes code (that is `implement` or
 
 - `refine-issues`: every open issue, oldest first.
 - `refine-issues <focus>`: a label (`--label <label> --search "sort:created-asc"`) or keyword (`--search "<keyword> sort:created-asc"`), unioned and deduplicated.
-- `one at a time`: batches of one instead of the default 3 to 5. The user can switch at any point.
+- `one at a time`: batches of one instead of the default 3 to 4, so one batch fits one round of question cards. The user can switch at any point.
 
 ```bash
 gh issue list --state open --limit 500 --search "sort:created-asc" --json number,title,labels,body,url,createdAt,subIssuesSummary
@@ -46,7 +46,7 @@ Then the decision, a one-line reason, and any new title, body or split. Change n
 
 ## 2. Validate
 
-Spawn one fresh validator per batch that did not write the proposals. Give it the issue numbers and each proposal verbatim, and ask it to check every one against the issue and the code and answer CONFIRMED or REFUTED with a one-line reason. It changes nothing.
+Spawn one fresh validator per batch that did not write the proposals. Give it the issue numbers and each proposal verbatim, and ask it to check every one against the issue and the code, and check that each summary describes the issue accurately, since the user decides from it. It answers CONFIRMED or REFUTED with a one-line reason, and refutes a proposal whose summary misleads. It changes nothing.
 
 ## 3. Decide
 
