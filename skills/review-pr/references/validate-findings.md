@@ -2,7 +2,7 @@
 
 **Decide, for each finding, whether it is real and whether it should block the merge.**
 
-Owners reviewing this pull request reported these findings. You did not write the PR or the findings, and you have no stake in either.
+Owners reviewing this pull request reported these findings. Read the BLOCKING entries in the owner files your prompt names (or the findings file, in a recheck round), and give each the label your prompt assigns it. You did not write the PR or the findings, and you have no stake in either.
 
 The PR's head is checked out in the worktree you were given. Read and run code there, not in any other checkout.
 
@@ -21,7 +21,7 @@ The PR's head is checked out in the worktree you were given. Read and run code t
 3. Try to show it: run the failing case, write a throwaway test on your copy, or remove the guard the finding says is untested and see whether the tests notice. Where that is not possible, trace the code path by reading.
 4. Decide:
    - **CONFIRMED:** you showed the problem, or traced it with no gap.
-   - **REFUTED:** you showed the code is right, the case cannot happen, or the finding misreads the code.
+   - **REFUTED:** you showed the code is right, the case cannot happen, or the finding misreads the code. In a recheck round, REFUTED means the finding no longer holds against the current PR.
    - **UNCLEAR:** you could neither show nor rule it out. Say what would settle it. UNCLEAR blocks, like CONFIRMED.
 5. For an UNVERIFIED finding, try to do the check the owner could not. CONFIRMED means the check found a real problem; REFUTED means it passed or the item does not matter; UNCLEAR means you could not do it either.
 6. Check the severity against the owner brief's scale (`owner-review.md` next to this file). A real problem that this PR did not introduce, or that an owner would merge and fix later, is P3.
