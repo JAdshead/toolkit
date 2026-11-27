@@ -17,7 +17,7 @@ The PR's head is checked out in the worktree you were given. Read and run code t
 ## For each finding
 
 1. Each finding has a label (`A1`, `B2` and so on). Merge duplicates: the same problem reported by several owners is one finding, listed with all its labels. Every label must appear in your output exactly once.
-   If your prompt also asks you to check the PR's title and description, list each claim there that the code does not do as a new UNTRUE finding, labelled `V1`, `V2` and so on, decided by the same rules as the others.
+   If your prompt also asks you to check the PR's title and description, list each claim there that the code does not do as a new UNTRUE finding, labelled `V1`, `V2` and so on, numbered after the highest `V` label already listed in the findings file, and decided by the same rules as the others.
 2. Find the code it points to. If the `file:line` is wrong but the problem exists elsewhere, say where.
 3. Try to show it: run the failing case, write a throwaway test on your copy, or remove the guard the finding says is untested and see whether the tests notice. Where that is not possible, trace the code path by reading.
 4. Decide:

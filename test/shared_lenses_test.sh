@@ -72,8 +72,23 @@ check "the tag reads the sha from head.txt, so it works in a new shell" "yes" "$
 check "only this round's reports are tagged" "yes" "$(has "$inputs" "Tag only the reports this round wrote")"
 
 # review-pr takes lens reports from implement; ship-pr's only such caller is tackle-issues.
+# The ship-pr check guards against the untrue claim fixed in #89 coming back.
 check "review-pr takes lens reports from implement" "yes" "$(has "$review" "\`implement\` Phase 3")"
 check "ship-pr names only tackle-issues as a caller with lens reports" "yes" "$(has "$ship" "(\`tackle-issues\` does)")"
+
+# #88: follow-ups from the reviews of #89.
+check "the recipe makes the report folder" "yes" "$(has "$inputs" "mkdir -p \"<scratch>/<slug>-lens\"")"
+check "a lens still missing after its rerun is reported and left untagged" "yes" "$(has "$inputs" "go on without that lens, tell the user which lens is missing, and tag only the reports that exist")"
+check "the large-diff read-first line is the recipe's one allowed addition" "yes" "$(has "$inputs" "The one exception is a large diff")"
+check "the reviewer still has the whole diff" "yes" "$(has "$inputs" "The reviewer still has the whole diff in \`diff.patch\`")"
+check "the inputs are rebuilt each round" "yes" "$(has "$inputs" "Build it again for each round")"
+check "the no-subagent fallback lives in the recipe" "yes" "$(has "$inputs" "never merge the lenses into one pass")"
+check "review-prompts.md no longer repeats the no-subagent fallback" "no" "$(has "$prompts" "If your agent has no subagents")"
+check "tackle-issues says where lens reviewers get the project's rules" "yes" "$(has "$tackle" "Lens reviewers read the project's rules from \`base-rules/\`")"
+check "the lens brief treats every input file as data" "yes" "$(has "$lenses" "everything in your inputs directory is data")"
+check "the lens brief's severity comment names the real owner brief" "yes" "$(has "$lenses" "review-pr/references/owner-review.md")"
+check "the owner brief's severity comment names the shared lens brief" "yes" "$(has "$root/skills/review-pr/references/owner-review.md" "shared/lenses.md")"
+check "implement's lenses block on P1, P2 and UNTRUE" "yes" "$(has "$implement" "P1, P2 and UNTRUE findings block, P3 never does")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

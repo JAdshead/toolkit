@@ -35,7 +35,8 @@ check "pending CI lets a step that says go on go on" "yes" "$(has "$rule" "go on
 check "pending CI holds only the step that needs its result" "yes" "$(has "$rule" "hold only the step that needs CI's result")"
 check "the rule says the host reports failures, never success" "yes" "$(has "$rule" "never success")"
 check "a held step runs one background watch" "yes" "$(has "$rule" "\`gh pr checks <pr> --watch --interval 60\`")"
-check "the watch is a single call, not a loop" "yes" "$(has "$rule" "a single call, not a loop")"
+check "the rule allows at most two watches, never a loop" "yes" "$(has "$rule" "at most two watches: never a loop")"
+check "the rule no longer says to watch once, then once more" "no" "$(has "$rule" "--interval 60\` once")"
 check "the rule no longer waits on the host to report CI done" "no" "$(has "$rule" "resume when the host reports CI done")"
 check "the rule treats no checks as green" "yes" "$(has "$rule" "no checks reported")"
 check "the rule ties CI to the commit it is about" "yes" "$(has "$rule" "headRefOid")"
@@ -75,9 +76,14 @@ lenses="$root/skills/review-pr/references/lenses.md"
 check "an owner does not report pending CI as a finding" "yes" "$(has "$owner" "A check still pending in \`checks.txt\` is not a finding")"
 check "a lens does not report pending CI as a finding" "yes" "$(has "$lenses" "a check still pending in \`checks.txt\`")"
 check "the rule says what to do when the second read is still pending" "yes" "$(has "$rule" "still pending after that second watch")"
-check "review-pr step 3 hands red CI to Part 4's NOT YET (CI red)" "yes" "$(has "$review" "Red: the result is NOT YET (CI red); act on it as Part 4 says")"
+check "review-pr step 3 hands red CI to Part 4's NOT YET (CI red)" "yes" "$(has "$review" "Red: the result is NOT YET (CI red), at the head that read showed; act on it as Part 4 says")"
 check "review-pr no longer has a bare red stop in step 3" "no" "$(has "$review" "Red: report it and stop")"
 check "the README no longer says implement runs a CI loop" "no" "$(has "$root/README.md" "three independent reviewers, CI loop")"
+
+# #86: follow-ups from the review of #87.
+check "red CI at step 3 is reported at the head that read showed" "yes" "$(has "$review" "Tell the user which check failed and at which commit")"
+check "review-pr step 5's red CI goes the way of step 3" "yes" "$(has "$review" "the result is NOT YET (CI red), as in step 3")"
+check "the README's implement row says it loops only on red CI" "yes" "$(has "$root/README.md" "loops only on red CI")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

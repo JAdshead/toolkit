@@ -51,7 +51,7 @@ Record:
 - **Conventions**: commit message style, branch naming, test standards, comment rules, design system or UI guide, files never to edit.
 - **Domain reviewers**: any area the project's docs treat as high-risk (payments, auth, data migrations, privacy, legal copy). These become extra reviewers in Phase 5.
 
-Pass these to every subagent. Project rules override the defaults in this skill.
+Pass these to every implementation and fix subagent. Lens reviewers read the project's rules from `base-rules/` instead (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING.md and `.github/workflows/`, from the default branch), as `references/lens-inputs.md` sets up; a rule that lives anywhere else and a lens must apply goes in a domain lens's prompt. Project rules override the defaults in this skill.
 
 ## Phase 1: Discover and filter issues
 

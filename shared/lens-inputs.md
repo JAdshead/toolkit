@@ -24,24 +24,24 @@ Build it again for each round, since the head moves.
 
 ## Reviewers
 
-Before starting a lens, delete its last report, so the new reviewer reads no earlier output and a missing file means it wrote none:
+Before starting a lens, make the report folder and delete the lens's last report, so the new reviewer reads no earlier output and a missing file means it wrote none:
 
 ```bash
-rm -f "<scratch>/<slug>-lens/<lens>.md"
+mkdir -p "<scratch>/<slug>-lens"; rm -f "<scratch>/<slug>-lens/<lens>.md"
 ```
 
-Then run one fresh reviewer per lens, in parallel: a new subagent that saw none of this work (in Claude Code, a new `general-purpose` agent, never a fork). If your agent has no subagents, review one lens at a time yourself, reading the brief as written. Prompt each with only:
+Then run one fresh reviewer per lens, in parallel: a new subagent that saw none of this work (in Claude Code, a new `general-purpose` agent, never a fork). If your agent has no subagents, run each lens in a context that did not write the code where you can (a new headless process, for example `codex exec` or `gemini -p`), else review it yourself, reading the brief as written; either way one lens at a time, and never merge the lenses into one pass, or the narrower checks get skipped. Prompt each with only:
 
 ```
 Review the change on branch <branch> through the <lens> lens. Its head is checked out at <worktree>. Its inputs are in <inputs>.
 Read <absolute path to this skill>/references/lenses.md and follow it. Write your output to <scratch>/<slug>-lens/<lens>.md.
 ```
 
-`<lens>` is `correctness`, `security`, `tests`, `simplicity`, `ux` (only when UI files changed) or `domain-<name>`. For a domain lens, add the project's rules for that area, quoted from its docs. Add nothing else: no summary of the change and nothing about what it is meant to do.
+`<lens>` is `correctness`, `security`, `tests`, `simplicity`, `ux` (only when UI files changed) or `domain-<name>`. For a domain lens, add the project's rules for that area, quoted from its docs. Add nothing else: no summary of the change and nothing about what it is meant to do. The one exception is a large diff (roughly 30k characters or more): add one line naming the files that matter most for that lens, to read first (security-sensitive files for Security, test files for Tests; new files and those with the most change first). The reviewer still has the whole diff in `diff.patch`.
 
 ## Reports
 
-If a lens replies with its whole output instead of only its verdict line, save the reply to its file unchanged. Then check each file exists; run a lens whose file is missing again, once. Finally make `Reviewed: <sha>` each file's first line, with the `sha` from `head.txt`. Tag only the reports this round wrote:
+If a lens replies with its whole output instead of only its verdict line, save the reply to its file unchanged with your file-write tool. Then check each file exists; run a lens whose file is missing again, once. If it is still missing, go on without that lens, tell the user which lens is missing, and tag only the reports that exist. Finally make `Reviewed: <sha>` each file's first line, with the `sha` from `head.txt`. Tag only the reports this round wrote:
 
 ```bash
 f="<scratch>/<slug>-lens/<lens>.md"; { echo "Reviewed: $(cat "<inputs>/head.txt")"; cat "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
