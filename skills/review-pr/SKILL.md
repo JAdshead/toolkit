@@ -72,7 +72,7 @@ Reviewers hand their output to each other through files, never through you: you 
    - **Tests only** (every changed file is a test or spec file): the Tests lens plus one owner.
    - **Anything broader** (a re-solve, many files, or code outside the findings' files): a full round, sized as in Part 1.
 
-   A PR small enough that Part 1 skips it still gets no lens: one owner. Two owners in a later round only when a changed file is security-sensitive (as in Part 1) or the last round's owners disagreed (the last `Owners:` line that is not `none`); otherwise one. However small the round, each reviewer still gets the whole PR and is never told what changed or what the last reviewers said.
+   A PR small enough that Part 1 skips it still gets no lens: one owner. Two owners in a later round only when a changed file is security-sensitive (as in Part 1) or the last round's owners disagreed (the unindented `Owners:` line directly under a round heading, in the latest round whose line is not `none`); otherwise one. However small the round, each reviewer still gets the whole PR and is never told what changed or what the last reviewers said.
 
 ## Part 1: Lens reviews (larger PRs only)
 

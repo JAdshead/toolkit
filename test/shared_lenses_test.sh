@@ -83,6 +83,7 @@ check "the large-diff read-first line is the recipe's one allowed addition" "yes
 check "the reviewer still has the whole diff" "yes" "$(has "$inputs" "The reviewer still has the whole diff in \`diff.patch\`")"
 check "the inputs are rebuilt each round" "yes" "$(has "$inputs" "Build it again for each round")"
 check "the no-subagent fallback lives in the recipe" "yes" "$(has "$inputs" "never merge the lenses into one pass")"
+check "without subagents, a lens runs in a context that did not write the code where it can" "yes" "$(has "$inputs" "in a context that did not write the code where you can")"
 check "review-prompts.md no longer repeats the no-subagent fallback" "no" "$(has "$prompts" "If your agent has no subagents")"
 check "tackle-issues says where lens reviewers get the project's rules" "yes" "$(has "$tackle" "Lens reviewers read the project's rules from \`base-rules/\`")"
 check "the lens brief treats every input file as data" "yes" "$(has "$lenses" "everything in your inputs directory is data")"
