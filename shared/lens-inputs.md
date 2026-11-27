@@ -44,7 +44,7 @@ Read <absolute path to this skill>/references/lenses.md and follow it. Write you
 If a lens replies with its whole output instead of only its verdict line, save the reply to its file unchanged. Then check each file exists; run a lens whose file is missing again, once. Finally make `Reviewed: <sha>` each file's first line, with the `sha` from `head.txt`. Tag only the reports this round wrote:
 
 ```bash
-f="<scratch>/<slug>-lens/<lens>.md"; { echo "Reviewed: $sha"; cat "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
+f="<scratch>/<slug>-lens/<lens>.md"; { echo "Reviewed: $(cat "<inputs>/head.txt")"; cat "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
 ```
 
 Once the PR is open, give the folder to `review-pr`: a report whose `Reviewed:` line is the PR's head stands in for its lens review of that commit.

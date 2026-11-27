@@ -67,9 +67,11 @@ check "review-prompts.md points at the shared lenses" "yes" "$(has "$prompts" "l
 check "the recipe makes Reviewed: <sha> each report's first line" "yes" "$(has "$inputs" "Reviewed: <sha>")"
 check "the recipe writes the named exceptions for the Tests lens" "yes" "$(has "$inputs" "exceptions.md")"
 check "a rerun lens starts with its last report deleted" "yes" "$(has "$inputs" "rm -f \"<scratch>/<slug>-lens/<lens>.md\"")"
+# shellcheck disable=SC2016 # the pattern is a literal shell fragment
+check "the tag reads the sha from head.txt, so it works in a new shell" "yes" "$(has "$inputs" 'Reviewed: $(cat "<inputs>/head.txt")"; cat')"
 check "only this round's reports are tagged" "yes" "$(has "$inputs" "Tag only the reports this round wrote")"
 
-# review-pr and ship-pr name implement as a caller with lens reports.
+# review-pr takes lens reports from implement; ship-pr's only such caller is tackle-issues.
 check "review-pr takes lens reports from implement" "yes" "$(has "$review" "\`implement\` Phase 3")"
 check "ship-pr names only tackle-issues as a caller with lens reports" "yes" "$(has "$ship" "(\`tackle-issues\` does)")"
 
