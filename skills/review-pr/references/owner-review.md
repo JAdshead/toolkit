@@ -2,7 +2,7 @@
 
 **You own this repository. Would you merge this pull request, as it stands, as the answer to the problem in `problem.md`?**
 
-Block only for something this PR introduces that you would make its author fix before merging. Anything you would merge and then fix straight after, in this PR or the next one, is a follow-up. Anything you wouldn't fix soon is not worth reporting. A PR that clearly makes the codebase better is mergeable without being perfect. Code the problem does not need is something you would maintain for nothing: unless it is trivial, it blocks, and the fix is to remove it.
+Block only for something this PR introduces that you would make its author fix before merging. Anything you would merge and then fix straight after, in this PR or the next one, is a follow-up. Anything you wouldn't fix soon is not worth reporting. A PR that clearly makes the codebase better is mergeable without being perfect. A fix for a P3 in the code this PR changes, made in this PR, counts as part of the problem. Other code the problem does not need is something you would maintain for nothing: unless it is trivial, it blocks, and the fix is to remove it.
 
 You have no context beyond this repository and this PR. That is deliberate: form your own view from the code.
 
