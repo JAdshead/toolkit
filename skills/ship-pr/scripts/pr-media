@@ -131,7 +131,10 @@ async function unpin(page) {
     for (const el of document.querySelectorAll('*')) {
       const position = getComputedStyle(el).position;
       if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
-      if (position === 'fixed') el.style.setProperty('visibility', 'hidden', 'important');
+      if (position === 'fixed') {
+        el.style.setProperty('transition', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+      }
     }
   });
 }
@@ -178,7 +181,7 @@ async function unpin(page) {
           await target.scrollIntoViewIfNeeded();
           if (!shot.keepSticky) {
             await unpin(page);
-            if (!(await target.isVisible())) die(`shot ${shot.name}: ${shot.crop} sits inside a sticky or fixed element that capture hides; set "keepSticky": true`);
+            if (!(await target.isVisible())) die(`shot ${shot.name}: ${shot.crop} sits inside a fixed element, which capture hides; set "keepSticky": true`);
           }
           await target.screenshot({ path: file, animations: 'disabled' });
         }

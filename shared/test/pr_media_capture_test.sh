@@ -76,7 +76,7 @@ cat > "$site/home.html" <<'HTML'
   #bar { position: fixed; top: 0; left: 0; width: 100%; height: 20px; background: #f0f; transition: all 5s; }
   #intro { position: static; width: 120px; height: 30px; background: #0ff; }
   #late { height: 20px; background: #ff0; top: 0; left: 0; width: 100%; }
-  #drawer { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; }
+  #drawer { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; transition: all 5s; }
   #drawer-item { width: 50px; height: 50px; background: #000; }
   #account { width: 80px; height: 20px; background: #0f0; }
   #tall { width: 100px; height: 900px; background: #00f; }
@@ -137,7 +137,7 @@ check "an element that turns fixed on scroll doesn't cover a crop" "0 0000ff" "$
 
 spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item" }]'
 capture
-check "a crop inside a fixed element exits 2 and points to keepSticky" "2 yes" "$rc $(says "$work/err" "keepSticky")"
+check "a crop inside a fixed element exits 2 and points to keepSticky" "2 yes yes" "$rc $(says "$work/err" "inside a fixed element") $(says "$work/err" "keepSticky")"
 spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item", "keepSticky": true }]'
 capture
 check "with keepSticky, a crop inside a fixed element works" "0 50" "$rc $(png_width "$work/out/drawer-1280.png")"
