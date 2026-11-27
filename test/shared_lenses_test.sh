@@ -66,10 +66,12 @@ check "review-prompts.md points at the shared lenses" "yes" "$(has "$prompts" "l
 # The recipe tags each report with the commit it reviewed, as review-pr requires.
 check "the recipe makes Reviewed: <sha> each report's first line" "yes" "$(has "$inputs" "Reviewed: <sha>")"
 check "the recipe writes the named exceptions for the Tests lens" "yes" "$(has "$inputs" "exceptions.md")"
+check "a rerun lens starts with its last report deleted" "yes" "$(has "$inputs" "rm -f \"<scratch>/<slug>-lens/<lens>.md\"")"
+check "only this round's reports are tagged" "yes" "$(has "$inputs" "Tag only the reports this round wrote")"
 
 # review-pr and ship-pr name implement as a caller with lens reports.
 check "review-pr takes lens reports from implement" "yes" "$(has "$review" "\`implement\` Phase 3")"
-check "ship-pr takes lens reports from implement" "yes" "$(has "$ship" "\`implement\` and \`tackle-issues\` do")"
+check "ship-pr names only tackle-issues as a caller with lens reports" "yes" "$(has "$ship" "(\`tackle-issues\` does)")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

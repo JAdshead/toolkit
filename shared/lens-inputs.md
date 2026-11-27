@@ -24,7 +24,13 @@ Build it again for each round, since the head moves.
 
 ## Reviewers
 
-Run one fresh reviewer per lens, in parallel: a new subagent that saw none of this work (in Claude Code, a new `general-purpose` agent, never a fork). If your agent has no subagents, review one lens at a time yourself, reading the brief as written. Prompt each with only:
+Before starting a lens, delete its last report, so the new reviewer reads no earlier output and a missing file means it wrote none:
+
+```bash
+rm -f "<scratch>/<slug>-lens/<lens>.md"
+```
+
+Then run one fresh reviewer per lens, in parallel: a new subagent that saw none of this work (in Claude Code, a new `general-purpose` agent, never a fork). If your agent has no subagents, review one lens at a time yourself, reading the brief as written. Prompt each with only:
 
 ```
 Review the change on branch <branch> through the <lens> lens. Its head is checked out at <worktree>. Its inputs are in <inputs>.
@@ -35,10 +41,10 @@ Read <absolute path to this skill>/references/lenses.md and follow it. Write you
 
 ## Reports
 
-If a lens replies with its whole output instead of only its verdict line, save the reply to its file unchanged. Then check each file exists; run a lens whose file is missing again, once. Finally make `Reviewed: <sha>` each file's first line, with the `sha` from `head.txt`:
+If a lens replies with its whole output instead of only its verdict line, save the reply to its file unchanged. Then check each file exists; run a lens whose file is missing again, once. Finally make `Reviewed: <sha>` each file's first line, with the `sha` from `head.txt`. Tag only the reports this round wrote:
 
 ```bash
 f="<scratch>/<slug>-lens/<lens>.md"; { echo "Reviewed: $sha"; cat "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
 ```
 
-A rerun overwrites its own file. Once the PR is open, give the folder to `review-pr`: a report whose `Reviewed:` line is the PR's head stands in for its lens review of that commit.
+Once the PR is open, give the folder to `review-pr`: a report whose `Reviewed:` line is the PR's head stands in for its lens review of that commit.
