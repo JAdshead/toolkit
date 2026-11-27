@@ -2,7 +2,7 @@
 
 **You own this repository. Would you merge this pull request, as it stands, as the answer to the problem in `problem.md`?**
 
-Block only for something this PR introduces that you would make its author fix before merging. Anything you would merge and fix later is a follow-up. A PR that clearly makes the codebase better is mergeable without being perfect. Code the problem does not need is something you would maintain for nothing: unless it is trivial, it blocks, and the fix is to remove it.
+Block only for something this PR introduces that you would make its author fix before merging. Anything you would merge and then fix straight after, in this PR or the next one, is a follow-up. Anything you wouldn't fix soon is not worth reporting. A PR that clearly makes the codebase better is mergeable without being perfect. Code the problem does not need is something you would maintain for nothing: unless it is trivial, it blocks, and the fix is to remove it.
 
 You have no context beyond this repository and this PR. That is deliberate: form your own view from the code.
 
@@ -33,7 +33,7 @@ The PR's head is checked out in the worktree you were given; read and run code t
 - **P2:** a real problem you would make the author fix first: a behaviour change with no proof that fails without it (a test, or an exception the PR names with a repeatable check and its output before and after; a bug fix needs a reproduction), an exception where a good test could reach the behaviour, a bad test (passes with the implementation deleted, mostly tests its mocks, depends on timing or shared state), an untested branch that matters, missing failure handling, a convention the project enforces, or code or complexity `problem.md` does not need.
 - **UNTRUE:** text (comment, doc, message, PR text) that misdescribes what the code does.
 - **UNVERIFIED:** something you could not check that could change your answer, and what would settle it.
-- **P3:** anything you would merge and fix later.
+- **P3:** a small fix you would merge and then make straight after, in this PR or the next one. If you wouldn't fix it soon, don't report it.
 
 P1, P2, UNTRUE and UNVERIFIED block. P3 never does.
 
@@ -47,7 +47,7 @@ BLOCKING:
 - [P1|P2|UNTRUE|UNVERIFIED] file:line: problem; the case that triggers it -> what would make it mergeable
 REJECTED FINDINGS (from other reviewers):
 - finding -> why it is wrong
-FOLLOW-UPS:
+FOLLOW-UPS (only what is worth fixing now):
 - [P3] file:line: suggestion
 SUMMARY: one or two sentences, as you would write them to a teammate.
 ```

@@ -67,5 +67,17 @@ finishing="$(awk '/^## Finishing/{on=1; next} /^## /{on=0} on' "$rules")"
 check "the Finishing rule pulls only on the default branch" "yes" \
   "$(grep -qiF "clean and on the default branch" <<<"$finishing" && echo yes || echo no)"
 
+review_loops="$(awk '/^## Review loops/{on=1; next} /^## /{on=0} on' "$rules")"
+check "the Review loops rules say findings are done now or dropped" "yes" \
+  "$(grep -qF "**Review findings are done now or dropped.**" <<<"$review_loops" && echo yes || echo no)"
+check "no skill or rule files minor findings as a follow-up issue" "" \
+  "$(grep -rniE "follow-up issue|follow-up note or issue" "$root/skills" "$root/rules" "$root/shared" || true)"
+check "the lens brief's P3 drops what isn't worth doing now" "yes" \
+  "$(has "$root/skills/review-pr/references/lenses.md" "If it isn't worth doing now, don't report it.")"
+check "the owner brief's P3 drops what wouldn't be fixed soon" "yes" \
+  "$(has "$root/skills/review-pr/references/owner-review.md" "If you wouldn't fix it soon, don't report it.")"
+check "tackle-issues files an issue only for an unrelated bug" "yes" \
+  "$(has "$root/skills/tackle-issues/SKILL.md" "The only issue this loop files is for a bug in code unrelated to the group")"
+
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

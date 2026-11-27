@@ -33,7 +33,7 @@ Each lens asks one question. Check whatever that question needs.
 - **P1:** wrong behaviour, a security hole, data loss, or the PR does not do what it says.
 - **P2:** a real problem the author would fix before merging: an untested branch that matters, missing failure handling, a convention the project enforces, or code or complexity `problem.md` does not need.
 - **UNTRUE:** a comment, doc, message or PR text that misdescribes what the code does.
-- **P3:** anything that could be a follow-up. Never blocks.
+- **P3:** a small fix worth making in this PR or a follow-up PR straight after it. Never blocks. If it isn't worth doing now, don't report it.
 
 ## Output
 

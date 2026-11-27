@@ -78,7 +78,7 @@ Run three reviewers in parallel (separate subagents where supported, otherwise t
 Consolidate:
 
 - **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same test rules (for a bug, a reproduction first), rerun the full local gate, and rerun only the reviewers that failed. When a fix is proved by a named exception, add it to EXCEPTIONS so the rerun reviewers and the PR body see it. Also ask how each fix could itself fail.
-- **Exit rule:** stop when no reviewer fails and nothing in the diff is untrue, or after 3 rounds. Collect remaining MEDIUM/LOW findings into one follow-up note or issue rather than another round.
+- **Exit rule:** stop when no reviewer fails and nothing in the diff is untrue, or after 3 rounds. Don't run another round for the MEDIUM/LOW findings that remain: fix the worthwhile ones in this PR or a follow-up PR opened straight after it, and drop the rest. Never file them as an issue; only a bug in code unrelated to the change becomes one.
 
 ## Phase 4: Pull request
 
@@ -107,7 +107,7 @@ Reviews:  security PASS / quality PASS / tests PASS (rounds: n)
 Owner:    MERGE | NOT YET at <short sha> (review-pr rounds: n)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
-Follow-ups: <remaining minor findings, or none>
+Follow-ups: <fixed here, follow-up PR link, or none>
 
 Next: merge the PR (your call), then archive the change if the project's workflow requires it.
 Worktree: <path>

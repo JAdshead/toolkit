@@ -16,7 +16,7 @@ Severity:
 - P1: wrong behaviour, security hole, data loss, or the issue is not actually fixed.
 - P2: a real problem that should be fixed before merge (missing failure-path handling,
       an untested branch that matters, a convention the project enforces).
-- P3: minor; polish, naming, a nicer structure. Never blocks.
+- P3: minor; polish, naming, a nicer structure, worth fixing in this PR or the next one. Never blocks. If it isn't worth doing now, don't report it.
 - UNTRUE: any comment, doc, UI string, error message or PR text that misdescribes what the code does.
   Treat as blocking.
 
@@ -156,7 +156,7 @@ After a round:
 
 1. Collect findings from all reviewers. Drop duplicates; keep the highest severity.
 2. Sanity-check each P1/P2. A reviewer can be wrong; if a finding is clearly mistaken, record why and set it aside rather than "fixing" correct code, and list it in the report so the user can see it.
-3. **Exit** if no P1, P2 or UNTRUE remains. Gather every P3 from every round into one follow-up issue draft.
+3. **Exit** if no P1, P2 or UNTRUE remains. Gather every P3 from every round: drop those not worth doing now, and fix the rest in this PR or a follow-up PR opened straight after it. Never draft them as an issue.
 4. Otherwise look for a shared root cause, hand the blocking findings to a fix subagent, verify its commits, and re-run only the reviewers that raised blocking findings.
 5. After 3 fix rounds with blocking findings still open, stop and ask the user: continue, push with the open findings listed in the PR, or abandon.
 
