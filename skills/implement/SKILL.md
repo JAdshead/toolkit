@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue or a spec/proposal change end to end. Works in an isolated git worktree, test-first (red, green, refactor), runs the project's full local checks, then has independent security, code-quality and test-quality reviewers check the diff and loops on their findings. Opens a pull request only after the user confirms, then hands it to review-pr, which reads CI when it needs it. Use when the user asks to implement, build or ship a specific issue, ticket or change, or says "implement #N".
+description: Implement a GitHub issue or a spec/proposal change end to end. Works in an isolated git worktree, test-first (red, green, refactor), runs the project's full local checks, then reviews the diff through the same correctness, security, tests and simplicity lenses review-pr uses and loops on their findings. Opens a pull request only after the user confirms, then hands it to review-pr, which reads CI when it needs it. Use when the user asks to implement, build or ship a specific issue, ticket or change, or says "implement #N".
 license: MIT
 metadata:
   tags: implement worktree tdd review pull-request ci
@@ -12,7 +12,7 @@ Take one issue or change from requirement to a reviewed, green pull request:
 
 - an isolated git worktree, so the main checkout stays clean
 - test-driven development
-- independent reviews for security, code quality and test quality
+- independent reviews through the shared lenses (correctness, security, tests, simplicity)
 - a PR and a CI fix loop, with the user deciding when to push, open and merge
 
 A project's own instructions (AGENTS.md, CLAUDE.md, GEMINI.md, CONTRIBUTING) win wherever they differ from this skill.
@@ -67,18 +67,12 @@ If verification fails, show the output and ask the user whether to keep fixing o
 
 ## Phase 3: Review
 
-Get the diff: `git -C <worktree> diff origin/<default-branch>...HEAD`.
-
-Run three reviewers in parallel (separate subagents where supported, otherwise three separate passes). Give each the diff and changed-file list, and the code, not your own conclusions, so the review is not anchored on yours. Also give the Test quality reviewer the subagent's EXCEPTIONS. Each returns `VERDICT: PASS|FAIL` and findings as `[severity] [file:line] description`.
-
-1. **Security:** injection, XSS, CSRF, mass assignment, authentication and authorization on every entry point, secrets in code, unsafe redirects, file upload handling, sensitive data in logs. FAIL on any CRITICAL or HIGH.
-2. **Code quality:** readability, the project's conventions, duplication, single responsibility, error handling, query efficiency (N+1, missing indexes). FAIL needs a HIGH finding.
-3. **Test quality:** every new public behaviour is tested on the happy path, edge cases and error paths; tests exercise real logic. In place of a test, accept an exception named with a repeatable check and its output before and after; an exception that a good test could reach is HIGH and a FAIL. Mocking the subject under test, tautological tests and assertion-free tests are automatic FAILs. Test names describe behaviour.
+Review the branch through the lenses in `references/lenses.md`, the same brief `review-pr` uses: Correctness, Security, Tests and Simplicity, plus UX when UI files changed. Build the reviewers' inputs, prompt them and tag their reports as `references/lens-inputs.md` says, with `<slug>` `implement-<id>`; the subagent's EXCEPTIONS go in `exceptions.md`. Each lens returns `VERDICT: CLEAN|BLOCKING`; P1, P2 and UNTRUE findings block, P3 never does.
 
 Consolidate:
 
-- **Any FAIL:** show the findings, then fix the CRITICAL and HIGH ones under the same test rules (for a bug, a reproduction first), rerun the full local gate, and rerun only the reviewers that failed. When a fix is proved by a named exception, add it to EXCEPTIONS so the rerun reviewers and the PR body see it. Also ask how each fix could itself fail.
-- **Exit rule:** stop when no reviewer fails and nothing in the diff is untrue, or after 3 rounds. Collect remaining MEDIUM/LOW findings into one follow-up note or issue rather than another round.
+- **Any BLOCKING:** show the findings, then fix the P1, P2 and UNTRUE ones under the same test rules (for a bug, a reproduction first), rerun the full local gate, and rerun only the lenses that blocked, with fresh inputs. When a fix is proved by a named exception, add it to EXCEPTIONS so the rerun lenses and the PR body see it. Also ask how each fix could itself fail.
+- **Exit rule:** stop when no lens blocks, or after 3 rounds. Collect the remaining P3 findings into one follow-up note or issue rather than another round.
 
 ## Phase 4: Pull request
 
@@ -93,7 +87,7 @@ The body has: a Summary (what and why), a Test plan listing the tests added, any
 
 ## Phase 5: Review and CI
 
-Once the PR is open, hand off to the `review-pr` skill now, for the merge decision; it reads CI when it needs it, as `references/ci-status.md` says. Then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
+Once the PR is open, hand off to the `review-pr` skill now, for the merge decision, with the Phase 3 lens reports in `<scratch>/implement-<id>-lens/`: those whose `Reviewed:` line is the PR's head stand in for its lens reviews; it reads CI when it needs it, as `references/ci-status.md` says. Then report. **Never merge**; that is the user's call unless the project's instructions say otherwise.
 
 - **Red CI** (unless the host handles CI failures, as that file says): read the failing job's log (`gh run view <run-id> --log-failed`), diagnose the root cause (a real failure, not something to retry away), fix test-first (a reproduction of the failure, unless the fix has no behaviour: docs, comments, formatting, plain config), push, and run `review-pr` again. Stop after 3 rounds and report.
 
@@ -103,7 +97,7 @@ Once the PR is open, hand off to the `review-pr` skill now, for the merge decisi
 ## Implementation complete
 Source:   <issue or change id>
 PR:       <url> (CI: green | red | not opened)
-Reviews:  security PASS / quality PASS / tests PASS (rounds: n)
+Lenses:   correctness / security / tests / simplicity CLEAN (rounds: n)
 Owner:    MERGE | NOT YET at <short sha> (review-pr rounds: n)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
@@ -118,7 +112,7 @@ Remove after merge: git worktree remove <path>
 
 - Keep the change scoped to the requested outcome; prefer the simplest implementation that meets it.
 - Production code is written only to make a failing test, or a named exception's failing check, pass.
-- Fix security findings above LOW before the PR is opened.
+- Fix every P1 and P2 security finding before the PR is opened.
 - Mock only at the system boundary; mocking internal code is a review failure.
 - Never merge, force-push over requested changes, or skip hooks without the user's say-so.
 - On an unrecoverable failure, report what was done, what failed, and the worktree path for manual recovery, and release the issue claim.

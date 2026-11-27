@@ -140,20 +140,17 @@ On failure, ask the user whether to skip the issue (unclaim it) or stop the grou
 
 ## Phase 5: Review loop (per group, before pushing)
 
-Spawn the specialist reviewers in parallel (prompts in `references/review-prompts.md`):
+Spawn one fresh reviewer per lens in parallel, through the lenses in `references/lenses.md`, the same brief `review-pr` uses. Build their inputs, prompt them and tag their reports as `references/lens-inputs.md` says, with `<slug>` the group's slug and `<worktree>` `$WT`. Which lenses run, and how domain reviewers and large diffs are handled, is in `references/review-prompts.md`:
 
-| Reviewer | Focus | When |
-|---|---|---|
-| Correctness | logic bugs, edge cases, does it actually fix the issue | always |
-| Security | injection, authz, secrets, unsafe input handling | always |
-| Tests | coverage of new behaviour and failure paths; tests prove behaviour, not mocks | always |
-| Simplicity and maintainability | duplication, needless abstraction, naming, project conventions | always |
-| UX and accessibility | feedback, errors, a11y, design system | only if UI files changed |
-| Domain reviewers | rules from the project's own docs (Phase 0) | when the diff touches that area |
+| Lens | When |
+|---|---|
+| Correctness, Security, Tests, Simplicity | always |
+| UX | only if UI files changed |
+| Domain (`domain-<name>`) | when the diff touches an area the project's docs treat as high-risk (Phase 0) |
 
-Save each reviewer's output, as returned, to `<scratch>/<group-slug>-lens/<lens>.md` (`correctness`, `security`, `tests`, `simplicity`, `ux`, or `domain-<name>`), with `Reviewed: <sha>` as its first line, where `<sha>` is `git -C "$WT" rev-parse HEAD` when that reviewer started. A rerun overwrites its own file. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice.
+The reports land in `<scratch>/<group-slug>-lens/<lens>.md`, each starting `Reviewed: <sha>`. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice.
 
-Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (a real problem that should be fixed before merge), **P3** (minor, polish, nice to have). Reviewers also flag anything **untrue**: a comment, doc, UI string or PR text that misdescribes the behaviour.
+Severities are the lens brief's: **P1**, **P2** and **UNTRUE** (a comment, doc, UI string or PR text that misdescribes the behaviour) block; **P3** (minor, polish, nice to have) never does.
 
 **Exit rule.** The loop ends when a round returns no P1, no P2 and nothing untrue. Then:
 - collect every outstanding P3 from all rounds into **one** follow-up issue: draft it now, and file it only on the Phase 6 go-ahead;
@@ -219,4 +216,6 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 - `references/issue-tracking.md`: each mode's issue operations.
 - `scripts/board`: per-run claims and status moves on a board with an Agent field.
 - `scripts/run-watched`: runs the full verify command and kills it if its log goes silent or it runs too long.
-- `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.
+- `references/lenses.md`: the lens brief every reviewer follows, shared with `implement` and `review-pr`.
+- `references/lens-inputs.md`: building a lens reviewer's inputs, its prompt, and tagging its report with the commit it reviewed.
+- `references/review-prompts.md`: which lenses run, domain reviewers, consolidation and large-diff handling.

@@ -46,7 +46,7 @@ jobs:
       - name: Test pr-media capture
         run: PLAYWRIGHT_PROJECT="$RUNNER_TEMP/pw" shared/test/pr_media_capture_test.sh
 
-      - name: Test toolkit init, the TDD and UI rules, ux-goal, refine-issues and the SessionStart hook
+      - name: Test toolkit init, the TDD and UI rules, ux-goal, refine-issues, the shared lenses and the SessionStart hook
         run: |
           test/init_test.sh
           test/tdd_test.sh
@@ -60,6 +60,7 @@ jobs:
           test/ci_status_test.sh
           test/pr_media_wiring_test.sh
           test/batch_flow_test.sh
+          test/shared_lenses_test.sh
 
       - name: Test bin/sync-shared
         run: test/sync_shared_test.sh
