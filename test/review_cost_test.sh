@@ -49,12 +49,24 @@ check "ship-pr records the round's sha the same way" "yes" "$(has "$ship" "## Ro
 check "review-pr diffs from the last reviewed sha" "yes" "$(has "$review" "diff --stat <last-sha> <sha>")"
 check "a targeted fix gets the finding's lens and one owner" "yes" "$(has "$review" "the lens each finding falls under, plus one owner")"
 check "a targeted fix may add tests for the named files" "yes" "$(has "$review" "in files the last round's findings named or in test files")"
-check "a test- or docs-only change gets the Tests lens and one owner" "yes" "$(has "$review" "the Tests lens plus one owner")"
+check "a tests-only change gets the Tests lens and one owner" "yes" "$(has "$review" "the Tests lens plus one owner")"
 check "a PR-text-only fix needs only the validator" "yes" "$(has "$review" "only the validator")"
 check "a broad change gets a full round" "yes" "$(has "$review" "a full round")"
 check "a small PR's later round still gets no lens" "yes" "$(has "$review" "Part 1 skips it still gets no lens")"
 check "a later round keeps two owners for security-sensitive files" "yes" "$(has "$review" "Two owners in a later round only when a changed file is security-sensitive")"
 check "a sized round still never tells reviewers what changed" "yes" "$(has "$review" "never told what changed")"
+
+# #80: follow-ups from the reviews of #79.
+check "a lens may write its output file despite \"do not edit\"" "yes" "$(has "$lenses" "The one file you write is your output")"
+check "a whole-output reply is saved before the file is checked" "yes" "$(has "$review" "save that reply to its file unchanged before checking it")"
+check "a lens still missing after its rerun is reported, not rerun again" "yes" "$(has "$review" "go on without that lens and tell the user")"
+check "each round records every owner's verdict" "yes" "$(has "$review" "Owners: <letter> <verdict>")"
+check "step 6 reads owner disagreement from the Owners line" "yes" "$(has "$review" "the last round's owners disagreed (its \`Owners:\` line)")"
+check "a validator-only round always runs the validator" "yes" "$(has "$review" "A validator-only round has no owners: it always runs the validator")"
+check "a validator-only round also checks the rewritten PR text" "yes" "$(has "$review" "Also check every claim in the PR's current title and description against the code.")"
+check "the validator labels new PR-text findings V1, V2" "yes" "$(has "$validate" "labelled \`V1\`, \`V2\`")"
+check "an unresolvable last sha falls back to a full round" "yes" "$(has "$review" "If that diff fails (\`<last-sha>\` is gone")"
+check "ship-pr's sizing clause ends before address-review" "yes" "$(has "$ship" "sized by what changed, and run the \`address-review\` skill")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]
