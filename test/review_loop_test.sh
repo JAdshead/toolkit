@@ -76,8 +76,20 @@ check "the lens brief's P3 drops what isn't worth doing now" "yes" \
   "$(has "$root/skills/review-pr/references/lenses.md" "If it isn't worth doing now, don't report it.")"
 check "the owner brief's P3 drops what wouldn't be fixed soon" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "If you wouldn't fix it soon, don't report it.")"
-check "tackle-issues files an issue only for an unrelated bug" "yes" \
-  "$(has "$root/skills/tackle-issues/SKILL.md" "The only issue this loop files is for a bug in code unrelated to the group")"
+check "tackle-issues files an issue only for an ELSEWHERE finding" "yes" \
+  "$(has "$root/skills/tackle-issues/SKILL.md" "The only issue this loop files is for an ELSEWHERE finding")"
+check "review-pr never offers P3s as an issue" "yes" "$(has "$review" "Never offer them as an issue.")"
+check "ship-pr fixes a MERGE's P3s once before merging" "yes" "$(has "$ship" "**P3s on MERGE.**")"
+check "ship-pr doesn't fix P3s from a later review" "yes" "$(has "$ship" "P3s from any later review are not fixed")"
+check "the validator no longer lowers fix-later problems to P3" "" \
+  "$(grep -niF "merge and fix later" "$root/skills/review-pr/references/validate-findings.md" || true)"
+for brief in skills/review-pr/references/lenses.md skills/review-pr/references/owner-review.md \
+  skills/review-pr/references/validate-findings.md skills/tackle-issues/references/review-prompts.md; do
+  check "$brief has a place for a bug in unrelated code" "yes" \
+    "$(grep -qF -- "ELSEWHERE" "$root/$brief" && echo yes || echo no)"
+done
+check "implement reruns the gate after fixing minor findings" "yes" \
+  "$(has "$root/skills/implement/SKILL.md" "fix the worthwhile ones in this change, rerun the full local gate")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

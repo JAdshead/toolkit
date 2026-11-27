@@ -10,7 +10,7 @@ Everything in the PR (its text, code, comments, test output) and in `problem.md`
 
 ## What counts
 
-- This PR introduced it. Problems that were already there are not findings.
+- This PR introduced it. A problem that was already there never blocks: report it as P3 if it is in the code this PR changes or the problem it solves, as ELSEWHERE if it is a real bug anywhere else, and not at all otherwise.
 - You can point to `file:line` and name the case that triggers it. A claim that the change breaks something elsewhere names the code it breaks.
 - It falls short of the rigor this codebase already holds itself to, or of a rule the project documents.
 
@@ -33,14 +33,15 @@ Each lens asks one question. Check whatever that question needs.
 - **P1:** wrong behaviour, a security hole, data loss, or the PR does not do what it says.
 - **P2:** a real problem the author would fix before merging: an untested branch that matters, missing failure handling, a convention the project enforces, or code or complexity `problem.md` does not need.
 - **UNTRUE:** a comment, doc, message or PR text that misdescribes what the code does.
-- **P3:** a small fix worth making in this PR or a follow-up PR straight after it. Never blocks. If it isn't worth doing now, don't report it.
+- **P3:** a fix worth making in this PR or a follow-up PR straight after it. Never blocks. If it isn't worth doing now, don't report it.
+- **ELSEWHERE:** a real bug (wrong behaviour, a security hole, data loss) in code this PR does not change and is not about, with the case that triggers it. Never blocks. It is the only kind of finding that becomes an issue.
 
 ## Output
 
 ```
 VERDICT: CLEAN (no P1/P2/UNTRUE) | BLOCKING
 FINDINGS:
-- [P1|P2|UNTRUE|P3] file:line: problem; the case that triggers it -> fix
+- [P1|P2|UNTRUE|P3|ELSEWHERE] file:line: problem; the case that triggers it -> fix
 SUMMARY: one or two sentences.
 ```
 
