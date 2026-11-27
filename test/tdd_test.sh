@@ -81,20 +81,19 @@ check "review-pr: a twice-malformed owner is not handed to address-review" "yes"
   "$(grep -qF "do not hand off to \`address-review\`" <<<"$malformed_owner" && echo yes || echo no)"
 
 implement="$root/skills/implement/SKILL.md"
-check "implement's Test quality reviewer accepts a named exception with a before-and-after check" "yes" \
-  "$(has "$implement" "an exception named with a repeatable check and its output before and after")"
-check "implement's Test quality reviewer blocks an exception a good test could reach" "yes" \
-  "$(has "$implement" "an exception that a good test could reach is HIGH")"
-check "implement gives the Test quality reviewer the subagent's EXCEPTIONS" "yes" \
-  "$(has "$implement" "give the Test quality reviewer the subagent's EXCEPTIONS")"
+lenses="$root/shared/lenses.md"
+check "the Tests lens accepts a named exception with a before-and-after check" "yes" \
+  "$(has "$lenses" "an exception the author names with a repeatable check and its output before and after")"
+check "the Tests lens blocks an exception a good test could reach" "yes" \
+  "$(has "$lenses" "an exception that a good test could reach is P2")"
+check "implement gives the lenses the subagent's EXCEPTIONS" "yes" \
+  "$(has "$implement" "the subagent's EXCEPTIONS go in \`exceptions.md\`")"
 
 tackle="$root/skills/tackle-issues/references"
-check "tackle-issues' Tests reviewer accepts a named exception with a before-and-after check" "yes" \
-  "$(has "$tackle/review-prompts.md" "an exception named with a repeatable check and its output before and after")"
-check "tackle-issues' Tests reviewer blocks an exception a good test could reach" "yes" \
-  "$(has "$tackle/review-prompts.md" "an exception that a good test could reach is P2")"
+check "tackle-issues reviews tests through the shared Tests lens" "yes" \
+  "$(cmp -s "$lenses" "$tackle/lenses.md" && echo yes || echo no)"
 check "tackle-issues gives each Phase 5 reviewer the subagents' named exceptions" "yes" \
-  "$(grep -F "Each reviewer also receives" "$tackle/review-prompts.md" | grep -qiF "named exceptions" && echo yes || echo no)"
+  "$(has "$tackle/lens-inputs.md" "every named exception the implementation and fix subagents reported")"
 fix_subagent="$work/fix-subagent.md"
 awk '/^## Fix subagent/{on=1; next} /^## /{on=0} on' "$tackle/subagent-templates.md" >"$fix_subagent"
 check "the tackle-issues fix subagent may use the fallback" "yes" "$(has "$fix_subagent" "$fallback")"
@@ -107,11 +106,11 @@ check "the tackle-issues PR body reports the real-thing check" "yes" \
   "$(has "$tackle/subagent-templates.md" "## Real-thing check")"
 
 # Named exceptions read the same everywhere (#44).
-check "tackle-issues' Tests reviewer accepts a named exception's check for a bug fix" "yes" \
-  "$(has "$tackle/review-prompts.md" "Each bug fix has a test, or a named exception's check, that fails without the fix.")"
-check "tackle-issues' Tests reviewer no longer demands a test for every bug fix" "no" \
+check "the Tests lens takes a named exception's check as a bug fix's proof" "yes" \
+  "$(has "$lenses" "(a bug fix needs a reproduction). The proof is a test, or an exception")"
+check "tackle-issues' reviewers no longer demand a test for every bug fix" "no" \
   "$(has "$tackle/review-prompts.md" "Each bug fix has a test that fails without the fix.")"
-any_fail="$(grep -F -- "- **Any FAIL:**" "$implement")"
+any_fail="$(grep -F -- "- **Any BLOCKING:**" "$implement")"
 check "implement adds a review fix's named exception to EXCEPTIONS" "yes" \
   "$(printf '%s' "$any_fail" | grep -qiF "add it to EXCEPTIONS" && echo yes || echo no)"
 check "review-pr's owner blocks a bad test" "yes" \

@@ -140,20 +140,17 @@ On failure, ask the user whether to skip the issue (unclaim it) or stop the grou
 
 ## Phase 5: Review loop (per group, before pushing)
 
-Spawn the specialist reviewers in parallel (prompts in `references/review-prompts.md`):
+Spawn one fresh reviewer per lens in parallel, through the lenses in `references/lenses.md`, the same brief `review-pr` uses. Build their inputs, prompt them and tag their reports as `references/lens-inputs.md` says, with `<slug>` the group's slug and `<worktree>` `$WT`. Which lenses run, and how domain reviewers and large diffs are handled, is in `references/review-prompts.md`:
 
-| Reviewer | Focus | When |
-|---|---|---|
-| Correctness | logic bugs, edge cases, does it actually fix the issue | always |
-| Security | injection, authz, secrets, unsafe input handling | always |
-| Tests | coverage of new behaviour and failure paths; tests prove behaviour, not mocks | always |
-| Simplicity and maintainability | duplication, needless abstraction, naming, project conventions | always |
-| UX and accessibility | feedback, errors, a11y, design system | only if UI files changed |
-| Domain reviewers | rules from the project's own docs (Phase 0) | when the diff touches that area |
+| Lens | When |
+|---|---|
+| Correctness, Security, Tests, Simplicity | always |
+| UX | only if UI files changed |
+| Domain (`domain-<name>`) | when the diff touches an area the project's docs treat as high-risk (Phase 0) |
 
-Save each reviewer's output, as returned, to `<scratch>/<group-slug>-lens/<lens>.md` (`correctness`, `security`, `tests`, `simplicity`, `ux`, or `domain-<name>`), with `Reviewed: <sha>` as its first line, where `<sha>` is `git -C "$WT" rev-parse HEAD` when that reviewer started. A rerun overwrites its own file. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice. A P3 fix round moves the head, so after one the reports no longer match it and `review-pr` runs its own lenses.
+The reports land in `<scratch>/<group-slug>-lens/<lens>.md`, each starting `Reviewed: <sha>`. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice. A P3 fix round moves the head, so after one the reports no longer match it and `review-pr` runs its own lenses.
 
-Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (a real problem that should be fixed before merge), **P3** (minor, worth fixing in this PR, including a problem that was already there in the code the diff changes; not reported if it isn't worth doing now), **ELSEWHERE** (a real bug in code the group does not change and is not about; never blocks). Reviewers also flag anything **untrue**: a comment, doc, UI string or PR text that misdescribes the behaviour.
+Severities are the lens brief's: **P1**, **P2** and **UNTRUE** (a comment, doc, UI string or PR text that misdescribes the behaviour) block; **P3** (worth fixing in this PR, including a problem that was already there in the code it touches) and **ELSEWHERE** (a real bug in code the group does not touch and is not about) never do.
 
 **Exit rule.** The loop ends when a round returns no P1, no P2 and nothing untrue. Then:
 - take every outstanding P3 from all rounds, and drop those not worth doing now. Fix the rest in one fix round, verified as in Phase 4, with no new review round for them here (`review-pr` reviews the PR's head in Phase 7);
@@ -172,7 +169,7 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
    ```
    `bash -c` keeps a compound verify command (`lint && rspec`) inside the watch; without it the shell runs everything after the first command unwatched.
    `20m` kills the run once its log has been silent that long; `<max>` is about three times the project's usual full run, or `3h` if you don't know it. Run it in the background when it is long, and before reporting a background run as still running, check its log's mtime (`find <log> -mmin +20` prints the log only if it has been silent 20 minutes or more): a silent log is a hang, not a slow run, so say so. On exit 124, run-watched killed it (a hang or an overrun, not a test failure): report that with the log's last lines and ask. On any other failure, report the failing tests and ask.
-2. **One combined go-ahead per group.** Ask about each group as soon as it is ready; never hold a finished PR for its sibling. Show the user: branch, commits, diff stat, test result, review summary, the drafted PR title and body (template in `references/subagent-templates.md`), the P3s fixed and dropped, and any ELSEWHERE finding drafted as an issue. Then ask one combined go-ahead for everything this PR still needs: push the branch, open the PR, file any ELSEWHERE issue, run `review-pr`, attach `pr-media` screenshots if it touches UI, and ship it with `ship-pr` on the owner's visual sign-off (a PR with no UI change ships on MERGE and green CI). Offer: all of it; all but shipping (stop at MERGE); or change something first. The answer covers this PR only, and only the steps it names.
+2. **One combined go-ahead per group.** Ask about each group as soon as it is ready; never hold a finished PR for its sibling. Show the user: branch, commits, diff stat, test result, review summary, the drafted PR title and body (template in `references/subagent-templates.md`) the P3s fixed and dropped, and any ELSEWHERE finding drafted as an issue. Then ask one combined go-ahead for everything this PR still needs: push the branch, open the PR, file any ELSEWHERE issue, run `review-pr`, attach `pr-media` screenshots if it touches UI, and ship it with `ship-pr` on the owner's visual sign-off (a PR with no UI change ships on MERGE and green CI). Offer: all of it; all but shipping (stop at MERGE); or change something first. The answer covers this PR only, and only the steps it names.
 3. **On a yes:** `git push -u origin "$BRANCH"`, then `gh pr create` with `Closes #<n>` lines for each issue, then the mode's In review operation, then file any ELSEWHERE issue. If the group touches UI, run the `pr-media` skill as soon as the PR is open, not after review: its capture runs in a subagent that returns file paths, and you attach those. Then Phase 7.
 
 ## Phase 7: Review, CI and ship
@@ -196,7 +193,7 @@ On red CI (unless the host handles CI failures, as that file says), spawn a **CI
 | <title> | #<n>, #<n> | clean after 2 rounds | passing | <url> |
 
 P3s: <n> fixed, <n> dropped
-ELSEWHERE bugs filed: #<n> (from Phase 5, and any `ship-pr` returned), or none
+ELSEWHERE bugs filed: #<n>, or none
 Skipped: #<n> (reason)
 Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree remove <path>` after merge)
 ```
@@ -221,4 +218,6 @@ Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree re
 - `references/issue-tracking.md`: each mode's issue operations.
 - `scripts/board`: per-run claims and status moves on a board with an Agent field.
 - `scripts/run-watched`: runs the full verify command and kills it if its log goes silent or it runs too long.
-- `references/review-prompts.md`: reviewer prompts, severity scale, selection rules, consolidation and large-diff handling.
+- `references/lenses.md`: the lens brief every reviewer follows, shared with `implement` and `review-pr`.
+- `references/lens-inputs.md`: building a lens reviewer's inputs, its prompt, and tagging its report with the commit it reviewed.
+- `references/review-prompts.md`: which lenses run, domain reviewers, consolidation and large-diff handling.

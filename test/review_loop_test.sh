@@ -73,23 +73,26 @@ check "the Review loops rules say findings are done now or dropped" "yes" \
 check "no skill or rule files minor findings as a follow-up issue" "" \
   "$(grep -rniE "follow-up issue|follow-up note or issue" "$root/skills" "$root/rules" "$root/shared" || true)"
 check "the lens brief's P3 drops what isn't worth doing now" "yes" \
-  "$(has "$root/skills/review-pr/references/lenses.md" "If it isn't worth doing now, don't report it.")"
+  "$(has "$root/shared/lenses.md" "If it isn't worth doing now, don't report it.")"
 check "the owner brief's P3 drops what wouldn't be fixed soon" "yes" \
   "$(has "$root/skills/review-pr/references/owner-review.md" "If you wouldn't fix it soon, don't report it.")"
 check "tackle-issues files an issue only for an ELSEWHERE finding" "yes" \
   "$(has "$root/skills/tackle-issues/SKILL.md" "The only issue this loop files is for an ELSEWHERE finding")"
 check "review-pr never offers P3s as an issue" "yes" "$(has "$review" "Never offer them as an issue.")"
 check "ship-pr fixes a MERGE's P3s once before merging" "yes" "$(has "$ship" "**P3s first.** If the MERGE lists follow-ups (P3)")"
-check "ship-pr drops, and names, P3s it doesn't fix" "yes" "$(has "$ship" "are dropped: name them as dropped in the report")"
+check "ship-pr leaves P3s it doesn't fix for one follow-up PR" "yes" "$(has "$ship" "are left for one follow-up PR")"
+check "ship-pr's follow-up PR never spawns another" "yes" "$(has "$ship" "never followed up again")"
+check "ship-pr records its P3 round in the findings file" "yes" "$(has "$ship" "## P3 round <n> at <sha>")"
 check "ship-pr runs a P3 round only while the review cap has room" "yes" "$(has "$ship" "the review cap in step 1 leaves room for one more review")"
-check "ship-pr offers ELSEWHERE findings as issues" "yes" "$(has "$ship" "list every review's ELSEWHERE findings and offer to file each as an issue")"
+check "ship-pr offers ELSEWHERE findings as issues" "yes" "$(has "$ship" "**ELSEWHERE findings**, from every review: file each as an issue")"
 check "address-review takes a MERGE's P3s" "yes" "$(has "$address" "only the MERGE's follow-ups (P3)")"
 check "address-review never re-solves for P3s" "yes" "$(has "$address" "**A P3 round always patches.**")"
 check "review-pr keeps ELSEWHERE findings whatever the verdict" "yes" "$(has "$review" "Whatever the verdict, keep this round's ELSEWHERE findings")"
 check "the validator no longer lowers fix-later problems to P3" "" \
   "$(grep -niF "merge and fix later" "$root/skills/review-pr/references/validate-findings.md" || true)"
 for brief in skills/review-pr/references/lenses.md skills/review-pr/references/owner-review.md \
-  skills/review-pr/references/validate-findings.md skills/tackle-issues/references/review-prompts.md; do
+  skills/review-pr/references/validate-findings.md shared/lenses.md skills/implement/references/lenses.md \
+  skills/tackle-issues/references/lenses.md; do
   check "$brief has a place for a bug in unrelated code" "yes" \
     "$(grep -qF -- "ELSEWHERE" "$root/$brief" && echo yes || echo no)"
 done
