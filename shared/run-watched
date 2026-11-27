@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Run a long command with its output in a log, and kill it if it hangs.
+#
+#   run-watched <log> <silent> <max> -- <command> [args...]
+#
+# <silent>: kill the run when the log has not grown for this long.
+# <max>:    kill the run when it has gone on this long in all.
+# Each is a number of minutes, or a number with s, m or h (90s, 20m, 2h).
+# The log is emptied first; the command's stdout and stderr go to it.
+#
+# Exit codes: the command's own when it finishes, 124 when run-watched
+# killed it (the reason is the log's last line and on stderr), 2 on bad
+# arguments. Killing it kills everything it started.
+set -uo pipefail
+
+usage() {
+  echo "usage: run-watched <log> <silent> <max> -- <command> [args...]" >&2
+  sed -n '6,13p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+seconds() {
+  case "$1" in
+    *[!0-9smh]* | "" | [smh]* | *[smh]?*) return 1 ;;
+    *s) echo "${1%s}" ;;
+    *m) echo $(( ${1%m} * 60 )) ;;
+    *h) echo $(( ${1%h} * 3600 )) ;;
+    *) echo $(( $1 * 60 )) ;;
+  esac
+}
+
+[ $# -ge 5 ] && [ "$4" = "--" ] || usage
+log="$1"
+silent="$(seconds "$2")" && [ "$silent" -gt 0 ] || usage
+max="$(seconds "$3")" && [ "$max" -gt 0 ] || usage
+silent_label="$2"
+max_label="$3"
+shift 4
+
+: > "$log" || { echo "run-watched: cannot write $log" >&2; exit 2; }
+
+size() { wc -c < "$log" | tr -d ' '; }
+
+set -m
+"$@" >> "$log" 2>&1 &
+pid=$!
+set +m
+
+stop() {
+  kill -TERM -- "-$pid" 2>/dev/null
+  local i=0
+  while kill -0 -- "-$pid" 2>/dev/null && [ "$i" -lt 10 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  kill -KILL -- "-$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+}
+
+give_up() {
+  stop
+  echo "run-watched: $1; killed" | tee -a "$log" >&2
+  exit 124
+}
+
+trap 'stop; exit 130' INT
+trap 'stop; exit 143' TERM
+
+started=$(date +%s)
+last_growth=$started
+last_size=0
+while kill -0 "$pid" 2>/dev/null; do
+  sleep 1
+  now=$(date +%s)
+  current="$(size)"
+  if [ "$current" != "$last_size" ]; then
+    last_size="$current"
+    last_growth=$now
+  fi
+  kill -0 "$pid" 2>/dev/null || break
+  [ $((now - last_growth)) -lt "$silent" ] || give_up "no output for $silent_label"
+  [ $((now - started)) -lt "$max" ] || give_up "still running after $max_label"
+done
+
+wait "$pid"

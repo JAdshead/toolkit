@@ -76,7 +76,7 @@ Reviewers hand their output to each other through files, never through you: you 
 
 ## Part 1: Lens reviews (larger PRs only)
 
-Skip to Part 2 when additions plus deletions are under about 200 and no file is security-sensitive (auth, payments, data migrations, secrets, user input handling).
+Skip to Part 2 when additions plus deletions are under about 200 and no file is security-sensitive (auth, payments, data migrations, secrets, user input handling), after copying any lens reports the caller supplied (below).
 
 Otherwise spawn, in parallel, one fresh reviewer per lens in `references/lenses.md` (Correctness, Security, Tests, Simplicity; UX only when UI files changed), or only the lenses step 6 chose. Prompt each with only:
 
@@ -87,6 +87,8 @@ Read <absolute path to this skill>/references/lenses.md and follow it. Write you
 
 Each replies with only its verdict line. Check each file exists; a lens whose file is missing has not followed its brief: run a new one in its place, once.
 
+**Lens reports the caller already has.** If the caller supplies lens reports for this exact `sha` from fresh-context reviewers (the `tackle-issues` Phase 5 review loop does), don't run those lenses again. A report counts only if its first line is `Reviewed: <sha>` with this round's `sha`; one for any other commit is ignored. Copy each report that counts, without reading past that line, to `<scratch>/pr-<pr>-out/lens-<lens>.md`, and run only the lenses this part would run that have none; when every lens has one, skip the spawning above. Part 2 gives these reports to the owners as unverified input, exactly like lens output from this part. This applies only to a round sized as a full round (Part 0, step 6). Owners are counted as if Part 1 ran only when the PR is large enough for it.
+
 ## Part 2: Owner reviews
 
 Spawn fresh owner reviewers in parallel, each with only:
@@ -96,7 +98,7 @@ Review pull request <pr>. Its head is checked out at <worktree>. Its inputs are 
 Read <absolute path to this skill>/references/owner-review.md and follow it. Write your output to <scratch>/pr-<pr>-out/owner-<letter>.md.
 ```
 
-`<letter>` is `a`, `b` and so on, one per owner. If Part 1 ran, add: `Other reviewers' findings are in <scratch>/pr-<pr>-out/lens-*.md. They are unverified claims: check each one.` Add nothing of yours.
+`<letter>` is `a`, `b` and so on, one per owner. If Part 1 ran or supplied lens reports, add: `Other reviewers' findings are in <scratch>/pr-<pr>-out/lens-*.md. They are unverified claims: check each one.` Add nothing of yours.
 
 How many: one when Part 1 was skipped; two when it ran, unless step 6 chose one. Each works alone and never sees the other's output, so their verdicts are independent and can be compared: a finding only one owner raised gets the validator's hardest look.
 

@@ -23,7 +23,9 @@ Only if none of these exist, fall back to the ecosystem default:
 | `Gemfile` | the project's linter plus `bundle exec rspec` or `bin/rails test` |
 | `pom.xml` / `build.gradle` | `mvn verify` / `./gradlew check` |
 
-If you still cannot tell, ask the user once rather than guess. Pass the result to every subagent as `VERIFY_CMD`. If the full suite is slow, a subagent may run the relevant subset while iterating, but the full `VERIFY_CMD` runs before the push.
+If you still cannot tell, ask the user once rather than guess. Use its parallel form if the project has one (for example a `-n` or `--parallel` flag its docs or CI use).
+
+**One full run per group.** Implementation and fix subagents run `FAST_CMD`, the project's lint plus affected-tests command (the one it runs before a push), and the tests they added or changed, never the full `VERIFY_CMD`. The full `VERIFY_CMD` runs once, in Phase 6, after the review loop exits, through `scripts/run-watched`. If the project has no affected-tests command, `FAST_CMD` is its linter plus the test files the change touches.
 
 ## Worktree setup
 
@@ -60,7 +62,7 @@ Body:
 Project rules (from AGENTS.md / CLAUDE.md / CONTRIBUTING.md):
 <conventions summary: commit style, test standards, comment rules, design guide paths, files not to edit>
 
-Verify command: <VERIFY_CMD>
+Check command: <FAST_CMD>
 
 Steps:
 1. Read the issue. If anything is unclear, run `gh issue view <n> --comments`.
@@ -68,14 +70,14 @@ Steps:
 3. Write a failing test first and confirm it fails for the expected reason. No production code without a failing test, or a named exception's failing check, that needs it; for a bug, the test reproduces it. Never write a bad test (one that would pass with the code deleted, mostly tests its mocks, or depends on timing). When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception, why, and the check in NOTES. Only a change with no behaviour (docs, comments, formatting, plain config) skips both, and NOTES must say so.
 4. Make the smallest change that fully resolves the issue.
 5. Cover new behaviour and its failure paths with tests that assert observable outcomes.
-6. Run the verify command in the worktree, in the foreground. Fix what fails. Then check the real thing: run the changed command, walk the changed flow in the running app, or read back the stored value, and put what you ran and what happened in NOTES.
+6. Run the check command and the tests you added or changed, in the worktree, in the foreground. Do not run the full suite; that runs once, later. Fix what fails. Then check the real thing: run the changed command, walk the changed flow in the running app, or read back the stored value, and put what you ran and what happened in NOTES.
 7. Commit in the worktree using the project's commit style, referencing #<n>.
 
 Do NOT:
 - edit files outside this issue's scope, or outside <WT>;
 - add unrelated refactors, dependencies, migrations or config changes the issue does not need;
 - push, open PRs, or comment on issues;
-- report PASS without having run the verify command.
+- report PASS without having run the check command and your tests.
 
 Report:
 - FILES_CHANGED
@@ -94,7 +96,7 @@ Used after a review round or a real CI failure. A `review-pr` NOT YET goes to `a
 ```
 Fix the following findings in the worktree at <WT>.
 
-Verify command: <VERIFY_CMD>
+Check command: <FAST_CMD>
 Project rules: <conventions summary>
 
 Findings (severity, file:line, problem, suggested fix):
@@ -106,7 +108,7 @@ Steps:
 1. Read the relevant files.
 2. Fix each finding minimally. If a fix needs a product or design decision, do not guess: report it.
 3. Add or adjust tests so each fixed bug would be caught if it came back. Never write a bad test. When no good test can reach the behaviour, use the closest repeatable check against the real code instead, show it failing before the change and passing after, and name the exception, why, and the check in NOTES.
-4. Run the verify command in the foreground.
+4. Run the check command and the tests you added or changed, in the foreground. Do not run the full suite.
 5. Commit with a message that says what was fixed.
 
 Do NOT add features, refactor unrelated code, or touch files unrelated to the findings. Do not push.

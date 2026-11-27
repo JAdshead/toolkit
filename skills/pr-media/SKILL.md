@@ -26,6 +26,22 @@ Capturing runs the PR's code. Before running its head, check `gh pr view <pr> --
 
 Run the app at the base branch and again at the PR's head, and for each changed screen and state take a screenshot before and after, at 1280 and 375 px wide, with the browser or Playwright tooling this session has. Name the files so they sort and say what they show, using only letters, digits, `.`, `_` and `-`: `stay-card-after-1280.png`.
 
+For the screenshots, `scripts/pr-media capture <spec.json>` does this with Playwright. Run it from a checkout whose `node_modules` has Playwright (it falls back to a global install), once against the base and once against the head:
+
+```json
+{
+  "baseUrl": "http://localhost:3000",
+  "out": "<scratch>/media",
+  "signIn": { "path": "/users/sign_in", "clickFirst": ["#tab-password"], "fields": { "#user_email": "<test user>", "#user_password": "<test password>" }, "submit": "[type=submit]" },
+  "widths": [1280, 375],
+  "shots": [{ "name": "stay-card-after", "path": "/stays/1", "crop": ".stay-card" }]
+}
+```
+
+For each shot and width it writes `<out>/<name>-<width>.png` and prints its path. It signs in once, clicking each `clickFirst` selector in turn (a tab that reveals the password form, say) and then filling the given fields (only the project's test credentials, from its seeds or fixtures, never a real account), opens every `<details>` (`"openDetails": false` keeps them shut), crops to the first visible element matching `crop` (no `crop`: the full page; `waitFor` waits for a selector first), and hides sticky headers that would cover a crop with `.sticky,.fixed{position:static !important} header{display:none !important}` (`"keepSticky": true` when the header is what changed). Never widen that to every element's `position`: it breaks the layout you are capturing. `widths` defaults to 1280 and 375. Exit 2 on any error, with the reason.
+
+Run capture in a subagent that returns only the file paths, so the screenshots never enter your own context; you pass those paths to `attach`.
+
 For each changed interaction, record it with Playwright's `recordVideo` (`browser.newContext({ recordVideo: { dir: 'media/' } })`; the WebM is saved when the context closes). A video in the repo shows only as a link, so turn it into a GIF to play inline, and attach both:
 
 ```bash
