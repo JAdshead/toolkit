@@ -125,6 +125,20 @@ for (const shot of shots) {
 }
 fs.mkdirSync(out, { recursive: true });
 
+async function unpin(page) {
+  await page.evaluate(async () => {
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    for (const el of document.querySelectorAll('*')) {
+      const position = getComputedStyle(el).position;
+      if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
+      if (position === 'fixed') {
+        el.style.setProperty('transition', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+      }
+    }
+  });
+}
+
 (async () => {
   const { chromium } = playwright();
   const browser = await chromium.launch();
@@ -156,26 +170,37 @@ fs.mkdirSync(out, { recursive: true });
         await page.goto(new URL(shot.path, baseUrl).href, { waitUntil: 'load' });
         if (shot.waitFor) await page.locator(shot.waitFor).first().waitFor();
         if (shot.openDetails !== false) await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-        if (!shot.keepSticky) {
-          await page.evaluate(() => {
-            const pinned = [...document.querySelectorAll('*')].map((el) => [el, getComputedStyle(el).position]);
-            for (const [el, position] of pinned) {
-              if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
-              if (position === 'fixed') el.style.setProperty('visibility', 'hidden', 'important');
-            }
-          });
-        }
         const file = path.join(out, `${shot.name}-${width}.png`);
         if (shot.crop) {
-          const target = page.locator(`${shot.crop} >> visible=true`).first();
+          const matches = page.locator(`${shot.crop} >> visible=true`);
           try {
-            await target.waitFor({ timeout: 5000 });
+            await matches.first().waitFor({ timeout: 5000 });
           } catch {
             die(`shot ${shot.name}: nothing visible matches ${shot.crop} on ${shot.path}`);
           }
+          const insideFixed = (handle) => handle.evaluate((el) => {
+            for (let e = el; e; e = e.parentElement) if (getComputedStyle(e).position === 'fixed') return true;
+            return false;
+          });
+          const hint = `shot ${shot.name}: ${shot.crop} sits inside a fixed element, which capture hides; set "keepSticky": true`;
+          const handles = await matches.elementHandles();
+          let target = handles[0];
+          if (!shot.keepSticky) {
+            target = null;
+            for (const handle of handles) if (!(await insideFixed(handle))) { target = handle; break; }
+            if (!target) die(hint);
+          }
+          await target.scrollIntoViewIfNeeded();
+          if (!shot.keepSticky) {
+            await unpin(page);
+            if (await insideFixed(target)) die(hint);
+          }
           await target.screenshot({ path: file, animations: 'disabled' });
         }
-        else await page.screenshot({ path: file, fullPage: shot.fullPage !== false, animations: 'disabled' });
+        else {
+          if (!shot.keepSticky) await unpin(page);
+          await page.screenshot({ path: file, fullPage: shot.fullPage !== false, animations: 'disabled' });
+        }
         console.log(file);
       }
       await context.close();
