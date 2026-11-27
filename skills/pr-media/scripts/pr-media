@@ -125,6 +125,17 @@ for (const shot of shots) {
 }
 fs.mkdirSync(out, { recursive: true });
 
+async function unpin(page) {
+  await page.evaluate(async () => {
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    for (const el of document.querySelectorAll('*')) {
+      const position = getComputedStyle(el).position;
+      if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
+      if (position === 'fixed') el.style.setProperty('visibility', 'hidden', 'important');
+    }
+  });
+}
+
 (async () => {
   const { chromium } = playwright();
   const browser = await chromium.launch();
@@ -156,15 +167,6 @@ fs.mkdirSync(out, { recursive: true });
         await page.goto(new URL(shot.path, baseUrl).href, { waitUntil: 'load' });
         if (shot.waitFor) await page.locator(shot.waitFor).first().waitFor();
         if (shot.openDetails !== false) await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-        if (!shot.keepSticky) {
-          await page.evaluate(() => {
-            const pinned = [...document.querySelectorAll('*')].map((el) => [el, getComputedStyle(el).position]);
-            for (const [el, position] of pinned) {
-              if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
-              if (position === 'fixed') el.style.setProperty('visibility', 'hidden', 'important');
-            }
-          });
-        }
         const file = path.join(out, `${shot.name}-${width}.png`);
         if (shot.crop) {
           const target = page.locator(`${shot.crop} >> visible=true`).first();
@@ -173,9 +175,17 @@ fs.mkdirSync(out, { recursive: true });
           } catch {
             die(`shot ${shot.name}: nothing visible matches ${shot.crop} on ${shot.path}`);
           }
+          await target.scrollIntoViewIfNeeded();
+          if (!shot.keepSticky) {
+            await unpin(page);
+            if (!(await target.isVisible())) die(`shot ${shot.name}: ${shot.crop} sits inside a sticky or fixed element that capture hides; set "keepSticky": true`);
+          }
           await target.screenshot({ path: file, animations: 'disabled' });
         }
-        else await page.screenshot({ path: file, fullPage: shot.fullPage !== false, animations: 'disabled' });
+        else {
+          if (!shot.keepSticky) await unpin(page);
+          await page.screenshot({ path: file, fullPage: shot.fullPage !== false, animations: 'disabled' });
+        }
         console.log(file);
       }
       await context.close();

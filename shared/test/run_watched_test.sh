@@ -37,6 +37,11 @@ echo "old run" > "$log"
 "$watched" "$log" 1m 5m -- true 2>/dev/null
 check "each run starts a fresh log" "no" "$(says "$log" "old run")"
 
+"$watched" "$log" 1m 1h -- sh -c 'sleep 2' 2>/dev/null
+check "a max in hours is hours, not seconds" "0" "$?"
+"$watched" "$log" 1 5m -- sh -c 'sleep 2' 2>/dev/null
+check "a bare number is minutes, not seconds" "0" "$?"
+
 start=$(date +%s)
 "$watched" "$log" 2s 5m -- sh -c 'echo started; exec sleep 60' 2>"$work/err"
 rc=$?

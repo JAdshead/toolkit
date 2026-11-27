@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # Tests for pr-media capture against a local static site: it signs in and
 # keeps the session, opens <details>, crops to the first match, and keeps
-# sticky and fixed elements off a crop unless told not to. Needs Node and Playwright with Chromium: run it from, or point
-# PLAYWRIGHT_PROJECT at, a directory whose node_modules has playwright.
-# Skips when it can't find one. Usage: pr_media_capture_test.sh
+# sticky and fixed elements off a crop unless told not to. Needs Node and
+# Playwright with Chromium: run it from, or point PLAYWRIGHT_PROJECT at, a
+# directory whose node_modules has playwright. Skips when it can't find one,
+# unless PLAYWRIGHT_PROJECT is set: then it fails, so CI can't pass by
+# skipping. Usage: pr_media_capture_test.sh
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 media="$here/../pr-media"
 project="${PLAYWRIGHT_PROJECT:-$PWD}"
 if ! (cd "$project" && node -e "require.resolve('playwright')" 2>/dev/null); then
+  if [ -n "${PLAYWRIGHT_PROJECT:-}" ]; then
+    echo "FAIL no Playwright under PLAYWRIGHT_PROJECT=$PLAYWRIGHT_PROJECT"
+    exit 1
+  fi
   echo "skip: no Playwright under $project (set PLAYWRIGHT_PROJECT)"
   exit 0
 fi
@@ -68,11 +74,15 @@ cat > "$site/home.html" <<'HTML'
   .card.one { width: 200px; } .card.two { width: 300px; }
   #inside { width: 150px; height: 40px; background: #0f0; }
   #bar { position: fixed; top: 0; left: 0; width: 100%; height: 20px; background: #f0f; transition: all 5s; }
-  #intro { width: 120px; height: 30px; background: #0ff; }
+  #intro { position: static; width: 120px; height: 30px; background: #0ff; }
+  #late { height: 20px; background: #ff0; top: 0; left: 0; width: 100%; }
+  #drawer { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; }
+  #drawer-item { width: 50px; height: 50px; background: #000; }
   #account { width: 80px; height: 20px; background: #0f0; }
   #tall { width: 100px; height: 900px; background: #00f; }
 </style>
-<header>Header</header><div id="bar"></div>
+<header>Header</header><div id="bar"></div><div id="late"></div><div id="drawer"><div id="drawer-item"></div></div>
+<script>addEventListener('scroll', () => { if (scrollY > 100) document.getElementById('late').style.position = 'fixed'; });</script>
 <div class="card zero" style="display: none"></div><div class="card one"></div><div class="card two"></div>
 <details><summary>More</summary><div id="inside"></div></details>
 <article><header id="intro"></header></article>
@@ -118,7 +128,19 @@ check "a full page is the viewport's width" "375" "$(png_width "$work/out/page-3
 check "shots are taken signed in" "80" "$(png_width "$work/out/account-1280.png")"
 # #tall is as high as the viewport, so a crop of it starts at the viewport's top.
 check "sticky and fixed elements don't cover a crop" "0000ff" "$(top_left "$work/out/tall-1280.png")"
-check "keepSticky leaves them" "ff00ff" "$(top_left "$work/out/tall-sticky-1280.png")"
+check "keepSticky leaves them" "yes" "$( [ "$(top_left "$work/out/tall-sticky-1280.png")" != 0000ff ] && echo yes || echo no)"
+
+# #late turns fixed only once the page scrolls, which the crop's own scroll does.
+spec "#go" '[{ "name": "late", "path": "/home.html", "crop": "#tall" }]'
+capture
+check "an element that turns fixed on scroll doesn't cover a crop" "0 0000ff" "$rc $(top_left "$work/out/late-1280.png")"
+
+spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item" }]'
+capture
+check "a crop inside a fixed element exits 2 and points to keepSticky" "2 yes" "$rc $(says "$work/err" "keepSticky")"
+spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item", "keepSticky": true }]'
+capture
+check "with keepSticky, a crop inside a fixed element works" "0 50" "$rc $(png_width "$work/out/drawer-1280.png")"
 
 spec "#go" '[{ "name": "intro", "path": "/home.html", "crop": "#intro" }]'
 capture
