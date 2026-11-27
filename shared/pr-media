@@ -99,7 +99,6 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { createRequire } = require('module');
 
-const STICKY_CSS = '.sticky,.fixed{position:static !important} header{display:none !important}';
 const die = (msg) => { console.error(`pr-media: ${msg}`); process.exit(2); };
 
 function playwright() {
@@ -157,7 +156,15 @@ fs.mkdirSync(out, { recursive: true });
         await page.goto(new URL(shot.path, baseUrl).href, { waitUntil: 'load' });
         if (shot.waitFor) await page.locator(shot.waitFor).first().waitFor();
         if (shot.openDetails !== false) await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
-        if (!shot.keepSticky) await page.addStyleTag({ content: STICKY_CSS });
+        if (!shot.keepSticky) {
+          await page.evaluate(() => {
+            const pinned = [...document.querySelectorAll('*')].map((el) => [el, getComputedStyle(el).position]);
+            for (const [el, position] of pinned) {
+              if (position === 'sticky') el.style.setProperty('position', 'static', 'important');
+              if (position === 'fixed') el.style.setProperty('visibility', 'hidden', 'important');
+            }
+          });
+        }
         const file = path.join(out, `${shot.name}-${width}.png`);
         if (shot.crop) {
           const target = page.locator(`${shot.crop} >> visible=true`).first();

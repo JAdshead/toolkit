@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Tests for pr-media capture against a local static site: it signs in, opens
-# <details>, crops to the first match, and hides sticky headers unless told
-# not to. Needs Node and Playwright with Chromium: run it from, or point
+# Tests for pr-media capture against a local static site: it signs in and
+# keeps the session, opens <details>, crops to the first match, and keeps
+# sticky and fixed elements off a crop unless told not to. Needs Node and Playwright with Chromium: run it from, or point
 # PLAYWRIGHT_PROJECT at, a directory whose node_modules has playwright.
 # Skips when it can't find one. Usage: pr_media_capture_test.sh
 set -uo pipefail
@@ -54,7 +54,7 @@ print("%02x%02x%02x" % (raw[1], raw[2], raw[3]))' "$1"
 cat > "$site/login.html" <<'HTML'
 <!doctype html><title>Sign in</title>
 <button id="tab" onclick="document.querySelector('form').hidden = false">Password</button>
-<form action="/home.html" method="get" hidden>
+<form action="/home.html" method="get" onsubmit="document.cookie = 'session=1; path=/'" hidden>
   <input id="email" name="email"><input id="password" name="password" type="password">
   <button id="go" type="submit">Sign in</button><button id="stay" type="button">Nothing</button>
 </form>
@@ -67,11 +67,18 @@ cat > "$site/home.html" <<'HTML'
   .card { height: 50px; margin: 10px; background: #00f; }
   .card.one { width: 200px; } .card.two { width: 300px; }
   #inside { width: 150px; height: 40px; background: #0f0; }
+  #bar { position: fixed; top: 0; left: 0; width: 100%; height: 20px; background: #f0f; }
+  #intro { width: 120px; height: 30px; background: #0ff; }
+  #account { width: 80px; height: 20px; background: #0f0; }
+  #tall { width: 100px; height: 900px; background: #00f; }
 </style>
-<header class="sticky">Header</header>
+<header>Header</header><div id="bar"></div>
 <div class="card zero" style="display: none"></div><div class="card one"></div><div class="card two"></div>
 <details><summary>More</summary><div id="inside"></div></details>
-<div style="height: 2000px"></div>
+<article><header id="intro"></header></article>
+<div id="account" hidden></div>
+<script>if (document.cookie.includes('session=1')) document.getElementById('account').hidden = false;</script>
+<div style="height: 1500px"></div><div id="tall"></div><div style="height: 2000px"></div>
 HTML
 
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
@@ -95,19 +102,27 @@ spec "#go" '[
   { "name": "card", "path": "/home.html", "crop": ".card" },
   { "name": "inside", "path": "/home.html", "crop": "#inside" },
   { "name": "page", "path": "/home.html" },
-  { "name": "page-sticky", "path": "/home.html", "keepSticky": true }
+  { "name": "account", "path": "/home.html", "crop": "#account" },
+  { "name": "tall", "path": "/home.html", "crop": "#tall" },
+  { "name": "tall-sticky", "path": "/home.html", "crop": "#tall", "keepSticky": true }
 ]'
 capture
 check "capture succeeds" "0" "$rc"
-check "it prints one path per shot and width" "8" "$(grep -c '\.png$' <<<"$out")"
+check "it prints one path per shot and width" "12" "$(grep -c '\.png$' <<<"$out")"
 check "it names files <name>-<width>.png" "yes yes" \
   "$( [ -f "$work/out/card-1280.png" ] && echo yes || echo no) $( [ -f "$work/out/card-375.png" ] && echo yes || echo no)"
 check "it signs in with the given fields, after clicking what reveals them" "yes" "$(says "$work/server.log" "home.html?email=tester%40example.com&password=secret")"
 check "a crop matching several elements takes the first visible one" "200" "$(png_width "$work/out/card-1280.png")"
 check "a crop inside <details> works because details are opened" "150" "$(png_width "$work/out/inside-375.png")"
 check "a full page is the viewport's width" "375" "$(png_width "$work/out/page-375.png")"
-check "sticky headers are hidden" "ffffff" "$(top_left "$work/out/page-1280.png")"
-check "keepSticky leaves them" "ff0000" "$(top_left "$work/out/page-sticky-1280.png")"
+check "shots are taken signed in" "80" "$(png_width "$work/out/account-1280.png")"
+# #tall is as high as the viewport, so a crop of it starts at the viewport's top.
+check "sticky and fixed elements don't cover a crop" "0000ff" "$(top_left "$work/out/tall-1280.png")"
+check "keepSticky leaves them" "ff00ff" "$(top_left "$work/out/tall-sticky-1280.png")"
+
+spec "#go" '[{ "name": "intro", "path": "/home.html", "crop": "#intro" }]'
+capture
+check "a header that is not sticky or fixed stays visible" "0 120" "$rc $(png_width "$work/out/intro-1280.png")"
 
 spec "#stay" '[{ "name": "card", "path": "/home.html", "crop": ".card" }]'
 capture
