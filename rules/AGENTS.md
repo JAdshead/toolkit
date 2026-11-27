@@ -23,7 +23,8 @@ Generic defaults for every project. A project's own instructions win where they 
 
 ## Review loops
 
-- **Every review loop needs a finite exit.** Stop when a round finds no serious defects and nothing untrue. Collect the remaining minor findings into one follow-up instead of another round.
+- **Every review loop needs a finite exit.** Stop when a round finds no serious defects and nothing untrue.
+- **Review findings are done now or dropped.** A finding about the work that is worth doing goes in the same pull request, or in a follow-up pull request opened straight after it, before the work is reported done. One that isn't worth doing now is dropped. Neither becomes an issue: an issue says the work can wait, and then it waits in the backlog. The one exception is a bug the work uncovers in code unrelated to it: file that as an issue. A bug in the code the pull request changes, or in the problem it solves, is related, even if it predates the pull request.
 
 ## Pull request review
 

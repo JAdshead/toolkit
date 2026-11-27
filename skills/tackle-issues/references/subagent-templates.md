@@ -166,7 +166,7 @@ Closes #<n>
 
 ## Review
 Specialist review (correctness, security, tests, simplicity<, UX><, domain>): no open P1/P2 after <k> rounds.
-Minor follow-ups: <link to follow-up issue, or "none">
+Minor follow-ups: <n fixed in this PR, n dropped, or "none">
 <Known issues, if the user chose to push with open findings>
 
 ## Test plan

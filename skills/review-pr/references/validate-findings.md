@@ -25,13 +25,13 @@ The PR's head is checked out in the worktree you were given. Read and run code t
    - **REFUTED:** you showed the code is right, the case cannot happen, or the finding misreads the code. In a recheck round, REFUTED means the finding no longer holds against the current PR.
    - **UNCLEAR:** you could neither show nor rule it out. Say what would settle it. UNCLEAR blocks, like CONFIRMED.
 5. For an UNVERIFIED finding, try to do the check the owner could not. CONFIRMED means the check found a real problem; REFUTED means it passed or the item does not matter; UNCLEAR means you could not do it either.
-6. Check the severity against the owner brief's scale (`owner-review.md` next to this file). A real problem that this PR did not introduce, or that an owner would merge and fix later, is P3.
+6. Check the severity against the owner brief's scale (`owner-review.md` next to this file). A real problem that this PR did not introduce is P3 if it is in the code this PR changes or the problem it solves, and ELSEWHERE if it is a real bug anywhere else. One an owner would merge and fix straight after is P3. Anything else that was already there is REFUTED: not a finding.
 
 ## Output
 
 ```
 FINDINGS:
-- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|UNVERIFIED|P3] (A1, B2) file:line: the finding -> your evidence: what you ran or read, and what happened
+- [CONFIRMED|REFUTED|UNCLEAR] [P1|P2|UNTRUE|UNVERIFIED|P3|ELSEWHERE] (A1, B2) file:line: the finding -> your evidence: what you ran or read, and what happened
 OWNER DISAGREEMENT: where the owners' verdicts differed, and which side the evidence supports
 SUMMARY: how many findings are confirmed, refuted and unclear, in one or two sentences.
 ```

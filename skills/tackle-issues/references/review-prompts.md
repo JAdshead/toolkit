@@ -32,7 +32,7 @@ After a round:
 
 1. Collect findings from all reviewers. Drop duplicates; keep the highest severity.
 2. Sanity-check each P1/P2. A reviewer can be wrong; if a finding is clearly mistaken, record why and set it aside rather than "fixing" correct code, and list it in the report so the user can see it.
-3. **Exit** if no P1, P2 or UNTRUE remains. Gather every P3 from every round into one follow-up issue draft.
+3. **Exit** if no P1, P2 or UNTRUE remains. Gather every P3 from every round: drop those not worth doing now, and fix the rest in one fix round. Never draft them as an issue; draft an issue only for an ELSEWHERE finding.
 4. Otherwise look for a shared root cause, hand the blocking findings to a fix subagent, verify its commits, and re-run only the reviewers that raised blocking findings.
 5. After 3 fix rounds with blocking findings still open, stop and ask the user: continue, push with the open findings listed in the PR, or abandon.
 

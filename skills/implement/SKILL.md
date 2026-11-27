@@ -67,12 +67,12 @@ If verification fails, show the output and ask the user whether to keep fixing o
 
 ## Phase 3: Review
 
-Review the branch through the lenses in `references/lenses.md`, the same brief `review-pr` uses: Correctness, Security, Tests and Simplicity, plus UX when UI files changed. Build the reviewers' inputs, prompt them and tag their reports as `references/lens-inputs.md` says, with `<slug>` `implement-<id>`; the subagent's EXCEPTIONS go in `exceptions.md`. Each lens returns `VERDICT: CLEAN|BLOCKING`; P1, P2 and UNTRUE findings block, P3 never does.
+Review the branch through the lenses in `references/lenses.md`, the same brief `review-pr` uses: Correctness, Security, Tests and Simplicity, plus UX when UI files changed. Build the reviewers' inputs, prompt them and tag their reports as `references/lens-inputs.md` says, with `<slug>` `implement-<id>`; the subagent's EXCEPTIONS go in `exceptions.md`. Each lens returns `VERDICT: CLEAN|BLOCKING`; P1, P2 and UNTRUE findings block; P3 and ELSEWHERE never do.
 
 Consolidate:
 
 - **Any BLOCKING:** show the findings, then fix the P1, P2 and UNTRUE ones under the same test rules (for a bug, a reproduction first), rerun the full local gate, and rerun only the lenses that blocked, with fresh inputs. When a fix is proved by a named exception, add it to EXCEPTIONS so the rerun lenses and the PR body see it. Also ask how each fix could itself fail.
-- **Exit rule:** stop when no lens blocks, or after 3 rounds. Collect the remaining P3 findings into one follow-up note or issue rather than another round.
+- **Exit rule:** stop when no lens blocks, or after 3 rounds. Don't run another round for the P3 findings that remain: fix the worthwhile ones in this change, rerun the full local gate, and drop the rest. That commit moves the head, so the Phase 3 lens reports no longer stand in for `review-pr`'s lenses. Never file P3s as an issue. Offer each ELSEWHERE finding to the user as an issue: what goes wrong, how to trigger it, and where.
 
 ## Phase 4: Pull request
 
@@ -101,7 +101,7 @@ Lenses:   correctness / security / tests / simplicity CLEAN (rounds: n)
 Owner:    MERGE | NOT YET at <short sha> (review-pr rounds: n)
 Tests:    <n> added, <n> written before their code
 Coverage: <n>% (floor: <n>%)
-Follow-ups: <remaining minor findings, or none>
+Follow-ups: <n P3s fixed here, n dropped; ELSEWHERE bugs offered as issues, or none>
 
 Next: merge the PR (your call), then archive the change if the project's workflow requires it.
 Worktree: <path>
