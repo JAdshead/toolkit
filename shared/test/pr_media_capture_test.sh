@@ -89,7 +89,7 @@ cat > "$site/home.html" <<'HTML'
 <article><header id="intro"></header></article>
 <div id="account" hidden></div>
 <script>if (document.cookie.includes('session=1')) document.getElementById('account').hidden = false;</script>
-<div style="height: 1500px"></div><div id="tall"></div><div style="height: 2000px"></div><div class="dup"></div>
+<div style="height: 1500px"></div><div id="tall"></div><div style="height: 2000px"></div><div class="dup" style="width: 90px"></div>
 HTML
 
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
@@ -143,10 +143,10 @@ spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item", "
 capture
 check "with keepSticky, a crop inside a fixed element works" "0 50" "$rc $(png_width "$work/out/drawer-1280.png")"
 
-# .dup's first match is inside #bar; another, outside any fixed element, comes later.
+# .dup's first match is inside #bar; another, 90px wide and outside any fixed element, comes later.
 spec "#go" '[{ "name": "dup", "path": "/home.html", "crop": ".dup" }]'
 capture
-check "a crop whose first match is inside a fixed element exits 2, not a crop of a later match" "2 yes" "$rc $(says "$work/err" "inside a fixed element")"
+check "a crop takes the first visible match outside a fixed element, uncovered" "0 90 00ff00" "$rc $(png_width "$work/out/dup-1280.png") $(top_left "$work/out/dup-1280.png")"
 
 spec "#go" '[{ "name": "intro", "path": "/home.html", "crop": "#intro" }]'
 capture
