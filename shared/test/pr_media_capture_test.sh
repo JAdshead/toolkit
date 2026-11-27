@@ -77,18 +77,19 @@ cat > "$site/home.html" <<'HTML'
   #intro { position: static; width: 120px; height: 30px; background: #0ff; }
   #late { height: 20px; background: #ff0; top: 0; left: 0; width: 100%; }
   #drawer { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; transition: all 5s; }
-  #drawer-item { width: 50px; height: 50px; background: #000; }
+  #drawer-item { width: 50px; height: 50px; background: #000; transition: all .3s; }
+  .dup { width: 70px; height: 20px; background: #0f0; }
   #account { width: 80px; height: 20px; background: #0f0; }
   #tall { width: 100px; height: 900px; background: #00f; }
 </style>
-<header>Header</header><div id="bar"></div><div id="late"></div><div id="drawer"><div id="drawer-item"></div></div>
+<header>Header</header><div id="bar"><div class="dup"></div></div><div id="late"></div><div id="drawer"><div id="drawer-item"></div></div>
 <script>addEventListener('scroll', () => { if (scrollY > 100) document.getElementById('late').style.position = 'fixed'; });</script>
 <div class="card zero" style="display: none"></div><div class="card one"></div><div class="card two"></div>
 <details><summary>More</summary><div id="inside"></div></details>
 <article><header id="intro"></header></article>
 <div id="account" hidden></div>
 <script>if (document.cookie.includes('session=1')) document.getElementById('account').hidden = false;</script>
-<div style="height: 1500px"></div><div id="tall"></div><div style="height: 2000px"></div>
+<div style="height: 1500px"></div><div id="tall"></div><div style="height: 2000px"></div><div class="dup"></div>
 HTML
 
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')"
@@ -141,6 +142,11 @@ check "a crop inside a fixed element exits 2 and points to keepSticky" "2 yes ye
 spec "#go" '[{ "name": "drawer", "path": "/home.html", "crop": "#drawer-item", "keepSticky": true }]'
 capture
 check "with keepSticky, a crop inside a fixed element works" "0 50" "$rc $(png_width "$work/out/drawer-1280.png")"
+
+# .dup's first match is inside #bar; another, outside any fixed element, comes later.
+spec "#go" '[{ "name": "dup", "path": "/home.html", "crop": ".dup" }]'
+capture
+check "a crop whose first match is inside a fixed element exits 2, not a crop of a later match" "2 yes" "$rc $(says "$work/err" "inside a fixed element")"
 
 spec "#go" '[{ "name": "intro", "path": "/home.html", "crop": "#intro" }]'
 capture

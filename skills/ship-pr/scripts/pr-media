@@ -172,16 +172,21 @@ async function unpin(page) {
         if (shot.openDetails !== false) await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
         const file = path.join(out, `${shot.name}-${width}.png`);
         if (shot.crop) {
-          const target = page.locator(`${shot.crop} >> visible=true`).first();
+          const match = page.locator(`${shot.crop} >> visible=true`).first();
           try {
-            await target.waitFor({ timeout: 5000 });
+            await match.waitFor({ timeout: 5000 });
           } catch {
             die(`shot ${shot.name}: nothing visible matches ${shot.crop} on ${shot.path}`);
           }
+          const target = await match.elementHandle();
           await target.scrollIntoViewIfNeeded();
           if (!shot.keepSticky) {
             await unpin(page);
-            if (!(await target.isVisible())) die(`shot ${shot.name}: ${shot.crop} sits inside a fixed element, which capture hides; set "keepSticky": true`);
+            const insideFixed = await target.evaluate((el) => {
+              for (let e = el; e; e = e.parentElement) if (getComputedStyle(e).position === 'fixed') return true;
+              return false;
+            });
+            if (insideFixed) die(`shot ${shot.name}: ${shot.crop} sits inside a fixed element, which capture hides; set "keepSticky": true`);
           }
           await target.screenshot({ path: file, animations: 'disabled' });
         }
