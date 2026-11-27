@@ -153,7 +153,7 @@ Spawn the specialist reviewers in parallel (prompts in `references/review-prompt
 
 Save each reviewer's output, as returned, to `<scratch>/<group-slug>-lens/<lens>.md` (`correctness`, `security`, `tests`, `simplicity`, `ux`, or `domain-<name>`), with `Reviewed: <sha>` as its first line, where `<sha>` is `git -C "$WT" rev-parse HEAD` when that reviewer started. A rerun overwrites its own file. Phase 7 hands these to `review-pr`, so the PR's head isn't lens-reviewed twice. A P3 fix round moves the head, so after one the reports no longer match it and `review-pr` runs its own lenses.
 
-Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (a real problem that should be fixed before merge), **P3** (minor, worth fixing in this PR; not reported if it isn't worth doing now), **ELSEWHERE** (a real bug in code the group does not change and is not about; never blocks). Reviewers also flag anything **untrue**: a comment, doc, UI string or PR text that misdescribes the behaviour.
+Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (a real problem that should be fixed before merge), **P3** (minor, worth fixing in this PR, including a problem that was already there in the code the diff changes; not reported if it isn't worth doing now), **ELSEWHERE** (a real bug in code the group does not change and is not about; never blocks). Reviewers also flag anything **untrue**: a comment, doc, UI string or PR text that misdescribes the behaviour.
 
 **Exit rule.** The loop ends when a round returns no P1, no P2 and nothing untrue. Then:
 - take every outstanding P3 from all rounds, and drop those not worth doing now. Fix the rest in one fix round, verified as in Phase 4, with no new review round for them here (`review-pr` reviews the PR's head in Phase 7);
@@ -177,7 +177,7 @@ Each finding carries a severity: **P1** (wrong, unsafe or data-losing), **P2** (
 
 ## Phase 7: Review, CI and ship
 
-Once the PR is open, hand off to the `review-pr` skill now, for the merge decision, and give it the Phase 5 lens reports in `<scratch>/<group-slug>-lens/`: those whose `Reviewed:` line is the PR's head stand in for its lens reviews. If the go-ahead included shipping, run `ship-pr` on the PR instead, with the same lens reports for its first review, and tell it whether Phase 5 already ran a P3 fix round; it reviews, fixes, and merges on MERGE, green CI and, for a UI PR, the owner's visual sign-off. `review-pr` and `ship-pr` read CI when they need it, as `references/ci-status.md` says. Any push the go-ahead did not cover needs the user's go-ahead again.
+Once the PR is open, hand off to the `review-pr` skill now, for the merge decision, and give it the Phase 5 lens reports in `<scratch>/<group-slug>-lens/`: those whose `Reviewed:` line is the PR's head stand in for its lens reviews. If the go-ahead included shipping, run `ship-pr` on the PR instead, with the same lens reports for its first review; it reviews, fixes, and merges on MERGE, green CI and, for a UI PR, the owner's visual sign-off. `review-pr` and `ship-pr` read CI when they need it, as `references/ci-status.md` says. Any push the go-ahead did not cover needs the user's go-ahead again.
 
 On red CI (unless the host handles CI failures, as that file says), spawn a **CI analysis subagent** to read `gh run view <id> --log-failed` and separate real failures from environmental or flaky ones. Real failures: ask the user, then fix, verify, push (with confirmation). Environmental: report, do not "fix" code for them. Stop after 3 attempts and leave the PR open with a summary.
 
@@ -196,7 +196,7 @@ On red CI (unless the host handles CI failures, as that file says), spawn a **CI
 | <title> | #<n>, #<n> | clean after 2 rounds | passing | <url> |
 
 P3s: <n> fixed, <n> dropped
-ELSEWHERE bugs filed: #<n>, or none
+ELSEWHERE bugs filed: #<n> (from Phase 5, and any `ship-pr` returned), or none
 Skipped: #<n> (reason)
 Worktrees kept at: ~/.worktrees/<repo>/issues/...  (remove with `git worktree remove <path>` after merge)
 ```

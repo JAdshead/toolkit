@@ -16,7 +16,8 @@ Severity:
 - P1: wrong behaviour, security hole, data loss, or the issue is not actually fixed.
 - P2: a real problem that should be fixed before merge (missing failure-path handling,
       an untested branch that matters, a convention the project enforces).
-- P3: minor; polish, naming, a nicer structure, worth fixing in this PR. Never blocks. If it isn't worth doing now, don't report it.
+- P3: worth fixing in this PR; polish, naming, a nicer structure, or a problem that was already there in the code
+  the diff changes or the problem it solves. Never blocks. If it isn't worth doing now, don't report it.
 - ELSEWHERE: a real bug (wrong behaviour, security hole, data loss) you saw in code the diff does not change
   and is not about, with the case that triggers it. Never blocks. Don't go looking for these.
 - UNTRUE: any comment, doc, UI string, error message or PR text that misdescribes what the code does.
