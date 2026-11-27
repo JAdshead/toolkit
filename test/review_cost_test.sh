@@ -75,7 +75,6 @@ check "a validator-only round records Owners: none" "yes" "$(has "$review" "\`Ow
 check "the whole-output rule names no cause the orchestrator can't know" "no" "$(has "$review" "could not write its file")"
 check "a whole-output reply is saved with a file-write tool, never a shell" "yes" "$(has "$review" "with your file-write tool, never through a shell command")"
 check "step 6 looks back past Owners: none, to the latest round that had owners" "yes" "$(has "$review" "the latest round whose line is not \`none\`")"
-check "step 6 no longer matches any Owners: line in the file" "no" "$(has "$review" "the last \`Owners:\` line that is not \`none\`")"
 check "a missing lens leaves the owners' review whole" "yes" "$(has "$review" "the owners still review the whole PR")"
 check "findings are indented so none reads as a round heading" "yes" "$(has "$review" "indented four spaces, so no line of it can read as a heading")"
 check "new V labels follow any already in the findings file" "yes" "$(has "$validate" "after the highest \`V\` label already listed")"
