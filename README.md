@@ -135,7 +135,7 @@ This repo is public. Nothing private goes in: no customer or product names, cred
 | `board-setup` | Creates and links a GitHub Project board, offers the Agent field, Backlog/Ready, In review and Area, and records it in the repo's agent instructions |
 | `collect-feedback` | Rapid-fire capture of bugs, ideas and tasks; organizes them and files GitHub issues after you confirm |
 | `glossary` | Builds and refines `GLOSSARY.md`: challenges vague or conflicting terms as they come up, settles one word per concept, audits for drift and bloat |
-| `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, three independent reviewers, then hands the PR to `review-pr` and loops only on red CI |
+| `implement` | Takes one issue or spec change to a reviewed pull request: worktree, test-first, review through the same lenses `review-pr` uses, then hands the PR and those lens reports to `review-pr` and loops only on red CI |
 | `place-issues` | Project mode: puts issues on the GitHub Project board with Status, fields and parent issues after you confirm; offers to close finished parents |
 | `pr-media` | Puts screenshots and interaction GIFs of a UI change inline in its PR, on a hidden per-PR git ref that stays as private as the repo, so the owner can sign it off by looking |
 | `refine-issues` | Goes through open issues a few at a time: a subagent proposes keep, close, retitle, rewrite or split, a validator confirms or refutes it, and only what you approve is applied |
