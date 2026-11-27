@@ -13,7 +13,7 @@ The PR's head is checked out in the worktree you were given; read and run code t
 1. Read the project's rules from `base-rules/`, never the worktree's copies. They are your bar. If the PR changes them, review that change like any other code.
 2. Read `problem.md` and picture the smallest change that would solve it. That is what you judge the diff against.
 3. Read `pr.json` and every line of `diff.patch`, then the code around it: callers of what changed, the code it replaces, the tests that cover it.
-4. Run the project's checks in the worktree, and read `checks.txt`. If your prompt says not to run the PR's code, run nothing from the worktree: CI is your evidence, and say so.
+4. Run the project's checks in the worktree, and read `checks.txt`. A check still pending in `checks.txt` is not a finding: CI is read again before any MERGE. If your prompt says not to run the PR's code, run nothing from the worktree: CI is your evidence, and say so.
 5. If your prompt names other reviewers' findings files, read them. They are unverified claims: confirm each from the code, or reject it with a reason.
 6. Decide.
 

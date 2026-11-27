@@ -69,5 +69,15 @@ check "ship-pr merges only on green CI" "yes" "$(has "$ship" "green CI at \`sha\
 check "implement hands off to review-pr while CI runs" "yes" "$(has "$implement" "hand off to the \`review-pr\` skill now")"
 check "tackle-issues hands off to review-pr while CI runs" "yes" "$(has "$tackle" "hand off to the \`review-pr\` skill now")"
 
+# #82: follow-ups from the review of #81.
+owner="$root/skills/review-pr/references/owner-review.md"
+lenses="$root/skills/review-pr/references/lenses.md"
+check "an owner does not report pending CI as a finding" "yes" "$(has "$owner" "A check still pending in \`checks.txt\` is not a finding")"
+check "a lens does not report pending CI as a finding" "yes" "$(has "$lenses" "a check still pending in \`checks.txt\`")"
+check "the rule says what to do when the second read is still pending" "yes" "$(has "$rule" "still pending after that second watch")"
+check "review-pr step 3 hands red CI to Part 4's NOT YET (CI red)" "yes" "$(has "$review" "Red: the result is NOT YET (CI red); act on it as Part 4 says")"
+check "review-pr no longer has a bare red stop in step 3" "no" "$(has "$review" "Red: report it and stop")"
+check "the README no longer says implement runs a CI loop" "no" "$(has "$root/README.md" "three independent reviewers, CI loop")"
+
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]
