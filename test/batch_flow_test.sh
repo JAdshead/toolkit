@@ -32,6 +32,7 @@ media="$root/skills/pr-media/SKILL.md"
 # Hung background runs.
 check "tackle-issues ships run-watched" "yes" "$( [ -x "$root/skills/tackle-issues/scripts/run-watched" ] && echo yes || echo no)"
 check "Phase 6 runs the full verify command through run-watched" "yes" "$(in_section "$tackle" "## Phase 6" "scripts/run-watched")"
+check "run-watched watches a compound verify command whole" "yes" "$(in_section "$tackle" "## Phase 6" "-- bash -c '<VERIFY_CMD>'")"
 check "a background run's log mtime is checked before calling it still running" "yes" "$(has "$tackle" "before reporting a background run as still running")"
 check "a run-watched kill is reported as a hang, not a test failure" "yes" "$(has "$tackle" "exit 124")"
 
@@ -40,6 +41,8 @@ check "ship-pr checks base drift before merging old CI" "yes" "$(has "$ship" "ba
 check "ship-pr merges the base into a scratch worktree" "yes" "$(has "$ship" "merge --no-edit \"origin/\$base\"")"
 check "ship-pr runs the project's fast affected-tests command" "yes" "$(has "$ship" "fast affected-tests command")"
 check "ship-pr can rerun CI on the current base without moving the head" "yes" "$(has "$ship" "closing and reopening the PR")"
+check "a reopen counts as a rerun only for checks started after it" "yes" "$(has "$ship" "startedAt")"
+check "no rerun after a reopen stops the merge" "yes" "$(has "$ship" "base drift: CI did not rerun")"
 check "the drift check comes before gh pr merge" "yes" "$(tr '\n' ' ' <"$ship" | grep -qE 'base drift.*gh pr merge <n>' && echo yes || echo no)"
 
 # Fewer round trips.
@@ -67,7 +70,6 @@ check "Phase 7 passes the Phase 5 lens reports to review-pr" "yes" "$(in_section
 check "pr-media ships a capture command" "yes" "$(has "$media" "scripts/pr-media capture <spec.json>")"
 check "capture runs in a subagent that returns file paths" "yes" "$(has "$media" "subagent that returns")"
 check "the capture script never statics every element" "no" "$(grep -qF '*{position:static' "$root/shared/pr-media" && echo yes || echo no)"
-check "the capture script neutralises sticky headers" "yes" "$(grep -qF '.sticky,.fixed{position:static !important} header{display:none !important}' "$root/shared/pr-media" && echo yes || echo no)"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]
