@@ -2,8 +2,6 @@
 
 Lens reviewers run in parallel on a PR group's branch before anything is pushed. Every reviewer follows `lenses.md`, the lens brief `implement` and `review-pr` use too, and gets its inputs and prompt as `lens-inputs.md` says (both beside this file). That brief holds the lenses' questions, the severity scale (P1, P2 and UNTRUE block; P3 never does) and the output format. This file says which lenses run, how to add domain reviewers, how a round ends, and what to do with a large diff.
 
-If your agent has no subagents, run each lens in turn, one at a time, in a context that did not write the code; do not merge the lenses into one pass, or the narrower checks get skipped.
-
 ## Selecting reviewers
 
 ```bash
@@ -44,7 +42,4 @@ Run the `review-pr` skill on the PR. It reviews in a fresh context and passes th
 
 ## Large diffs
 
-If the diff is too large to review well in one pass (roughly 30k characters or more):
-
-1. Add one line to each lens's prompt naming the files that matter most for its lens, to read first: security-sensitive files for Security, test files for Tests, and so on. Prioritise new files, security-sensitive files and the files with the most change. The reviewer still has the whole diff in `diff.patch`.
-2. Consider whether the group should have been split; say so to the user.
+If the diff is too large to review well in one pass (roughly 30k characters or more), point each lens at the files that matter most for it, as `lens-inputs.md` says, and consider whether the group should have been split; say so to the user.

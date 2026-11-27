@@ -58,15 +58,27 @@ check "a sized round still never tells reviewers what changed" "yes" "$(has "$re
 
 # #80: follow-ups from the reviews of #79.
 check "a lens may write its output file despite \"do not edit\"" "yes" "$(has "$lenses" "The one file you write is your output")"
-check "a whole-output reply is saved before the file is checked" "yes" "$(has "$review" "save that reply to its file unchanged before checking it")"
+check "a whole-output reply is saved before the file is checked" "yes" "$(has "$review" "save that reply to its file unchanged, with your file-write tool, never through a shell command, before checking it")"
 check "a lens still missing after its rerun is reported, not rerun again" "yes" "$(has "$review" "go on without that lens and tell the user")"
 check "each round records every owner's verdict" "yes" "$(has "$review" "Owners: <letter> <verdict>")"
-check "step 6 reads owner disagreement from the Owners line" "yes" "$(has "$review" "the last round's owners disagreed (its \`Owners:\` line)")"
+check "step 6 reads owner disagreement from the Owners line" "yes" "$(has "$review" "the last round's owners disagreed (the unindented \`Owners:\` line directly under a round heading")"
 check "a validator-only round always runs the validator" "yes" "$(has "$review" "A validator-only round has no owners: it always runs the validator")"
 check "a validator-only round also checks the rewritten PR text" "yes" "$(has "$review" "Also check every claim in the PR's current title and description against the code.")"
 check "the validator labels new PR-text findings V1, V2" "yes" "$(has "$validate" "labelled \`V1\`, \`V2\`")"
 check "an unresolvable last sha falls back to a full round" "yes" "$(has "$review" "If that diff fails (\`<last-sha>\` is gone")"
 check "ship-pr's sizing clause ends before address-review" "yes" "$(has "$ship" "sized by what changed, and run the \`address-review\` skill")"
+
+# #86: follow-ups from the reviews of #87.
+check "a validator-only round's result rule is stated once, in the MERGE bullet" "no" "$(has "$review" "its result comes from the validator's verdicts alone")"
+check "MERGE from owners needs a round with owners" "yes" "$(has "$review" "every owner said MERGE, in a round with owners")"
+check "a validator-only round records Owners: none" "yes" "$(has "$review" "\`Owners: none\` in a validator-only round")"
+check "the whole-output rule names no cause the orchestrator can't know" "no" "$(has "$review" "could not write its file")"
+check "a whole-output reply is saved with a file-write tool, never a shell" "yes" "$(has "$review" "with your file-write tool, never through a shell command")"
+check "step 6 looks back past Owners: none, to the latest round that had owners" "yes" "$(has "$review" "the latest round whose line is not \`none\`")"
+check "a missing lens leaves the owners' review whole" "yes" "$(has "$review" "the owners still review the whole PR")"
+check "findings are indented so none reads as a round heading" "yes" "$(has "$review" "indented four spaces, so no line of it can read as a heading")"
+check "new V labels follow any already in the findings file" "yes" "$(has "$validate" "after the highest \`V\` label already listed")"
+check "a V finding falls under the Correctness lens" "yes" "$(has "$review" "Correctness for a validator's \`V\` finding")"
 
 echo "$passes passed, $failures failed"
 [ "$failures" -eq 0 ]

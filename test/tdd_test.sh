@@ -91,7 +91,7 @@ check "implement gives the lenses the subagent's EXCEPTIONS" "yes" \
 
 tackle="$root/skills/tackle-issues/references"
 check "tackle-issues reviews tests through the shared Tests lens" "yes" \
-  "$(cmp -s "$lenses" "$tackle/lenses.md" && echo yes || echo no)"
+  "$(has "$root/skills/tackle-issues/SKILL.md" "through the lenses in \`references/lenses.md\`")"
 check "tackle-issues gives each Phase 5 reviewer the subagents' named exceptions" "yes" \
   "$(has "$tackle/lens-inputs.md" "every named exception the implementation and fix subagents reported")"
 fix_subagent="$work/fix-subagent.md"

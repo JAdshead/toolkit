@@ -13,6 +13,9 @@ import tempfile
 import unittest
 from unittest import mock
 
+# Importing the script must not leave a __pycache__ inside the skill folder.
+sys.dont_write_bytecode = True
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIGEST = os.path.join(HERE, "..", "skills", "agent-coach", "scripts", "usage-digest")
 # The window is [since, until) at local midnight; until is the first moment outside it.
