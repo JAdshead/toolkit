@@ -173,9 +173,9 @@ fs.mkdirSync(out, { recursive: true });
           } catch {
             die(`shot ${shot.name}: nothing visible matches ${shot.crop} on ${shot.path}`);
           }
-          await target.screenshot({ path: file });
+          await target.screenshot({ path: file, animations: 'disabled' });
         }
-        else await page.screenshot({ path: file, fullPage: shot.fullPage !== false });
+        else await page.screenshot({ path: file, fullPage: shot.fullPage !== false, animations: 'disabled' });
         console.log(file);
       }
       await context.close();

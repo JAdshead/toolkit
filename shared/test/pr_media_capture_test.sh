@@ -67,7 +67,7 @@ cat > "$site/home.html" <<'HTML'
   .card { height: 50px; margin: 10px; background: #00f; }
   .card.one { width: 200px; } .card.two { width: 300px; }
   #inside { width: 150px; height: 40px; background: #0f0; }
-  #bar { position: fixed; top: 0; left: 0; width: 100%; height: 20px; background: #f0f; }
+  #bar { position: fixed; top: 0; left: 0; width: 100%; height: 20px; background: #f0f; transition: all 5s; }
   #intro { width: 120px; height: 30px; background: #0ff; }
   #account { width: 80px; height: 20px; background: #0f0; }
   #tall { width: 100px; height: 900px; background: #00f; }
